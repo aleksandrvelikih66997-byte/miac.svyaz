@@ -1,4 +1,3 @@
-
 'use client';
 
 import { usePathname } from 'next/navigation';
@@ -25,6 +24,7 @@ export function AuthLayoutWrapper({ children }: { children: React.ReactNode }) {
       case '/trunks': return 'Транки';
       case '/services': return 'Настройки';
       case '/history': return 'История';
+      case '/ai-assistant': return 'ИИ Помощник';
       default: return 'Панель управления';
     }
   };

@@ -8,7 +8,6 @@ import {
   Database, 
   LayoutDashboard,
   LogOut,
-  ChevronRight,
   ShieldCheck,
   Phone
 } from "lucide-react"
@@ -113,8 +112,8 @@ export function AppSidebar() {
             <AvatarFallback className="bg-primary text-white text-xs font-bold">АД</AvatarFallback>
           </Avatar>
           <div className="flex flex-col overflow-hidden">
-            <span className="text-sm font-semibold truncate leading-none text-sidebar-foreground">Администратор</span>
-            <span className="text-[10px] text-sidebar-foreground/50 mt-1 truncate">{user?.email || 'session active'}</span>
+            <span className="text-sm font-semibold truncate leading-none text-sidebar-foreground">Александр</span>
+            <span className="text-[10px] text-sidebar-foreground/50 mt-1 truncate">{user?.email || 'администратор'}</span>
           </div>
         </div>
       </SidebarFooter>

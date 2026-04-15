@@ -1,4 +1,3 @@
-
 # АльтернаТИВ АТС — МИАЦ.СВЯЗЬ
 
 Профессиональный веб-интерфейс управления IP-АТС Asterisk v17/20, оптимизированный для работы в среде **AltLinux SP**. 
@@ -21,20 +20,16 @@
 - **Backend/Auth**: Firebase (Authentication & Firestore).
 - **AI**: Genkit 1.x, Google Gemini 2.5 Flash.
 
-## 📦 Начало работы
+## 📦 Команды Git для публикации
 
-1. **Установите зависимости**:
-   ```bash
-   npm install
-   ```
-
-2. **Настройте Firebase**:
-   Создайте проект в Firebase Console и обновите конфигурацию в `src/firebase/config.ts`.
-
-3. **Запустите сервер разработки**:
-   ```bash
-   npm run dev
-   ```
+```bash
+git init
+git add .
+git commit -m "Initial commit: МИАЦ.СВЯЗЬ готово к работе"
+git remote add origin https://github.com/aleksandrvelikih66997-byte/miac.svyaz.git
+git branch -M main
+git push -u origin main
+```
 
 ## 📄 Лицензия
 
