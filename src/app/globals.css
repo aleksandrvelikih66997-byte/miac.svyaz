@@ -1,11 +1,9 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    /* Background: Light Grey-Blue */
     --background: 210 20% 96%;
     --foreground: 222 47% 11%;
     
@@ -15,7 +13,6 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
     
-    /* Primary: Professional Blue */
     --primary: 213 63% 46%;
     --primary-foreground: 210 40% 98%;
     
@@ -25,7 +22,6 @@
     --muted: 210 40% 90%;
     --muted-foreground: 215 16% 47%;
     
-    /* Accent: Fresh Cyan */
     --accent: 187 81% 50%;
     --accent-foreground: 222 47% 11%;
     
@@ -38,7 +34,7 @@
     
     --radius: 0.5rem;
 
-    /* Sidebar: Deep Navy from Screenshot */
+    /* Sidebar Variables */
     --sidebar-background: 217 40% 12%;
     --sidebar-foreground: 210 40% 98%;
     --sidebar-primary: 213 63% 46%;
