@@ -8,7 +8,7 @@
 
 - **Дашборд**: Мониторинг активных вызовов и статуса абонентов в реальном времени.
 - **Управление абонентами**: Настройка PJSIP/SIP экстеншенов через удобный табличный интерфейс.
-- **Маршрутизация**: Визуальное управление входящими и исходящими правилами набора.
+- **Маршрутизация**: Визуальное управление входящими и исходящие правилами набора.
 - **Транки**: Конфигурация внешних линий связи с контролем статуса регистрации.
 - **ИИ-Помощник**: Генерация конфигурационных файлов Asterisk на основе запросов на естественном языке (Genkit + Gemini).
 - **Системный мониторинг**: Просмотр логов в реальном времени и управление службой `asterisk.service`.
@@ -20,16 +20,21 @@
 - **Backend/Auth**: Firebase (Authentication & Firestore).
 - **AI**: Genkit 1.x, Google Gemini 2.5 Flash.
 
-## 📦 Команды для публикации
+## 📦 Инструкция по развертыванию
 
-```bash
-git init
-git add .
-git commit -m "Initial commit: МИАЦ.СВЯЗЬ готово к работе"
-git remote add origin https://github.com/aleksandrvelikih66997-byte/miac.svyaz.git
-git branch -M main
-git push -u origin main
-```
+1. **Инициализация репозитория**:
+   ```bash
+   git init
+   git add .
+   git commit -m "Initial commit: МИАЦ.СВЯЗЬ готово к работе"
+   ```
+
+2. **Подключение к GitHub**:
+   ```bash
+   git remote add origin https://github.com/aleksandrvelikih66997-byte/miac.svyaz.git
+   git branch -M main
+   git push -u origin main
+   ```
 
 ## 📄 Лицензия
 
