@@ -3,179 +3,91 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { 
-  Activity, 
-  PhoneIncoming, 
-  PhoneOutgoing, 
-  Cpu, 
-  HardDrive,
-  Users
+  Phone, 
+  Users, 
+  Clock, 
+  ShieldCheck,
+  ArrowRight
 } from "lucide-react"
-import { 
-  Bar, 
-  BarChart, 
-  ResponsiveContainer, 
-  XAxis, 
-  YAxis, 
-  Tooltip,
-  Cell
-} from "recharts"
-
-const mockData = [
-  { name: "08:00", calls: 12 },
-  { name: "10:00", calls: 45 },
-  { name: "12:00", calls: 32 },
-  { name: "14:00", calls: 58 },
-  { name: "16:00", calls: 48 },
-  { name: "18:00", calls: 21 },
-]
 
 export default function Dashboard() {
   return (
-    <div className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="shadow-sm border-none bg-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Активные звонки</CardTitle>
-            <Activity className="h-4 w-4 text-primary" />
+    <div className="space-y-8">
+      {/* Top row status cards */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {[
+          { title: "АКТИВНЫХ ЗВОНКОВ", value: "—", color: "border-t-primary" },
+          { title: "ЗВОНКОВ СЕГОДНЯ", value: "—", color: "border-t-primary" },
+          { title: "ОНЛАЙН АБОНЕНТОВ", value: "—", color: "border-t-green-500" },
+          { title: "РОЛЬ ПОЛЬЗОВАТЕЛЯ", value: "—", color: "border-t-primary" },
+        ].map((card, i) => (
+          <Card key={i} className={`shadow-sm border-0 border-t-2 ${card.color} rounded-lg`}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em]">
+                {card.title}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold tracking-tighter">—</div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Middle row details */}
+      <div className="grid gap-8 md:grid-cols-2">
+        <Card className="shadow-sm border-0 rounded-lg overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between border-b bg-slate-50/50 py-4 px-6">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <Phone className="h-4 w-4 text-rose-500" /> Активные звонки
+            </CardTitle>
+            <button className="text-[10px] font-bold text-primary flex items-center gap-1 uppercase tracking-wider hover:underline">
+              все <ArrowRight className="h-3 w-3" />
+            </button>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">14</div>
-            <p className="text-xs text-muted-foreground">+2 за последние 5 мин</p>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <div className="flex items-center gap-3 text-muted-foreground">
+              <div className="h-2 w-2 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+              <span className="text-sm font-medium">Загрузка...</span>
+            </div>
           </CardContent>
         </Card>
-        <Card className="shadow-sm border-none bg-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Входящие сегодня</CardTitle>
-            <PhoneIncoming className="h-4 w-4 text-accent" />
+
+        <Card className="shadow-sm border-0 rounded-lg overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between border-b bg-slate-50/50 py-4 px-6">
+            <CardTitle className="text-sm font-bold flex items-center gap-2">
+              <div className="h-3 w-3 rounded-full bg-green-500" /> Абоненты онлайн
+            </CardTitle>
+            <button className="text-[10px] font-bold text-primary flex items-center gap-1 uppercase tracking-wider hover:underline">
+              все <ArrowRight className="h-3 w-3" />
+            </button>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">1,284</div>
-            <p className="text-xs text-muted-foreground">+18% от вчера</p>
-          </CardContent>
-        </Card>
-        <Card className="shadow-sm border-none bg-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Исходящие сегодня</CardTitle>
-            <PhoneOutgoing className="h-4 w-4 text-primary" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">842</div>
-            <p className="text-xs text-muted-foreground">+7% от вчера</p>
-          </CardContent>
-        </Card>
-        <Card className="shadow-sm border-none bg-card">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Онлайн линий</CardTitle>
-            <Users className="h-4 w-4 text-accent" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">42/50</div>
-            <p className="text-xs text-muted-foreground">84% емкости</p>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <div className="flex items-center gap-3 text-muted-foreground">
+              <div className="h-2 w-2 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+              <span className="text-sm font-medium">Загрузка...</span>
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4 shadow-sm border-none">
-          <CardHeader>
-            <CardTitle className="text-lg font-headline">Активность вызовов</CardTitle>
-          </CardHeader>
-          <CardContent className="pl-2">
-            <div className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={mockData}>
-                  <XAxis 
-                    dataKey="name" 
-                    stroke="#888888" 
-                    fontSize={12} 
-                    tickLine={false} 
-                    axisLine={false} 
-                  />
-                  <YAxis 
-                    stroke="#888888" 
-                    fontSize={12} 
-                    tickLine={false} 
-                    axisLine={false} 
-                    tickFormatter={(value) => `${value}`} 
-                  />
-                  <Tooltip 
-                    cursor={{fill: 'hsl(var(--muted))'}}
-                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                  />
-                  <Bar dataKey="calls" radius={[4, 4, 0, 0]}>
-                    {mockData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={index % 2 === 0 ? "hsl(var(--primary))" : "hsl(var(--accent))"} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="col-span-3 shadow-sm border-none">
-          <CardHeader>
-            <CardTitle className="text-lg font-headline">Состояние сервера</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex items-center gap-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <Cpu className="h-5 w-5" />
-              </div>
-              <div className="flex-1 space-y-1">
-                <div className="flex items-center justify-between text-sm font-medium">
-                  <span>Загрузка CPU</span>
-                  <span>24%</span>
-                </div>
-                <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                  <div className="h-full bg-primary" style={{ width: "24%" }} />
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/10 text-accent">
-                <Activity className="h-5 w-5" />
-              </div>
-              <div className="flex-1 space-y-1">
-                <div className="flex items-center justify-between text-sm font-medium">
-                  <span>ОЗУ (RAM)</span>
-                  <span>3.2 / 8 GB</span>
-                </div>
-                <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                  <div className="h-full bg-accent" style={{ width: "40%" }} />
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <HardDrive className="h-5 w-5" />
-              </div>
-              <div className="flex-1 space-y-1">
-                <div className="flex items-center justify-between text-sm font-medium">
-                  <span>Диск</span>
-                  <span>142 / 500 GB</span>
-                </div>
-                <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
-                  <div className="h-full bg-primary" style={{ width: "28%" }} />
-                </div>
-              </div>
-            </div>
-            
-            <div className="pt-4 border-t">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Версия Asterisk</span>
-                <span className="font-mono">17.9.4</span>
-              </div>
-              <div className="flex items-center justify-between text-xs mt-2">
-                <span className="text-muted-foreground">Аптайм</span>
-                <span>14д 6ч 22м</span>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Bottom row large card */}
+      <Card className="shadow-sm border-0 rounded-lg overflow-hidden">
+        <CardHeader className="flex flex-row items-center justify-between border-b bg-slate-50/50 py-4 px-6">
+          <CardTitle className="text-sm font-bold flex items-center gap-2">
+            <Clock className="h-4 w-4 text-slate-400" /> Последние звонки
+          </CardTitle>
+          <button className="text-[10px] font-bold text-primary flex items-center gap-1 uppercase tracking-wider hover:underline">
+            история <ArrowRight className="h-3 w-3" />
+          </button>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center justify-center py-16">
+          <div className="flex items-center gap-3 text-muted-foreground">
+            <div className="h-2 w-2 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+            <span className="text-sm font-medium">Загрузка...</span>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

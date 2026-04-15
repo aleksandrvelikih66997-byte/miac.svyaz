@@ -5,8 +5,8 @@
 
 @layer base {
   :root {
-    /* Background: #ECF0F4 (Light Grey) */
-    --background: 210 20% 94%;
+    /* Background: Light Grey-Blue */
+    --background: 210 20% 96%;
     --foreground: 222 47% 11%;
     
     --card: 0 0% 100%;
@@ -15,18 +15,17 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
     
-    /* Primary: #2B6EBE (Professional Blue) */
+    /* Primary: Professional Blue */
     --primary: 213 63% 46%;
     --primary-foreground: 210 40% 98%;
     
-    /* Secondary: Muted blueish grey */
     --secondary: 210 40% 90%;
     --secondary-foreground: 222 47% 11%;
     
     --muted: 210 40% 90%;
     --muted-foreground: 215 16% 47%;
     
-    /* Accent: #1CCDE5 (Fresh Cyan) */
+    /* Accent: Fresh Cyan */
     --accent: 187 81% 50%;
     --accent-foreground: 222 47% 11%;
     
@@ -37,15 +36,16 @@
     --input: 214.3 31.8% 85%;
     --ring: 213 63% 46%;
     
-    --radius: 0.75rem;
+    --radius: 0.5rem;
 
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 222 47% 11%;
+    /* Sidebar: Deep Navy from Screenshot */
+    --sidebar-background: 217 40% 12%;
+    --sidebar-foreground: 210 40% 98%;
     --sidebar-primary: 213 63% 46%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 210 40% 96.1%;
-    --sidebar-accent-foreground: 213 63% 46%;
-    --sidebar-border: 214.3 31.8% 91.4%;
+    --sidebar-accent: 217 40% 18%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 217 40% 15%;
     --sidebar-ring: 213 63% 46%;
   }
 
