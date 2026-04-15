@@ -1,0 +1,11 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "telephony-bg",
+      "description": "Abstract technology network background",
+      "imageUrl": "https://picsum.photos/seed/tel1/1200/800",
+      "imageHint": "technology network"
+    }
+  ]
+}
