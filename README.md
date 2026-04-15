@@ -1,5 +1,37 @@
-# Firebase Studio
+# АльтернаТИВ АТС
 
-This is a NextJS starter in Firebase Studio.
+Профессиональный веб-интерфейс управления IP-АТС Asterisk v17/20, оптимизированный для работы в среде **AltLinux SP**.
 
-To get started, take a look at src/app/page.tsx.
+## Основные возможности
+
+- **Дашборд**: Мониторинг активных вызовов и статуса абонентов в реальном времени.
+- **Управление абонентами**: Настройка PJSIP/SIP экстеншенов.
+- **Маршрутизация**: Визуальное управление входящими и исходящими правилами.
+- **Транки**: Конфигурация внешних линий связи.
+- **ИИ-Помощник**: Генерация конфигурационных файлов Asterisk на основе запросов на естественном языке (Genkit + Gemini).
+- **Системный мониторинг**: Просмотр логов и управление службой `asterisk.service`.
+
+## Технологический стек
+
+- **Frontend**: Next.js 15 (App Router), React 19, Tailwind CSS.
+- **UI Components**: ShadCN UI, Lucide Icons.
+- **Backend/Auth**: Firebase (Authentication & Firestore).
+- **AI**: Genkit 1.x, Google Gemini Pro.
+
+## Начало работы
+
+1. Установите зависимости:
+   ```bash
+   npm install
+   ```
+
+2. Запустите сервер разработки:
+   ```bash
+   npm run dev
+   ```
+
+3. Откройте [http://localhost:9002](http://localhost:9002) в браузере.
+
+## Деплой
+
+Проект готов к развертыванию через Firebase App Hosting (см. `apphosting.yaml`).
