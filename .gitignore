@@ -1,9 +1,4 @@
-# Next.js
-/.next/
-/out/
-/build
-
-# Production
+# Dependencies
 /node_modules
 /.pnp
 .pnp.js
@@ -11,15 +6,30 @@
 # Testing
 /coverage
 
-# Debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
+# Next.js
+/.next/
+/out/
 
-# Local env files
-.env*.local
+# Production
+/build
+
+# Misc
+.DS_Store
+*.pem
+
+# Env files
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
 
 # Firebase
 .firebase/
@@ -27,8 +37,3 @@ firebase-debug.log*
 firestore-debug.log*
 pubsub-debug.log*
 ui-debug.log*
-firebase-export*
-
-# OS
-.DS_Store
-Thumbs.db
