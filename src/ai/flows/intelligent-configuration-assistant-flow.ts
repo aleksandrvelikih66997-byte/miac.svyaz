@@ -41,13 +41,13 @@ The configuration should be structured and directly usable in Asterisk configura
 Example Request: "Создать группу для отдела продаж с очередью и переадресацией на мобильный после 30 секунд"
 
 Example Output:
-```json
+\`\`\`json
 {
   "configType": "queue",
-  "generatedConfig": "[sales-queue]\nstrategy=ringall\nmember=SIP/101,SIP/102\ntimeout=30\n\n[from-internal]\nexten => _X.,1,Dial(SIP/${EXTEN})\nexten => _X.,n,GoToIf($[\"${DIALSTATUS}\" = \"NOANSWER\"]?mobile-forward,s,1)\n\n[mobile-forward]\nexten => s,1,Dial(SIP/mobile_gateway/79xxxxxxxxx,30,t)\nexten => s,n,Hangup()",
+  "generatedConfig": "[sales-queue]\\nstrategy=ringall\\nmember=SIP/101,SIP/102\\ntimeout=30\\n\\n[from-internal]\\nexten => _X.,1,Dial(SIP/\${EXTEN})\\nexten => _X.,n,GoToIf($[\\"\${DIALSTATUS}\\" = \\"NOANSWER\\"]?mobile-forward,s,1)\\n\\n[mobile-forward]\\nexten => s,1,Dial(SIP/mobile_gateway/79xxxxxxxxx,30,t)\\nexten => s,n,Hangup()",
   "explanation": "Эта конфигурация создает очередь 'sales-queue' для отдела продаж с членами 101 и 102. Если звонок не отвечен в течение 30 секунд, он перенаправляется на мобильный номер 79xxxxxxxxx через мобильный шлюз."
 }
-```
+\`\`\`
 
 Generate the Asterisk configuration and explanation for the following request:
 Request: {{{request}}}`,
