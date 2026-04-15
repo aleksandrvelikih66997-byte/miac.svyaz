@@ -20,7 +20,7 @@
 - **Backend/Auth**: Firebase (Authentication & Firestore).
 - **AI**: Genkit 1.x, Google Gemini 2.5 Flash.
 
-## 📦 Команды Git для публикации
+## 📦 Команды для публикации
 
 ```bash
 git init
