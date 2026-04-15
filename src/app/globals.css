@@ -34,7 +34,7 @@
     
     --radius: 0.5rem;
 
-    /* Sidebar Variables */
+    /* Sidebar Variables - Professional Dark Blue */
     --sidebar-background: 217 40% 12%;
     --sidebar-foreground: 210 40% 98%;
     --sidebar-primary: 213 63% 46%;
@@ -75,4 +75,13 @@
   body {
     @apply bg-background text-foreground font-body antialiased;
   }
+}
+
+/* Custom styles for layout elements */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
