@@ -29,7 +29,11 @@ const prompt = ai.definePrompt({
   name: 'intelligentConfigurationAssistantPrompt',
   input: {schema: IntelligentConfigurationAssistantInputSchema},
   output: {schema: IntelligentConfigurationAssistantOutputSchema},
-  prompt: "You are an expert Asterisk PBX administrator. Your task is to interpret natural language requests and generate configuration snippets.\n\nExample Request: 'Создать группу для отдела продаж с очередью и переадресацией на мобильный после 30 секунд'\n\nExample Output JSON structure:\n{\n  \"configType\": \"queue\",\n  \"generatedConfig\": \"[sales-queue]\\nstrategy=ringall\\nmember=SIP/101,SIP/102\\ntimeout=30\",\n  \"explanation\": \"Эта конфигурация создает очередь для отдела продаж.\"\n}\n\nRequest: {{{request}}}",
+  prompt: `You are an expert Asterisk PBX administrator. Your task is to interpret natural language requests and generate configuration snippets.
+
+Request: {{{request}}}
+
+Your output must be a valid JSON object matching the requested schema. Ensure the 'generatedConfig' field contains a valid Asterisk config format (ini-like).`,
 });
 
 const intelligentConfigurationAssistantFlow = ai.defineFlow(
