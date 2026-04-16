@@ -1,44 +1,78 @@
+
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, onSnapshot } from 'firebase/firestore';
-import { firebaseConfig } from '../firebase/config.mjs';
+import { getFirestore, collection, onSnapshot, query } from 'firebase/firestore';
+import { firebaseConfig } from '../firebase/config.js';
 import fs from 'fs';
-import { exec } from 'child_process';
+import path from 'path';
+import ami from 'asterisk-manager';
 
 /**
- * @fileOverview Серверный мост (Bridge) для синхронизации настроек из веба в Asterisk 20.
+ * АСТЕРИСК МОСТ (BRIDGE)
+ * Этот скрипт синхронизирует Firestore с локальными файлами Asterisk.
+ * Запускать: node src/scripts/asterisk-bridge.mjs
  */
 
-const CONF_FILE = '/etc/asterisk/pjsip_miac_users.conf';
+const PJSIP_FILE = '/etc/asterisk/pjsip_miac_users.conf';
+const AMI_PORT = 5038;
+const AMI_USER = 'miac';
+const AMI_PASS = 'MiacAMI2026';
 
-// Инициализация
+console.log('🚀 Запуск моста МИАЦ.СВЯЗЬ...');
+
+// Инициализация Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-console.log('🚀 [BRIDGE] Мост МИАЦ.СВЯЗЬ запущен...');
-console.log(`📂 [BRIDGE] Целевой файл: ${CONF_FILE}`);
+// Подключение к AMI для управления статусами и перезагрузки
+const manager = new ami(AMI_PORT, '127.0.0.1', AMI_USER, AMI_PASS, true);
 
-// Слушаем изменения в коллекции extensions
-onSnapshot(collection(db, 'extensions'), (snapshot) => {
-  let configContent = '; ГЕНЕРИРУЕМЫЙ ФАЙЛ МИАЦ.СВЯЗЬ\n; НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ\n\n';
+manager.on('connect', () => console.log('✅ AMI: Подключено'));
+manager.on('error', (err) => console.error('❌ AMI Error:', err));
 
+// Подписка на изменения абонентов (Extensions)
+const q = query(collection(db, 'extensions'));
+
+onSnapshot(q, (snapshot) => {
+  console.log(`📦 Синхронизация: ${snapshot.size} абонентов`);
+  
+  let configContent = '; ГЕНЕРИРУЕМЫЙ ФАЙЛ. НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.\n\n';
+  
   snapshot.forEach((doc) => {
     const ext = doc.data();
-    configContent += `[${ext.id}]\ntype=endpoint\ncontext=${ext.context || 'from-internal'}\ndisallow=all\nallow=ulaw,alaw\nauth=auth${ext.id}\naors=${ext.id}\n\n`;
-    configContent += `[auth${ext.id}]\ntype=auth\nauth_type=userpass\nusername=${ext.id}\npassword=${ext.secret}\n\n`;
-    configContent += `[${ext.id}]\ntype=aor\nmax_contacts=1\n\n`;
+    const id = doc.id;
+    
+    configContent += `[${id}]\n`;
+    configContent += `type=endpoint\n`;
+    configContent += `context=${ext.context || 'from-internal'}\n`;
+    configContent += `disallow=all\n`;
+    configContent += `allow=ulaw,alaw\n`;
+    configContent += `auth=auth${id}\n`;
+    configContent += `aors=${id}\n\n`;
+    
+    configContent += `[auth${id}]\n`;
+    configContent += `type=auth\n`;
+    configContent += `auth_type=userpass\n`;
+    configContent += `username=${id}\n`;
+    configContent += `password=${ext.secret}\n\n`;
+    
+    configContent += `[${id}]\n`;
+    configContent += `type=aor\n`;
+    configContent += `max_contacts=1\n\n`;
   });
 
   try {
-    // ВНИМАНИЕ: На сервере AltLinux убедитесь, что у пользователя Node.js есть права на запись в /etc/asterisk
-    fs.writeFileSync(CONF_FILE, configContent);
-    console.log(`✅ [BRIDGE] Обновлено: ${snapshot.size} абонентов.`);
+    fs.writeFileSync(PJSIP_FILE, configContent);
+    console.log('💾 Файл pjsip_miac_users.conf обновлен');
     
-    // Перезагрузка Asterisk
-    exec('asterisk -rx "pjsip reload"', (error, stdout, stderr) => {
-      if (error) console.error(`❌ [BRIDGE] Ошибка перезагрузки: ${error.message}`);
-      else console.log('🔄 [BRIDGE] Asterisk PJSIP Reload: OK');
+    // Перезагрузка PJSIP в Asterisk
+    manager.action({
+      action: 'Command',
+      command: 'pjsip reload'
+    }, (err, res) => {
+      if (err) console.error('❌ Reload Error:', err);
+      else console.log('🔄 Asterisk: PJSIP reloaded');
     });
   } catch (err) {
-    console.error('❌ [BRIDGE] Ошибка записи файла:', err.message);
+    console.error('❌ Ошибка записи файла:', err.message);
   }
 });
