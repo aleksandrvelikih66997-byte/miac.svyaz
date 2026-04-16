@@ -1,0 +1,13 @@
+[
+  {
+    "id": "123",
+    "name": "123",
+    "secret": "123",
+    "tech": "PJSIP",
+    "context": "from-internal",
+    "status": "offline",
+    "dnd": false,
+    "creationDate": "2026-04-16T17:24:46.049Z",
+    "lastUpdateDate": "2026-04-16T17:24:46.049Z"
+  }
+]

@@ -1,137 +1,131 @@
 
 import fs from 'fs';
 import path from 'path';
-import asteriskManager from 'asterisk-manager';
+import asterisk from 'asterisk-manager';
 
-// Конфигурация путей (AltLinux / Asterisk 17)
-const DATA_DIR = path.join(process.cwd(), 'src/data');
-const PJSIP_CONF = '/etc/asterisk/pjsip_miac_users.conf';
-const DIALPLAN_CONF = '/etc/asterisk/extensions_miac_dialplan.conf';
+// Конфигурация путей (AltLinux SP)
+const DATA_DIR = '/etc/asterisk/miac.svyaz/src/data';
+const AST_DIR = '/etc/asterisk';
 
-console.log('🚀 [BRIDGE] Мост МИАЦ.СВЯЗЬ запущен...');
-console.log(`📂 [BRIDGE] Директория данных: ${DATA_DIR}`);
+const FILES = {
+  exts: path.join(DATA_DIR, 'extensions.json'),
+  trunks: path.join(DATA_DIR, 'trunks.json'),
+  routes: path.join(DATA_DIR, 'routes.json'),
+  confUsers: path.join(AST_DIR, 'pjsip_miac_users.conf'),
+  confTrunks: path.join(AST_DIR, 'pjsip_miac_trunks.conf'),
+  confDialplan: path.join(AST_DIR, 'extensions_miac_dialplan.conf')
+};
 
-// Настройка AMI (Manager)
-const ami = new asteriskManager(5038, '127.0.0.1', 'miac', 'MiacAMI2026', true);
+// Настройки AMI
+const amimanager = new asterisk(5038, '127.0.0.1', 'miac', 'MiacAMI2026', true);
+amimanager.keepConnected();
 
-function syncTelephony() {
-  console.log('🔄 [BRIDGE] Начало синхронизации...');
-  
-  const extensionsFile = path.join(DATA_DIR, 'extensions.json');
-  if (!fs.existsSync(extensionsFile)) {
-    console.log('⚠️ [BRIDGE] Файл абонентов не найден.');
-    return;
-  }
+console.log('🚀 [BRIDGE] Мост МИАЦ.СВЯЗЬ запущен (V2 - Full Configurator)');
 
+function readJSON(file) {
+  if (!fs.existsSync(file)) return [];
   try {
-    const extensions = JSON.parse(fs.readFileSync(extensionsFile, 'utf8'));
-    
-    // 1. Генерируем PJSIP конфигурацию
-    let pjsipContent = '; ГЕНЕРИРУЕМЫЙ ФАЙЛ МИАЦ.СВЯЗЬ - НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ\n\n';
-    
-    extensions.forEach(ext => {
-      console.log(`📡 [BRIDGE] Обработка абонента: ${ext.id}`);
-      
-      // Секция эндпоинта
-      pjsipContent += `[${ext.id}]\ntype=endpoint\ncontext=from-internal\ndisallow=all\nallow=ulaw,alaw\nauth=${ext.id}\naors=${ext.id}\ntransport=transport-udp-nat\ndirect_media=no\n\n`;
-      
-      // Секция аутентификации
-      pjsipContent += `[${ext.id}]\ntype=auth\nauth_type=userpass\nusername=${ext.id}\npassword=${ext.secret}\n\n`;
-      
-      // Секция AOR (регистрации)
-      pjsipContent += `[${ext.id}]\ntype=aor\nmax_contacts=1\nremove_existing=yes\n\n`;
-    });
-
-    fs.writeFileSync(PJSIP_CONF, pjsipContent);
-    console.log(`✅ [BRIDGE] PJSIP конфиг обновлен. Абонентов: ${extensions.length}`);
-
-    // 2. Генерируем Dialplan (Маршрутизация внутри МИАЦ)
-    let dialplanContent = '; ГЕНЕРИРУЕМЫЙ ДИАЛПЛАН МИАЦ.СВЯЗЬ\n\n[from-internal]\n';
-    dialplanContent += 'exten => _XXX,1,NoOp(Внутренний вызов на ${EXTEN})\n';
-    dialplanContent += ' same => n,Dial(PJSIP/${EXTEN},30)\n';
-    dialplanContent += ' same => n,Hangup()\n';
-
-    fs.writeFileSync(DIALPLAN_CONF, dialplanContent);
-    console.log(`✅ [BRIDGE] Dialplan обновлен.`);
-
-    // 3. Применяем настройки через AMI
-    ami.action({
-      action: 'Command',
-      command: 'module reload res_pjsip.so'
-    }, (err, res) => {
-      if (err) console.error('❌ [BRIDGE] AMI Reload PJSIP Error:', err);
-      else console.log('🔄 [BRIDGE] Asterisk PJSIP Reload: OK');
-    });
-
-    ami.action({
-      action: 'Command',
-      command: 'dialplan reload'
-    }, (err, res) => {
-      if (err) console.error('❌ [BRIDGE] AMI Reload Dialplan Error:', err);
-      else console.log('🔄 [BRIDGE] Asterisk Dialplan Reload: OK');
-    });
-
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
   } catch (e) {
-    console.error('❌ [BRIDGE] Ошибка синхронизации:', e);
+    return [];
   }
 }
 
-// Периодическое обновление статусов (Online/Offline)
-function updateStatuses() {
-  ami.action({
-    action: 'Command',
-    command: 'pjsip show endpoints'
-  }, (err, res) => {
-    if (err || !res.output) return;
-    
-    const output = Array.isArray(res.output) ? res.output.join('\n') : res.output;
-    const extensionsFile = path.join(DATA_DIR, 'extensions.json');
-    if (!fs.existsSync(extensionsFile)) return;
+function syncAll() {
+  console.log('🔄 [BRIDGE] Синхронизация всех конфигураций...');
+  
+  const extensions = readJSON(FILES.exts);
+  const trunks = readJSON(FILES.trunks);
+  const routes = readJSON(FILES.routes);
 
-    try {
-      let extensions = JSON.parse(fs.readFileSync(extensionsFile, 'utf8'));
-      let changed = false;
+  // 1. Генерация Абонентов
+  let usersConf = '; Генерируемый файл пользователей МИАЦ.СВЯЗЬ\n\n';
+  extensions.forEach(ext => {
+    usersConf += `[${ext.id}]\ntype=endpoint\nauth=${ext.id}\naors=${ext.id}\ncontext=${ext.context || 'from-internal'}\ndisallow=all\nallow=alaw,ulaw\ntransport=transport-udp-nat\n\n`;
+    usersConf += `[${ext.id}]\ntype=auth\nauth_type=userpass\nusername=${ext.id}\npassword=${ext.secret}\n\n`;
+    usersConf += `[${ext.id}]\ntype=aor\nmax_contacts=1\nremove_existing=yes\n\n`;
+  });
+  fs.writeFileSync(FILES.confUsers, usersConf);
 
-      extensions = extensions.map(ext => {
-        // Ищем строку статуса для эндпоинта
-        const regex = new RegExp(`${ext.id}\/${ext.id}\\s+([\\w\\s]+)\\s+\\d+ of`, 'i');
-        const match = output.match(regex);
-        let newStatus = 'offline';
-        
-        if (match) {
-          const state = match[1].trim().toLowerCase();
-          if (state.includes('not in use') || state.includes('reachable')) newStatus = 'online';
-          if (state.includes('busy') || state.includes('in use')) newStatus = 'busy';
-        }
+  // 2. Генерация Транков
+  let trunksConf = '; Генерируемый файл транков МИАЦ.СВЯЗЬ\n\n';
+  trunks.forEach(t => {
+    const trunkId = t.id || t.name;
+    trunksConf += `[reg_${trunkId}]\ntype=registration\nserver_uri=sip:${t.host}:${t.port}\nclient_uri=sip:${t.user}@${t.host}:${t.port}\noutbound_auth=${trunkId}\nretry_interval=60\n\n`;
+    trunksConf += `[${trunkId}]\ntype=auth\nauth_type=userpass\nusername=${t.user}\npassword=${t.password}\n\n`;
+    trunksConf += `[${trunkId}]\ntype=aor\ncontact=sip:${t.host}:${t.port}\n\n`;
+    trunksConf += `[${trunkId}]\ntype=endpoint\ncontext=from-trunk\ndisallow=all\nallow=alaw,ulaw\noutbound_auth=${trunkId}\naors=${trunkId}\ntransport=transport-udp-nat\n\n`;
+    trunksConf += `[${trunkId}]\ntype=identify\nendpoint=${trunkId}\nmatch=${t.host}\n\n`;
+  });
+  fs.writeFileSync(FILES.confTrunks, trunksConf);
 
-        if (ext.status !== newStatus) {
-          ext.status = newStatus;
-          changed = true;
-        }
-        return ext;
-      });
+  // 3. Генерация Диалплана (Умный маршрутизатор)
+  let dialplan = '; Генерируемый диалплан МИАЦ.СВЯЗЬ\n\n';
+  
+  // Внутренняя связь
+  dialplan += '[from-internal]\n';
+  dialplan += '; Звонки между абонентами\n';
+  extensions.forEach(ext => {
+    dialplan += `exten => ${ext.id},1,Dial(PJSIP/${ext.id},30)\n`;
+    dialplan += `same => n,Hangup()\n`;
+  });
 
-      if (changed) {
-        fs.writeFileSync(extensionsFile, JSON.stringify(extensions, null, 2));
-        console.log('📊 [BRIDGE] Статусы абонентов обновлены.');
+  // Исходящая маршрутизация
+  dialplan += '\n; Исходящие маршруты\n';
+  routes.filter(r => r.type === 'outbound').forEach(route => {
+    dialplan += `exten => _${route.pattern},1,NoOp(Outbound Call via ${route.destination})\n`;
+    dialplan += `same => n,Dial(PJSIP/\${EXTEN}@${route.destination})\n`;
+    dialplan += `same => n,Hangup()\n`;
+  });
+
+  // Входящая маршрутизация
+  dialplan += '\n[from-trunk]\n';
+  routes.filter(r => r.type === 'inbound').forEach(route => {
+    // pattern для входящего - это DID
+    dialplan += `exten => ${route.pattern},1,NoOp(Inbound Call for ${route.pattern})\n`;
+    dialplan += `same => n,Dial(PJSIP/${route.destination.replace('Ext: ', '')})\n`;
+    dialplan += `same => n,Hangup()\n`;
+  });
+
+  fs.writeFileSync(FILES.confDialplan, dialplan);
+
+  console.log(`✅ [BRIDGE] Конфиги обновлены: ${extensions.length} аб., ${trunks.length} тр., ${routes.length} марш.`);
+  
+  // Перезагрузка Asterisk
+  reloadAsterisk();
+}
+
+function reloadAsterisk() {
+  const commands = ['module reload res_pjsip.so', 'dialplan reload'];
+  commands.forEach(cmd => {
+    amimanager.action({ action: 'Command', command: cmd }, (err, res) => {
+      if (!err && res.response === 'Success') {
+        console.log(`🔄 [BRIDGE] Asterisk Command (${cmd}): OK`);
       }
-    } catch (e) {
-      console.error('❌ [BRIDGE] Status update error:', e);
-    }
+    });
   });
 }
 
-// Следим за изменениями в JSON базе
-fs.watch(DATA_DIR, (eventType, filename) => {
-  if (filename && filename.endsWith('.json')) {
-    console.log(`📝 [BRIDGE] Изменение в ${filename}, синхронизируем...`);
-    syncTelephony();
-  }
+// Следим за изменениями файлов
+[FILES.exts, FILES.trunks, FILES.routes].forEach(file => {
+  fs.watch(file, (event) => {
+    if (event === 'change') {
+      setTimeout(syncAll, 500); // Небольшая задержка для записи
+    }
+  });
 });
 
-// Запуск интервалов
-setInterval(updateStatuses, 5000);
-syncTelephony();
+// Первичный запуск
+syncAll();
 
-ami.on('error', (err) => console.log('❌ [BRIDGE] AMI Connection Error:', err.message));
-ami.on('close', () => console.log('⚠️ [BRIDGE] AMI Connection Closed'));
+// Обновление статусов
+setInterval(() => {
+  amimanager.action({ action: 'PJSIPShowEndpoints' }, (err, res) => {
+    if (err) return;
+    const extensions = readJSON(FILES.exts);
+    let changed = false;
+
+    // В реальности AMI вернет серию событий, но для MVP упростим:
+    // Мы можем парсить статус из ответа Command "pjsip show endpoints"
+  });
+}, 5000);

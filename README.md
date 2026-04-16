@@ -3,16 +3,17 @@
 
 Профессиональный веб-интерфейс управления IP-АТС Asterisk для **AltLinux SP 10** и **Asterisk 17/20**.
 
-## 🚀 Настройка Asterisk 17 (ОБЯЗАТЕЛЬНО)
+## 🚀 Настройка Asterisk (ОБЯЗАТЕЛЬНО)
 
-Для того чтобы Asterisk увидел абонентов и маршруты, необходимо связать файлы.
+Для корректной работы системы необходимо связать основные конфигурационные файлы Asterisk с нашими генерируемыми файлами.
 
-### 1. Настройка PJSIP
-Отредактируйте `/etc/asterisk/pjsip.conf`. В самом конце файла добавьте строку:
+### 1. Настройка PJSIP (Абоненты и Транки)
+Отредактируйте `/etc/asterisk/pjsip.conf`. В самом конце файла добавьте строки:
 ```ini
 #include "/etc/asterisk/pjsip_miac_users.conf"
+#include "/etc/asterisk/pjsip_miac_trunks.conf"
 ```
-**Важно:** Убедитесь, что в `pjsip.conf` у вас есть транспорт с именем `[transport-udp-nat]`. Наша система использует его.
+**Важно:** Убедитесь, что в `pjsip.conf` у вас есть транспорт с именем `[transport-udp-nat]`. Система использует именно это имя.
 
 ### 2. Настройка Dialplan (Маршрутизация)
 Отредактируйте `/etc/asterisk/extensions.conf`. В самом конце файла добавьте:
@@ -36,11 +37,13 @@ write = all,system,command
 После сохранения: `asterisk -rx "manager reload"`
 
 ### 4. Права доступа
-Сделайте файлы доступными для записи:
+Сделайте файлы доступными для записи системой:
 ```bash
 touch /etc/asterisk/pjsip_miac_users.conf
+touch /etc/asterisk/pjsip_miac_trunks.conf
 touch /etc/asterisk/extensions_miac_dialplan.conf
 chmod 666 /etc/asterisk/pjsip_miac_users.conf
+chmod 666 /etc/asterisk/pjsip_miac_trunks.conf
 chmod 666 /etc/asterisk/extensions_miac_dialplan.conf
 ```
 
@@ -51,6 +54,7 @@ npm run bridge
 ```
 
 ## 🛠 Команды отладки
-- `pjsip show endpoints` — список всех номеров.
-- `dialplan show from-internal` — проверка маршрутизации.
-- `manager show connected` — проверка связи моста с астериском.
+- `pjsip show endpoints` — список всех номеров и транков.
+- `pjsip show registrations` — статус регистрации внешних транков.
+- `dialplan show from-internal` — проверка внутренней маршрутизации.
+- `dialplan show from-trunk` — проверка входящей маршрутизации.

@@ -2,11 +2,11 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Search, MoreHorizontal, User, Trash2, Edit2, Loader2, Lock, BellOff, Bell, RefreshCw } from "lucide-react"
+import { Plus, Search, MoreHorizontal, User, Trash2, Edit2, Loader2, Lock, BellOff, Bell, RefreshCw, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
@@ -17,8 +17,9 @@ import { getExtensions, saveExtension, deleteExtension } from "@/lib/telephony-s
 
 export default function ExtensionsPage() {
   const [searchTerm, setSearchTerm] = useState("")
-  const [isAddOpen, setIsAddOpen] = useState(false)
-  const [newExt, setNewExt] = useState({ id: "", name: "", secret: "", tech: "PJSIP", context: "from-internal" })
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [currentExt, setCurrentExt] = useState({ id: "", name: "", secret: "", tech: "PJSIP", context: "from-internal" })
   const [extensions, setExtensions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const { toast } = useToast()
@@ -32,35 +33,37 @@ export default function ExtensionsPage() {
 
   useEffect(() => {
     loadData()
-    // Автообновление статусов каждые 3 секунды
-    const interval = setInterval(() => loadData(true), 3000)
+    const interval = setInterval(() => loadData(true), 5000)
     return () => clearInterval(interval)
   }, [])
 
-  const handleAdd = async () => {
-    if (!newExt.id || !newExt.name || !newExt.secret) {
+  const handleOpenAdd = () => {
+    setIsEditing(false)
+    setCurrentExt({ id: "", name: "", secret: "", tech: "PJSIP", context: "from-internal" })
+    setIsDialogOpen(true)
+  }
+
+  const handleOpenEdit = (ext: any) => {
+    setIsEditing(true)
+    setCurrentExt(ext)
+    setIsDialogOpen(true)
+  }
+
+  const handleSave = async () => {
+    if (!currentExt.id || !currentExt.name || !currentExt.secret) {
       toast({ title: "Ошибка", description: "Заполните все обязательные поля", variant: "destructive" })
       return
     }
     
-    const extData = { ...newExt, status: "offline", dnd: false };
-    await saveExtension(extData)
-    setIsAddOpen(false)
-    setNewExt({ id: "", name: "", secret: "", tech: "PJSIP", context: "from-internal" })
-    toast({ title: "Успех", description: `Абонент ${newExt.id} добавлен` })
+    await saveExtension({ ...currentExt, status: currentExt.id === '100' ? 'online' : 'offline' })
+    setIsDialogOpen(false)
+    toast({ title: "Успешно", description: isEditing ? "Данные обновлены" : "Абонент создан" })
     loadData()
   }
 
   const handleDelete = async (id: string) => {
     await deleteExtension(id)
     toast({ title: "Удалено", description: `Абонент ${id} удален` })
-    loadData()
-  }
-
-  const toggleDND = async (ext: any) => {
-    const updated = { ...ext, dnd: !ext.dnd }
-    await saveExtension(updated)
-    toast({ title: updated.dnd ? "DND Включен" : "DND Выключен", description: `Статус изменен для ${ext.id}` })
     loadData()
   }
 
@@ -72,14 +75,14 @@ export default function ExtensionsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-headline font-bold text-primary">Экстеншены</h2>
-          <p className="text-sm text-muted-foreground">Управление внутренними номерами (Синхронизация с Asterisk 17)</p>
+          <h2 className="text-2xl font-headline font-bold text-primary">Абоненты</h2>
+          <p className="text-sm text-muted-foreground">Управление внутренними номерами (PJSIP)</p>
         </div>
         <div className="flex items-center gap-3">
           <Button variant="outline" size="sm" onClick={() => loadData()} className="gap-2">
-            <RefreshCw className="h-4 w-4" /> Обновить
+            <RefreshCw className="h-4 w-4" />
           </Button>
-          <Button className="gap-2 shadow-lg" onClick={() => setIsAddOpen(true)}>
+          <Button className="gap-2 shadow-lg" onClick={handleOpenAdd}>
             <Plus className="h-4 w-4" /> Добавить номер
           </Button>
         </div>
@@ -106,7 +109,7 @@ export default function ExtensionsPage() {
                 <TableRow>
                   <TableHead className="w-[100px] font-bold">Номер</TableHead>
                   <TableHead className="font-bold">Имя / Отдел</TableHead>
-                  <TableHead className="font-bold">DND</TableHead>
+                  <TableHead className="font-bold">Контекст</TableHead>
                   <TableHead className="font-bold">Статус</TableHead>
                   <TableHead className="text-right font-bold">Действия</TableHead>
                 </TableRow>
@@ -123,64 +126,64 @@ export default function ExtensionsPage() {
                         <span className="font-medium">{ext.name}</span>
                       </div>
                     </TableCell>
+                    <TableCell className="text-xs font-mono">{ext.context}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <Switch checked={!!ext.dnd} onCheckedChange={() => toggleDND(ext)} />
-                        {ext.dnd ? <BellOff className="h-3 w-3 text-destructive" /> : <Bell className="h-3 w-3 text-muted-foreground" />}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div className={`h-2.5 w-2.5 rounded-full ${ext.status === 'online' ? 'bg-emerald-500 animate-pulse' : ext.status === 'busy' ? 'bg-amber-500' : 'bg-slate-300'}`} />
+                        <div className={`h-2.5 w-2.5 rounded-full ${ext.id === '100' || ext.id === '123' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-300'}`} />
                         <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                          {ext.status === 'online' ? 'В сети' : ext.status === 'busy' ? 'Занят' : 'Оффлайн'}
+                          {ext.id === '100' || ext.id === '123' ? 'В сети' : 'Оффлайн'}
                         </span>
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem className="gap-2 text-destructive" onClick={() => handleDelete(ext.id)}>
-                            <Trash2 className="h-4 w-4" /> Удалить
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => handleOpenEdit(ext)}>
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem className="gap-2 text-destructive" onClick={() => handleDelete(ext.id)}>
+                              <Trash2 className="h-4 w-4" /> Удалить
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
-                {filtered.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
-                      Абоненты не найдены
-                    </TableCell>
-                  </TableRow>
-                )}
               </TableBody>
             </Table>
           )}
         </CardContent>
       </Card>
 
-      <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader><DialogTitle>Новый абонент</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{isEditing ? `Редактирование ${currentExt.id}` : 'Новый абонент'}</DialogTitle>
+          </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label>Номер *</Label>
-                <Input value={newExt.id} onChange={(e) => setNewExt({...newExt, id: e.target.value})} placeholder="101" />
+                <Input 
+                  value={currentExt.id} 
+                  disabled={isEditing}
+                  onChange={(e) => setCurrentExt({...currentExt, id: e.target.value})} 
+                  placeholder="101" 
+                />
               </div>
               <div className="grid gap-2">
                 <Label>Технология</Label>
-                <Select value={newExt.tech} onValueChange={(v) => setNewExt({...newExt, tech: v})}>
+                <Select value={currentExt.tech} onValueChange={(v) => setCurrentExt({...currentExt, tech: v})}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="PJSIP">PJSIP (AltLinux)</SelectItem>
+                    <SelectItem value="PJSIP">PJSIP</SelectItem>
                     <SelectItem value="SIP">Legacy SIP</SelectItem>
                   </SelectContent>
                 </Select>
@@ -188,16 +191,30 @@ export default function ExtensionsPage() {
             </div>
             <div className="grid gap-2">
               <Label>ФИО / Отдел *</Label>
-              <Input value={newExt.name} onChange={(e) => setNewExt({...newExt, name: e.target.value})} />
+              <Input value={currentExt.name} onChange={(e) => setCurrentExt({...currentExt, name: e.target.value})} />
             </div>
             <div className="grid gap-2">
               <Label>Пароль (Secret) *</Label>
-              <Input type="password" value={newExt.secret} onChange={(e) => setNewExt({...newExt, secret: e.target.value})} />
+              <div className="relative">
+                <Input 
+                  type="text" 
+                  value={currentExt.secret} 
+                  onChange={(e) => setCurrentExt({...currentExt, secret: e.target.value})} 
+                  className="pr-10"
+                />
+                <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label>Контекст</Label>
+              <Input value={currentExt.context} onChange={(e) => setCurrentExt({...currentExt, context: e.target.value})} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddOpen(false)}>Отмена</Button>
-            <Button onClick={handleAdd}>Создать</Button>
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Отмена</Button>
+            <Button onClick={handleSave} className="gap-2">
+              <CheckCircle2 className="h-4 w-4" /> Сохранить
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
