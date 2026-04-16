@@ -7,7 +7,7 @@
 
 ### 1. Подготовка
 ```bash
-git pull
+git pull origin main
 npm install
 ```
 
@@ -23,8 +23,8 @@ node src/scripts/setup-admin.mjs admin@miac.ru myPassword123
 npm run bridge
 ```
 
-## 🛠 Настройка прав Asterisk (если не работает CLI)
-Для того чтобы Bridge мог управлять Asterisk, убедитесь, что у него есть доступ к сокету и файлам:
+## 🛠 Настройка прав Asterisk
+Чтобы Bridge мог управлять Asterisk, убедитесь, что у него есть доступ к сокету и файлам:
 ```bash
 chown -R asterisk:asterisk /var/run/asterisk
 chown -R asterisk:asterisk /etc/asterisk

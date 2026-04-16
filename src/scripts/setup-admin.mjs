@@ -1,11 +1,8 @@
 
-/**
- * @fileOverview Скрипт для создания первого администратора через консоль.
- * Запуск: node src/scripts/setup-admin.mjs email@domain.ru password123
- */
-import { initializeApp } from 'firebase/app';
-import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
+import { initializeApp } from "firebase/app";
+import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
 
+// Конфигурация Firebase должна совпадать с src/firebase/config.ts
 const firebaseConfig = {
   apiKey: "api-key",
   authDomain: "project-id.firebaseapp.com",
@@ -22,19 +19,18 @@ const email = process.argv[2];
 const password = process.argv[3];
 
 if (!email || !password) {
-  console.error("ОШИБКА: Укажите email и пароль. Пример:");
-  console.error("node src/scripts/setup-admin.mjs admin@miac.ru myPassword123");
+  console.error("Использование: node setup-admin.mjs <email> <password>");
   process.exit(1);
 }
 
+console.log(`--- Создание администратора: ${email} ---`);
+
 createUserWithEmailAndPassword(auth, email, password)
   .then((userCredential) => {
-    console.log("УСПЕХ: Администратор создан!");
-    console.log("ID:", userCredential.user.uid);
-    console.log("Email:", email);
+    console.log("Успех! Пользователь создан.");
     process.exit(0);
   })
   .catch((error) => {
-    console.error("ОШИБКА:", error.message);
+    console.error("Ошибка при создании пользователя:", error.message);
     process.exit(1);
   });
