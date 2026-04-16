@@ -1,4 +1,3 @@
-
 "use client"
 
 import { usePathname, useRouter } from 'next/navigation';
@@ -57,20 +56,25 @@ export function AuthLayoutWrapper({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Пока идет загрузка, показываем экран ожидания
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm font-medium text-muted-foreground font-headline uppercase tracking-widest">Проверка доступа...</p>
+        <p className="text-sm font-medium text-muted-foreground font-headline uppercase tracking-widest">Проверка сессии...</p>
       </div>
     );
   }
 
+  // Если мы на странице логина, просто рендерим контент
   if (isLoginPage) {
     return <>{children}</>;
   }
 
-  if (!session) return null;
+  // Если сессии нет (и мы не на странице логина), ничего не рендерим (сработает редирект в checkAuth)
+  if (!session) {
+    return null;
+  }
 
   return (
     <SidebarProvider>
@@ -85,7 +89,7 @@ export function AuthLayoutWrapper({ children }: { children: React.ReactNode }) {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-tighter">Asterisk Link OK</span>
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-tighter">Система активна</span>
             </div>
             
             <Button 

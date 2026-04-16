@@ -25,11 +25,13 @@ export async function loginLocal(email: string, password: string) {
     }
 
     const cookieStore = await cookies();
+    // Убираем secure: true для работы в локальных сетях по HTTP
     cookieStore.set('miac_session', JSON.stringify({ email: admin.email, role: admin.role }), {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: false, 
       maxAge: 60 * 60 * 24, // 1 день
       path: '/',
+      sameSite: 'lax'
     });
 
     return { success: true };
