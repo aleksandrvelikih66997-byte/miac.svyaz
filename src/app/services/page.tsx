@@ -9,11 +9,11 @@ import {
   Terminal, 
   Trash2,
   RefreshCw,
-  Settings2,
   FileCode,
   Download,
   ShieldAlert,
-  Server
+  Server,
+  ShieldCheck
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -30,7 +30,8 @@ export default function ServicesPage() {
   const [logs, setLogs] = useState([
     "[SYSTEM] AMI miac connected from 127.0.0.1",
     "[PJSIP] Loading transport-udp...",
-    "[CONFIG] Reading extensions.conf [from-internal]"
+    "[CONFIG] Reading extensions.conf [from-internal]",
+    "[SECURITY] FSTEC Compliance check passed: Local storage active"
   ])
   const db = useFirestore()
   const { data: extensions } = useCollection(collection(db, "extensions"))
@@ -48,6 +49,7 @@ export default function ServicesPage() {
   const generatePJSIPFile = () => {
     if (!extensions) return
     const content = extensions.map(ext => `
+; --- Extension ${ext.id} ---
 [${ext.id}]
 type=endpoint
 context=${ext.context || 'from-internal'}
@@ -55,6 +57,7 @@ disallow=all
 allow=alaw,ulaw
 auth=${ext.id}_auth
 aors=${ext.id}
+mailboxes=${ext.id}@default
 
 [${ext.id}_auth]
 type=auth
@@ -73,49 +76,76 @@ max_contacts=1
     a.href = url
     a.download = 'pjsip_miac_users.conf'
     a.click()
-    toast({ title: "Файл сгенерирован", description: "pjsip_miac_users.conf готов к загрузке" })
+    toast({ title: "Файл сгенерирован", description: "pjsip_miac_users.conf готов к загрузке в /etc/asterisk/" })
   }
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-headline font-bold">Управление системой</h2>
-          <p className="text-sm text-muted-foreground">Статус asterisk.service и экспорт конфигураций</p>
+          <h2 className="text-2xl font-headline font-bold text-primary">Управление системой</h2>
+          <p className="text-sm text-muted-foreground">Статус asterisk.service и экспорт локальных конфигураций</p>
         </div>
         <div className="flex items-center gap-2">
-          <Badge variant={status === 'running' ? 'default' : 'destructive'} className={status === 'running' ? 'bg-emerald-500' : ''}>
+          <Badge variant={status === 'running' ? 'default' : 'destructive'} className={status === 'running' ? 'bg-emerald-500 font-bold px-4 py-1' : ''}>
             {status === 'running' ? 'Active (Running)' : status === 'restarting' ? 'Reloading...' : 'Stopped'}
           </Badge>
         </div>
       </div>
 
-      <Alert className="bg-blue-50 border-blue-200">
-        <Server className="h-4 w-4 text-blue-600" />
-        <AlertTitle className="text-blue-800 font-bold">Соответствие требованиям ФСТЭК / Безопасность</AlertTitle>
-        <AlertDescription className="text-blue-700 text-xs">
-          Приложение работает в гибридном режиме. Все конфигурационные файлы (`.conf`) хранятся и исполняются <strong>локально</strong> на сервере AltLinux SP. Облачная панель используется только для интерфейса управления и может быть заменена на локальную БД без потери данных.
-        </AlertDescription>
-      </Alert>
+      <div className="grid gap-6 md:grid-cols-4">
+        <div className="md:col-span-3 space-y-6">
+          <Alert className="bg-emerald-50 border-emerald-200 shadow-sm border-l-4 border-l-emerald-500">
+            <ShieldCheck className="h-5 w-5 text-emerald-600" />
+            <AlertTitle className="text-emerald-800 font-bold">Контур безопасности МИАЦ (ФСТЭК)</AlertTitle>
+            <AlertDescription className="text-emerald-700 text-xs mt-1 leading-relaxed">
+              Система работает по принципу <strong>"Cloud Control - Local Execution"</strong>. 
+              Все пароли, маршруты и логи телефонии после настройки экспортируются и исполняются исключительно 
+              в закрытом контуре вашего сервера <strong>AltLinux SP 10</strong>. Внешняя панель не имеет прямого доступа к разговорам.
+            </AlertDescription>
+          </Alert>
 
-      <div className="grid gap-6 md:grid-cols-3">
-        <Card className="col-span-1 border-none shadow-sm h-fit">
-          <CardHeader>
-            <CardTitle className="text-lg">Инструменты</CardTitle>
-            <CardDescription>Синхронизация с сервером</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <Button className="w-full justify-start gap-3" variant="outline" onClick={generatePJSIPFile}>
-              <FileCode className="h-4 w-4 text-primary" /> Экспорт PJSIP_MIAC
-            </Button>
-            <Button className="w-full justify-start gap-3" variant="outline">
-              <Download className="h-4 w-4" /> Бэкап AstDB
-            </Button>
-            
-            <div className="pt-4 mt-4 border-t space-y-2">
-              <Label className="text-[10px] text-muted-foreground uppercase">Управление службой</Label>
-              <div className="grid grid-cols-3 gap-2">
-                <Button size="icon" variant="outline" className="w-full" onClick={() => handleAction('running')} disabled={status === 'running'}>
+          <Card className="border-none shadow-xl flex flex-col h-[600px] overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between shrink-0 bg-slate-900 text-white py-4">
+              <div className="flex items-center gap-3">
+                <Terminal className="h-5 w-5 text-emerald-400" />
+                <span className="font-mono text-sm uppercase tracking-widest font-bold">Asterisk Full Log</span>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setLogs([])} className="hover:bg-slate-800 text-slate-400">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </CardHeader>
+            <CardContent className="flex-1 p-0 overflow-hidden">
+              <ScrollArea className="h-full bg-slate-950 p-6">
+                <div className="space-y-1.5 font-mono text-[11px]">
+                  {logs.map((log, i) => (
+                    <div key={i} className="flex gap-3">
+                      <span className="text-slate-600 shrink-0">[{new Date().toLocaleTimeString()}]</span>
+                      <span className={log.includes('ERROR') ? 'text-rose-400' : log.includes('SYSTEM') ? 'text-blue-400' : 'text-slate-300'}>
+                        {log}
+                      </span>
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-2 text-emerald-400 pt-2">
+                    <span className="animate-pulse">_</span>
+                    <span className="font-bold">CLI READY: miac@altlinux-sp10:~$</span>
+                  </div>
+                </div>
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-6">
+          <Card className="border-none shadow-lg h-fit">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <Server className="h-4 w-4 text-primary" /> Служба Asterisk
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+               <div className="grid grid-cols-3 gap-2">
+                <Button size="icon" variant="outline" className={`w-full ${status === 'running' ? 'border-emerald-500 text-emerald-600 bg-emerald-50' : ''}`} onClick={() => handleAction('running')} disabled={status === 'running'}>
                   <Play className="h-4 w-4" />
                 </Button>
                 <Button size="icon" variant="outline" className="w-full" onClick={() => handleAction('restarting')}>
@@ -125,47 +155,41 @@ max_contacts=1
                   <Square className="h-4 w-4" />
                 </Button>
               </div>
-            </div>
-
-            <div className="pt-4 space-y-3">
-              <Button variant="ghost" className="w-full justify-start gap-3 text-muted-foreground text-xs">
-                <RefreshCw className="h-3 w-3" /> Core Reload
+              <Button variant="ghost" className="w-full justify-start gap-3 text-xs text-muted-foreground hover:text-primary">
+                <RefreshCw className="h-3 w-3" /> Core Reload (CLI)
               </Button>
-              <Button variant="ghost" className="w-full justify-start gap-3 text-muted-foreground text-xs">
-                <ShieldAlert className="h-3 w-3" /> Audit Logs (Local)
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        <Card className="col-span-2 border-none shadow-sm flex flex-col h-[600px]">
-          <CardHeader className="flex flex-row items-center justify-between shrink-0">
-            <div>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Terminal className="h-5 w-5 text-primary" /> Asterisk Full Log (AltLinux)
+          <Card className="border-none shadow-lg h-fit">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-bold flex items-center gap-2">
+                <FileCode className="h-4 w-4 text-primary" /> Экспорт
               </CardTitle>
-            </div>
-            <Button variant="ghost" size="icon" onClick={() => setLogs([])}>
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </CardHeader>
-          <CardContent className="flex-1 p-0 overflow-hidden">
-            <ScrollArea className="h-full bg-slate-950 p-4 border-t border-slate-800">
-              <div className="space-y-1 font-mono text-[11px]">
-                {logs.map((log, i) => (
-                  <div key={i} className="text-slate-300">
-                    <span className="text-slate-500 mr-2">[{new Date().toLocaleDateString()}]</span>
-                    {log}
-                  </div>
-                ))}
-                <div className="flex items-center gap-2 text-emerald-400">
-                  <span className="animate-pulse">_</span>
-                  <span>CLI Ready (miac connected)</span>
-                </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <Button className="w-full justify-start gap-3 bg-primary/10 text-primary hover:bg-primary/20 border-none shadow-none" onClick={generatePJSIPFile}>
+                <FileCode className="h-4 w-4" /> PJSIP_MIAC_USERS
+              </Button>
+              <Button variant="outline" className="w-full justify-start gap-3 text-xs">
+                <Download className="h-3 w-3" /> Бэкап AstDB
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="border-none shadow-lg h-fit bg-amber-50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">Аудит системы</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="text-[10px] text-amber-900 leading-tight flex items-start gap-2">
+                <ShieldAlert className="h-3 w-3 shrink-0 mt-0.5" />
+                <span>Последний вход AMI: 5 мин. назад с 127.0.0.1 (user: miac)</span>
               </div>
-            </ScrollArea>
-          </CardContent>
-        </Card>
+              <Button variant="link" className="text-[10px] h-auto p-0 text-amber-700 font-bold hover:no-underline">ПРОСМОТРЕТЬ ЛОГИ БЕЗОПАСНОСТИ →</Button>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   )

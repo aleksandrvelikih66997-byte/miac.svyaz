@@ -40,7 +40,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/select"
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, doc, setDoc, deleteDoc, query, orderBy } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
@@ -105,76 +105,78 @@ export default function ExtensionsPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-headline font-bold">Экстеншены</h2>
+          <h2 className="text-2xl font-headline font-bold text-primary">Экстеншены</h2>
           <p className="text-sm text-muted-foreground">Управление внутренними номерами и пользователями</p>
         </div>
-        <Button className="gap-2" onClick={() => setIsAddOpen(true)}>
+        <Button className="gap-2 shadow-lg" onClick={() => setIsAddOpen(true)}>
           <Plus className="h-4 w-4" /> Добавить номер
         </Button>
       </div>
 
-      <Card className="border-none shadow-sm">
-        <CardHeader className="pb-3">
+      <Card className="border-none shadow-xl bg-card overflow-hidden">
+        <CardHeader className="pb-3 border-b bg-muted/20">
           <div className="flex items-center gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input 
                 placeholder="Поиск по номеру или имени..." 
-                className="pl-9" 
+                className="pl-9 bg-white" 
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {loading ? (
-            <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
+            <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
           ) : (
             <Table>
-              <TableHeader>
+              <TableHeader className="bg-muted/10">
                 <TableRow>
-                  <TableHead className="w-[100px]">Номер</TableHead>
-                  <TableHead>Имя / Описание</TableHead>
-                  <TableHead>Протокол</TableHead>
-                  <TableHead>Контекст</TableHead>
-                  <TableHead>Статус</TableHead>
-                  <TableHead className="text-right">Действия</TableHead>
+                  <TableHead className="w-[120px] font-bold">Номер</TableHead>
+                  <TableHead className="font-bold">Имя / Описание</TableHead>
+                  <TableHead className="font-bold">Протокол</TableHead>
+                  <TableHead className="font-bold">Контекст</TableHead>
+                  <TableHead className="font-bold">Статус</TableHead>
+                  <TableHead className="text-right font-bold">Действия</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.map((ext) => (
-                  <TableRow key={ext.id}>
-                    <TableCell className="font-mono font-medium">{ext.id}</TableCell>
+                  <TableRow key={ext.id} className="hover:bg-muted/5 transition-colors">
+                    <TableCell className="font-mono font-bold text-primary">{ext.id}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <User className="h-3 w-3 text-muted-foreground" />
-                        {ext.name}
+                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                           <User className="h-4 w-4" />
+                        </div>
+                        <span className="font-medium">{ext.name}</span>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="font-normal uppercase text-[10px]">
+                      <Badge variant="outline" className="font-mono text-[10px] bg-slate-50">
                         {ext.tech}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-muted-foreground text-xs">{ext.context}</TableCell>
+                    <TableCell className="text-muted-foreground text-xs font-mono">{ext.context}</TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-1.5">
-                        <div className={`h-1.5 w-1.5 rounded-full ${
-                          ext.status === 'online' ? 'bg-emerald-500' : 
+                      <div className="flex items-center gap-2">
+                        <div className={`h-2 w-2 rounded-full ${
+                          ext.status === 'online' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 
                           ext.status === 'busy' ? 'bg-amber-500' : 'bg-slate-300'
                         }`} />
-                        <span className="text-xs capitalize">{ext.status}</span>
+                        <span className="text-xs font-medium uppercase tracking-wider">{ext.status}</span>
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted">
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
+                        <DropdownMenuContent align="end" className="w-48">
                           <DropdownMenuItem className="gap-2">
                             <Edit2 className="h-4 w-4" /> Редактировать
                           </DropdownMenuItem>
@@ -182,7 +184,7 @@ export default function ExtensionsPage() {
                             <Shield className="h-4 w-4" /> Безопасность
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem className="gap-2 text-destructive" onClick={() => handleDelete(ext.id)}>
+                          <DropdownMenuItem className="gap-2 text-destructive focus:bg-destructive/10" onClick={() => handleDelete(ext.id)}>
                             <Trash2 className="h-4 w-4" /> Удалить
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -197,42 +199,50 @@ export default function ExtensionsPage() {
       </Card>
 
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Новый абонент</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5 text-primary" /> Новый абонент
+            </DialogTitle>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="num">Внутренний номер *</Label>
-              <Input id="num" value={newExt.id} onChange={(e) => setNewExt({...newExt, id: e.target.value})} placeholder="101" />
+          <div className="grid gap-6 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="num" className="text-xs font-bold uppercase tracking-wider">Номер *</Label>
+                <Input id="num" value={newExt.id} onChange={(e) => setNewExt({...newExt, id: e.target.value})} placeholder="101" />
+              </div>
+              <div className="grid gap-2">
+                <Label className="text-xs font-bold uppercase tracking-wider">Технология</Label>
+                <Select value={newExt.tech} onValueChange={(v) => setNewExt({...newExt, tech: v})}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="PJSIP">PJSIP (Реком.)</SelectItem>
+                    <SelectItem value="SIP">Legacy SIP</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="name">ФИО / Отдел *</Label>
+              <Label htmlFor="name" className="text-xs font-bold uppercase tracking-wider">ФИО / Отдел *</Label>
               <Input id="name" value={newExt.name} onChange={(e) => setNewExt({...newExt, name: e.target.value})} placeholder="Иван Иванов" />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="secret">Пароль (Secret) *</Label>
+              <Label htmlFor="secret" className="text-xs font-bold uppercase tracking-wider">Пароль (SIP Secret) *</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input id="secret" type="password" value={newExt.secret} onChange={(e) => setNewExt({...newExt, secret: e.target.value})} className="pl-9" placeholder="••••••••" />
               </div>
             </div>
             <div className="grid gap-2">
-              <Label>Технология</Label>
-              <Select value={newExt.tech} onValueChange={(v) => setNewExt({...newExt, tech: v})}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="PJSIP">PJSIP</SelectItem>
-                  <SelectItem value="SIP">Legacy SIP</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label className="text-xs font-bold uppercase tracking-wider">Контекст</Label>
+              <Input value={newExt.context} onChange={(e) => setNewExt({...newExt, context: e.target.value})} placeholder="from-internal" />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="bg-muted/10 p-4 -mx-6 -mb-6">
             <Button variant="outline" onClick={() => setIsAddOpen(false)}>Отмена</Button>
-            <Button onClick={handleAdd}>Сохранить</Button>
+            <Button onClick={handleAdd} className="bg-primary hover:bg-primary/90">Создать номер</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
