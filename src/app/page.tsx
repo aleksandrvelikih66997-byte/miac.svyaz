@@ -6,48 +6,67 @@ import {
   Users, 
   Clock, 
   ShieldCheck,
-  ArrowRight
+  ArrowRight,
+  Activity
 } from "lucide-react"
+import { useCollection, useFirestore } from "@/firebase"
+import { collection, query } from "firebase/firestore"
+import Link from "next/link"
 
 export default function Dashboard() {
+  const db = useFirestore()
+  const { data: extensions } = useCollection(collection(db, "extensions"))
+  const { data: trunks } = useCollection(collection(db, "trunks"))
+  const { data: routes } = useCollection(collection(db, "routes"))
+
+  const stats = [
+    { title: "АБОНЕНТОВ В БАЗЕ", value: extensions?.length || 0, color: "border-t-primary" },
+    { title: "АКТИВНЫХ ТРАНКОВ", value: trunks?.filter(t => t.status === 'Registered').length || 0, color: "border-t-green-500" },
+    { title: "ПРАВИЛ МАРШРУТОВ", value: routes?.length || 0, color: "border-t-amber-500" },
+    { title: "AMI СТАТУС", value: "ОНЛАЙН", color: "border-t-primary" },
+  ]
+
   return (
     <div className="space-y-8">
-      {/* Top row status cards */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {[
-          { title: "АКТИВНЫХ ЗВОНКОВ", value: "—", color: "border-t-primary" },
-          { title: "ЗВОНКОВ СЕГОДНЯ", value: "—", color: "border-t-primary" },
-          { title: "ОНЛАЙН АБОНЕНТОВ", value: "—", color: "border-t-green-500" },
-          { title: "РОЛЬ ПОЛЬЗОВАТЕЛЯ", value: "—", color: "border-t-primary" },
-        ].map((card, i) => (
-          <Card key={i} className={`shadow-sm border-0 border-t-2 ${card.color} rounded-lg`}>
+        {stats.map((stat, i) => (
+          <Card key={i} className={`shadow-sm border-0 border-t-2 ${stat.color} rounded-lg`}>
             <CardHeader className="pb-2">
               <CardTitle className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em]">
-                {card.title}
+                {stat.title}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-bold tracking-tighter">—</div>
+              <div className="text-3xl font-bold tracking-tighter">{stat.value}</div>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* Middle row details */}
       <div className="grid gap-8 md:grid-cols-2">
         <Card className="shadow-sm border-0 rounded-lg overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between border-b bg-slate-50/50 py-4 px-6">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
-              <Phone className="h-4 w-4 text-rose-500" /> Активные звонки
+              <Activity className="h-4 w-4 text-rose-500" /> Состояние Asterisk
             </CardTitle>
-            <button className="text-[10px] font-bold text-primary flex items-center gap-1 uppercase tracking-wider hover:underline">
-              все <ArrowRight className="h-3 w-3" />
-            </button>
+            <Link href="/services" className="text-[10px] font-bold text-primary flex items-center gap-1 uppercase tracking-wider hover:underline">
+              Управление <ArrowRight className="h-3 w-3" />
+            </Link>
           </CardHeader>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <div className="flex items-center gap-3 text-muted-foreground">
-              <div className="h-2 w-2 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-              <span className="text-sm font-medium">Загрузка...</span>
+          <CardContent className="py-8">
+            <div className="space-y-4">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">Версия:</span>
+                <span className="font-mono font-medium">Asterisk 20.x (AltLinux SP)</span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">AMI Port:</span>
+                <span className="font-mono font-medium">5038 (bind: 0.0.0.0)</span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-muted-foreground">PJSIP Transport:</span>
+                <span className="font-mono font-medium text-emerald-600">UDP/5060 - ACTIVE</span>
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -55,38 +74,30 @@ export default function Dashboard() {
         <Card className="shadow-sm border-0 rounded-lg overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between border-b bg-slate-50/50 py-4 px-6">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
-              <div className="h-3 w-3 rounded-full bg-green-500" /> Абоненты онлайн
+              <Users className="h-4 w-4 text-primary" /> Последние абоненты
             </CardTitle>
-            <button className="text-[10px] font-bold text-primary flex items-center gap-1 uppercase tracking-wider hover:underline">
-              все <ArrowRight className="h-3 w-3" />
-            </button>
+            <Link href="/extensions" className="text-[10px] font-bold text-primary flex items-center gap-1 uppercase tracking-wider hover:underline">
+              Все <ArrowRight className="h-3 w-3" />
+            </Link>
           </CardHeader>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <div className="flex items-center gap-3 text-muted-foreground">
-              <div className="h-2 w-2 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-              <span className="text-sm font-medium">Загрузка...</span>
+          <CardContent className="py-6">
+            <div className="space-y-3">
+              {extensions?.slice(0, 3).map((ext) => (
+                <div key={ext.id} className="flex items-center justify-between p-2 rounded bg-muted/30">
+                  <div className="flex items-center gap-2">
+                    <div className="h-2 w-2 rounded-full bg-emerald-500" />
+                    <span className="text-sm font-medium">{ext.id} - {ext.name}</span>
+                  </div>
+                  <span className="text-[10px] font-mono text-muted-foreground">{ext.tech}</span>
+                </div>
+              ))}
+              {(!extensions || extensions.length === 0) && (
+                <div className="text-center text-muted-foreground text-sm py-4">Нет данных</div>
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
-
-      {/* Bottom row large card */}
-      <Card className="shadow-sm border-0 rounded-lg overflow-hidden">
-        <CardHeader className="flex flex-row items-center justify-between border-b bg-slate-50/50 py-4 px-6">
-          <CardTitle className="text-sm font-bold flex items-center gap-2">
-            <Clock className="h-4 w-4 text-slate-400" /> Последние звонки
-          </CardTitle>
-          <button className="text-[10px] font-bold text-primary flex items-center gap-1 uppercase tracking-wider hover:underline">
-            история <ArrowRight className="h-3 w-3" />
-          </button>
-        </CardHeader>
-        <CardContent className="flex flex-col items-center justify-center py-16">
-          <div className="flex items-center gap-3 text-muted-foreground">
-            <div className="h-2 w-2 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-            <span className="text-sm font-medium">Загрузка...</span>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }

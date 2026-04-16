@@ -1,22 +1,22 @@
 'use server';
 /**
- * @fileOverview This file defines a Genkit flow for an intelligent configuration assistant.
- * It allows administrators to describe desired Asterisk configurations in natural language,
- * and the AI generates the corresponding configuration snippets and explanations.
+ * @fileOverview ИИ-помощник, настроенный под среду AltLinux SP и Asterisk 20.
+ * Учитывает настройки manager.conf (пользователь miac) и PJSIP.
  */
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
 const IntelligentConfigurationAssistantInputSchema = z.object({
-  request: z.string().describe('Natural language description of the desired Asterisk configuration.'),
+  request: z.string().describe('Запрос на настройку Asterisk (например, "создать очередь для техподдержки").'),
 });
 export type IntelligentConfigurationAssistantInput = z.infer<typeof IntelligentConfigurationAssistantInputSchema>;
 
 const IntelligentConfigurationAssistantOutputSchema = z.object({
-  configType: z.enum(['extension', 'queue', 'route', 'other']).describe('The type of Asterisk configuration generated.'),
-  generatedConfig: z.string().describe('The generated Asterisk configuration snippet in plain text.'),
-  explanation: z.string().describe('A human-readable explanation of the generated configuration.'),
+  configType: z.enum(['extension', 'queue', 'route', 'pjsip', 'manager']).describe('Тип генерируемого конфига.'),
+  generatedConfig: z.string().describe('Текст конфигурации в формате Asterisk (.conf).'),
+  explanation: z.string().describe('Пояснение к настройкам.'),
+  targetFile: z.string().describe('В какой файл рекомендуется добавить этот код (например, pjsip_miac_users.conf).'),
 });
 export type IntelligentConfigurationAssistantOutput = z.infer<typeof IntelligentConfigurationAssistantOutputSchema>;
 
@@ -28,11 +28,17 @@ const prompt = ai.definePrompt({
   name: 'intelligentConfigurationAssistantPrompt',
   input: {schema: IntelligentConfigurationAssistantInputSchema},
   output: {schema: IntelligentConfigurationAssistantOutputSchema},
-  prompt: `You are an expert Asterisk PBX administrator. Your task is to interpret natural language requests and generate configuration snippets.
+  prompt: `Вы — эксперт по Asterisk 20 в среде AltLinux SP. 
+Контекст сервера пользователя:
+- Используется PJSIP.
+- Контекст для внутренних вызовов: [from-internal].
+- AMI пользователь: miac (secret: MiacAMI2026).
+- Основной транспорт: [transport-udp].
+- Конфиги абонентов подключаются через #include pjsip_miac_users.conf.
 
-Request: {{{request}}}
+Запрос пользователя: {{{request}}}
 
-Your output must be a valid JSON object matching the requested schema. Ensure the 'generatedConfig' field contains a valid Asterisk config format (ini-like).`,
+Сгенерируйте оптимальный конфиг, соответствующий этой архитектуре. Если создается абонент, укажите, что его нужно добавить в pjsip_miac_users.conf.`,
 });
 
 const intelligentConfigurationAssistantFlow = ai.defineFlow(
@@ -44,7 +50,7 @@ const intelligentConfigurationAssistantFlow = ai.defineFlow(
   async input => {
     const {output} = await prompt(input);
     if (!output) {
-      throw new Error('Failed to generate configuration from prompt.');
+      throw new Error('Не удалось сгенерировать конфигурацию.');
     }
     return output;
   }
