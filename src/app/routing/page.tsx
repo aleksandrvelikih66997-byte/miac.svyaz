@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState } from "react"
@@ -10,9 +9,11 @@ import { Plus, ArrowDownLeft, ArrowUpRight, GripVertical, Settings2, Trash2, Loa
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useFirestore, useCollection } from "@/firebase"
+import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, doc, addDoc, deleteDoc, query, where } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
+import { errorEmitter } from "@/firebase/error-emitter"
+import { FirestorePermissionError } from "@/firebase/errors"
 
 export default function RoutingPage() {
   const [isAddOpen, setIsAddOpen] = useState(false)
@@ -22,34 +23,52 @@ export default function RoutingPage() {
   const db = useFirestore()
   const { toast } = useToast()
   
-  const inboundQuery = query(collection(db, "routes"), where("type", "==", "inbound"))
-  const outboundQuery = query(collection(db, "routes"), where("type", "==", "outbound"))
+  const inboundQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(collection(db, "routes"), where("type", "==", "inbound"));
+  }, [db]);
+
+  const outboundQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(collection(db, "routes"), where("type", "==", "outbound"));
+  }, [db]);
   
   const { data: inboundRoutes, loading: inLoading } = useCollection(inboundQuery)
   const { data: outboundRoutes, loading: outLoading } = useCollection(outboundQuery)
 
-  const handleAdd = async () => {
-    try {
-      await addDoc(collection(db, "routes"), {
-        ...newRoute,
-        type: activeTab,
-        status: "Active"
+  const handleAdd = () => {
+    const routeData = {
+      ...newRoute,
+      type: activeTab,
+      status: "Active"
+    };
+
+    addDoc(collection(db, "routes"), routeData)
+      .then(() => {
+        setIsAddOpen(false)
+        setNewRoute({ pattern: "", destination: "", priority: 1 })
+        toast({ title: "Маршрут создан" })
       })
-      setIsAddOpen(false)
-      setNewRoute({ pattern: "", destination: "", priority: 1 })
-      toast({ title: "Маршрут создан" })
-    } catch (e) {
-      toast({ title: "Ошибка", variant: "destructive" })
-    }
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: `routes`,
+          operation: 'create',
+          requestResourceData: routeData
+        }))
+      });
   }
 
-  const handleDelete = async (id: string) => {
-    try {
-      await deleteDoc(doc(db, "routes", id))
-      toast({ title: "Маршрут удален" })
-    } catch (e) {
-      toast({ title: "Ошибка", variant: "destructive" })
-    }
+  const handleDelete = (id: string) => {
+    deleteDoc(doc(db, "routes", id))
+      .then(() => {
+        toast({ title: "Маршрут удален" })
+      })
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: `routes/${id}`,
+          operation: 'delete'
+        }))
+      });
   }
 
   return (
@@ -78,7 +97,7 @@ export default function RoutingPage() {
             </Button>
           </div>
           
-          {inLoading ? <Loader2 className="mx-auto animate-spin" /> : (
+          {inLoading ? <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div> : (
             inboundRoutes?.map((route) => (
               <Card key={route.id} className="border-none shadow-sm group">
                 <CardContent className="flex items-center p-4 gap-6">
@@ -111,7 +130,7 @@ export default function RoutingPage() {
             </Button>
           </div>
           
-          {outLoading ? <Loader2 className="mx-auto animate-spin" /> : (
+          {outLoading ? <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div> : (
             outboundRoutes?.map((route) => (
               <Card key={route.id} className="border-none shadow-sm group">
                 <CardContent className="flex items-center p-4 gap-6">

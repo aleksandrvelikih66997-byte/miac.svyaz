@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState } from "react"
@@ -40,9 +39,11 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useFirestore, useCollection } from "@/firebase"
+import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, doc, setDoc, deleteDoc, query, orderBy } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
+import { errorEmitter } from "@/firebase/error-emitter"
+import { FirestorePermissionError } from "@/firebase/errors"
 
 export default function ExtensionsPage() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -51,31 +52,47 @@ export default function ExtensionsPage() {
   const db = useFirestore()
   const { toast } = useToast()
 
-  const extensionsQuery = query(collection(db, "extensions"), orderBy("id", "asc"))
+  const extensionsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(collection(db, "extensions"), orderBy("id", "asc"));
+  }, [db]);
+
   const { data: extensions, loading } = useCollection(extensionsQuery)
 
-  const handleAdd = async () => {
+  const handleAdd = () => {
     if (!newExt.id || !newExt.name) return
-    try {
-      await setDoc(doc(db, "extensions", newExt.id), {
-        ...newExt,
-        status: "offline"
+    
+    const extData = {
+      ...newExt,
+      status: "offline"
+    };
+
+    setDoc(doc(db, "extensions", newExt.id), extData)
+      .then(() => {
+        setIsAddOpen(false)
+        setNewExt({ id: "", name: "", tech: "PJSIP", context: "from-internal" })
+        toast({ title: "Успех", description: `Абонент ${newExt.id} добавлен` })
       })
-      setIsAddOpen(false)
-      setNewExt({ id: "", name: "", tech: "PJSIP", context: "from-internal" })
-      toast({ title: "Успех", description: `Абонент ${newExt.id} добавлен` })
-    } catch (e) {
-      toast({ title: "Ошибка", variant: "destructive" })
-    }
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: `extensions/${newExt.id}`,
+          operation: 'create',
+          requestResourceData: extData
+        }))
+      });
   }
 
-  const handleDelete = async (id: string) => {
-    try {
-      await deleteDoc(doc(db, "extensions", id))
-      toast({ title: "Удалено", description: `Абонент ${id} удален` })
-    } catch (e) {
-      toast({ title: "Ошибка", variant: "destructive" })
-    }
+  const handleDelete = (id: string) => {
+    deleteDoc(doc(db, "extensions", id))
+      .then(() => {
+        toast({ title: "Удалено", description: `Абонент ${id} удален` })
+      })
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: `extensions/${id}`,
+          operation: 'delete'
+        }))
+      });
   }
 
   const filtered = extensions?.filter(e => 
@@ -106,7 +123,6 @@ export default function ExtensionsPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <Button variant="outline">Фильтры</Button>
           </div>
         </CardHeader>
         <CardContent>

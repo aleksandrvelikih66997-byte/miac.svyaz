@@ -9,19 +9,24 @@ import {
   ArrowRight,
   Activity
 } from "lucide-react"
-import { useCollection, useFirestore } from "@/firebase"
+import { useCollection, useFirestore, useMemoFirebase } from "@/firebase"
 import { collection, query } from "firebase/firestore"
 import Link from "next/link"
 
 export default function Dashboard() {
   const db = useFirestore()
-  const { data: extensions } = useCollection(collection(db, "extensions"))
-  const { data: trunks } = useCollection(collection(db, "trunks"))
-  const { data: routes } = useCollection(collection(db, "routes"))
+  
+  const extensionsRef = useMemoFirebase(() => collection(db, "extensions"), [db]);
+  const trunksRef = useMemoFirebase(() => collection(db, "trunks"), [db]);
+  const routesRef = useMemoFirebase(() => collection(db, "routes"), [db]);
+
+  const { data: extensions } = useCollection(extensionsRef)
+  const { data: trunks } = useCollection(trunksRef)
+  const { data: routes } = useCollection(routesRef)
 
   const stats = [
     { title: "АБОНЕНТОВ В БАЗЕ", value: extensions?.length || 0, color: "border-t-primary" },
-    { title: "АКТИВНЫХ ТРАНКОВ", value: trunks?.filter(t => t.status === 'Registered').length || 0, color: "border-t-green-500" },
+    { title: "АКТИВНЫХ ТРАНКОВ", value: trunks?.filter(t => (t as any).status === 'Registered').length || 0, color: "border-t-green-500" },
     { title: "ПРАВИЛ МАРШРУТОВ", value: routes?.length || 0, color: "border-t-amber-500" },
     { title: "AMI СТАТУС", value: "ОНЛАЙН", color: "border-t-primary" },
   ]
@@ -82,7 +87,7 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className="py-6">
             <div className="space-y-3">
-              {extensions?.slice(0, 3).map((ext) => (
+              {extensions?.slice(0, 3).map((ext: any) => (
                 <div key={ext.id} className="flex items-center justify-between p-2 rounded bg-muted/30">
                   <div className="flex items-center gap-2">
                     <div className="h-2 w-2 rounded-full bg-emerald-500" />
