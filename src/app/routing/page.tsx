@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -9,74 +9,62 @@ import { Plus, ArrowDownLeft, ArrowUpRight, GripVertical, Settings2, Trash2, Loa
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
-import { collection, doc, addDoc, deleteDoc, query, where } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
-import { errorEmitter } from "@/firebase/error-emitter"
-import { FirestorePermissionError } from "@/firebase/errors"
+import { getRoutes, saveRoute, deleteRoute } from "@/lib/telephony-store"
 
 export default function RoutingPage() {
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [activeTab, setActiveTab] = useState("inbound")
   const [newRoute, setNewRoute] = useState({ pattern: "", destination: "", priority: 1 })
+  const [routes, setRoutes] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   
-  const db = useFirestore()
   const { toast } = useToast()
-  
-  const inboundQuery = useMemoFirebase(() => {
-    if (!db) return null;
-    return query(collection(db, "routes"), where("type", "==", "inbound"));
-  }, [db]);
 
-  const outboundQuery = useMemoFirebase(() => {
-    if (!db) return null;
-    return query(collection(db, "routes"), where("type", "==", "outbound"));
-  }, [db]);
-  
-  const { data: inboundRoutes, loading: inLoading } = useCollection(inboundQuery)
-  const { data: outboundRoutes, loading: outLoading } = useCollection(outboundQuery)
+  const loadRoutes = async () => {
+    setLoading(true)
+    const data = await getRoutes()
+    setRoutes(data)
+    setLoading(false)
+  }
 
-  const handleAdd = () => {
-    const routeData = {
+  useEffect(() => {
+    loadRoutes()
+  }, [])
+
+  const handleAdd = async () => {
+    if (!newRoute.pattern || !newRoute.destination) {
+      toast({ title: "Ошибка", description: "Заполните все поля", variant: "destructive" })
+      return
+    }
+
+    await saveRoute({
       ...newRoute,
       type: activeTab,
       status: "Active"
-    };
-
-    addDoc(collection(db, "routes"), routeData)
-      .then(() => {
-        setIsAddOpen(false)
-        setNewRoute({ pattern: "", destination: "", priority: 1 })
-        toast({ title: "Маршрут создан" })
-      })
-      .catch(async (err) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: `routes`,
-          operation: 'create',
-          requestResourceData: routeData
-        }))
-      });
+    })
+    
+    setIsAddOpen(false)
+    setNewRoute({ pattern: "", destination: "", priority: 1 })
+    toast({ title: "Маршрут создан" })
+    loadRoutes()
   }
 
-  const handleDelete = (id: string) => {
-    deleteDoc(doc(db, "routes", id))
-      .then(() => {
-        toast({ title: "Маршрут удален" })
-      })
-      .catch(async (err) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: `routes/${id}`,
-          operation: 'delete'
-        }))
-      });
+  const handleDelete = async (id: string) => {
+    await deleteRoute(id)
+    toast({ title: "Маршрут удален" })
+    loadRoutes()
   }
+
+  const inboundRoutes = routes.filter(r => r.type === 'inbound')
+  const outboundRoutes = routes.filter(r => r.type === 'outbound')
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-headline font-bold">Маршрутизация</h2>
-          <p className="text-sm text-muted-foreground">Управление логикой обработки входящих и исходящих вызовов</p>
+          <p className="text-sm text-muted-foreground">Управление логикой обработки вызовов (Автономно)</p>
         </div>
       </div>
 
@@ -97,8 +85,8 @@ export default function RoutingPage() {
             </Button>
           </div>
           
-          {inLoading ? <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div> : (
-            inboundRoutes?.map((route) => (
+          {loading ? <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div> : (
+            inboundRoutes.map((route) => (
               <Card key={route.id} className="border-none shadow-sm group">
                 <CardContent className="flex items-center p-4 gap-6">
                   <GripVertical className="h-5 w-5 text-muted-foreground/30 cursor-grab" />
@@ -130,8 +118,8 @@ export default function RoutingPage() {
             </Button>
           </div>
           
-          {outLoading ? <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div> : (
-            outboundRoutes?.map((route) => (
+          {loading ? <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div> : (
+            outboundRoutes.map((route) => (
               <Card key={route.id} className="border-none shadow-sm group">
                 <CardContent className="flex items-center p-4 gap-6">
                   <GripVertical className="h-5 w-5 text-muted-foreground/30 cursor-grab" />

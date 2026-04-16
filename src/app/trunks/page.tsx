@@ -1,7 +1,6 @@
-
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -10,11 +9,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
-import { collection, doc, setDoc, deleteDoc, query } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
-import { errorEmitter } from "@/firebase/error-emitter"
-import { FirestorePermissionError } from "@/firebase/errors"
+import { getTrunks, saveTrunk, deleteTrunk } from "@/lib/telephony-store"
 
 export default function TrunksPage() {
   const [isAddOpen, setIsAddOpen] = useState(false)
@@ -27,53 +23,43 @@ export default function TrunksPage() {
     protocol: "udp", 
     phone: "" 
   })
-  const db = useFirestore()
+  const [trunks, setTrunks] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const { toast } = useToast()
 
-  const trunksQuery = useMemoFirebase(() => {
-    if (!db) return null;
-    return query(collection(db, "trunks"))
-  }, [db])
-  
-  const { data: trunks, loading } = useCollection(trunksQuery)
+  const loadTrunks = async () => {
+    setLoading(true)
+    const data = await getTrunks()
+    setTrunks(data)
+    setLoading(false)
+  }
 
-  const handleAdd = () => {
+  useEffect(() => {
+    loadTrunks()
+  }, [])
+
+  const handleAdd = async () => {
     if (!newTrunk.name || !newTrunk.host || !newTrunk.user || !newTrunk.password) {
       toast({ title: "Ошибка", description: "Заполните обязательные поля (Имя, Хост, Логин, Пароль)", variant: "destructive" })
       return
     }
     
-    const id = newTrunk.name.toLowerCase().replace(/\s+/g, '-')
-    const trunkData = {
+    await saveTrunk({
       ...newTrunk,
-      port: parseInt(newTrunk.port) || 5060,
       status: "Unregistered",
       channels: "0/0"
-    }
-
-    setDoc(doc(db, "trunks", id), trunkData)
-      .catch(async (err) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: `trunks/${id}`,
-          operation: 'create',
-          requestResourceData: trunkData
-        }))
-      })
+    })
     
     setIsAddOpen(false)
     setNewTrunk({ name: "", host: "", port: "5060", user: "", password: "", protocol: "udp", phone: "" })
     toast({ title: "Транк добавлен" })
+    loadTrunks()
   }
 
-  const handleDelete = (id: string) => {
-    deleteDoc(doc(db, "trunks", id))
-      .catch(async (err) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: `trunks/${id}`,
-          operation: 'delete'
-        }))
-      })
+  const handleDelete = async (id: string) => {
+    await deleteTrunk(id)
     toast({ title: "Транк удален" })
+    loadTrunks()
   }
 
   return (
@@ -81,7 +67,7 @@ export default function TrunksPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-headline font-bold text-primary">Внешние линии (Транки)</h2>
-          <p className="text-sm text-muted-foreground">Настройка SIP/PJSIP подключения к провайдерам связи</p>
+          <p className="text-sm text-muted-foreground">Настройка SIP/PJSIP подключения к провайдерам связи (Автономно)</p>
         </div>
         <Button className="gap-2 shadow-lg" onClick={() => setIsAddOpen(true)}>
           <Plus className="h-4 w-4" /> Добавить транк
@@ -92,7 +78,7 @@ export default function TrunksPage() {
         <div className="flex justify-center py-24"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {trunks?.map((trunk: any) => (
+          {trunks.map((trunk: any) => (
             <Card key={trunk.id} className="border-none shadow-xl overflow-hidden group hover:scale-[1.01] transition-transform">
               <CardHeader className="bg-muted/30 pb-4 border-b">
                 <div className="flex items-center justify-between">
@@ -138,7 +124,7 @@ export default function TrunksPage() {
               </CardContent>
             </Card>
           ))}
-          {(!trunks || trunks.length === 0) && !loading && (
+          {trunks.length === 0 && (
             <Card className="col-span-full border-dashed border-2 py-12 flex flex-col items-center justify-center text-muted-foreground">
               <Globe className="h-12 w-12 opacity-10 mb-4" />
               <p>Нет настроенных транков</p>

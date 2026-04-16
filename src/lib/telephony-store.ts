@@ -1,4 +1,3 @@
-
 'use server';
 
 import fs from 'fs';
@@ -20,14 +19,20 @@ const FILES = {
 function readJSON(file: string) {
   if (!fs.existsSync(file)) return [];
   try {
-    return JSON.parse(fs.readFileSync(file, 'utf8'));
+    const content = fs.readFileSync(file, 'utf8');
+    return content ? JSON.parse(content) : [];
   } catch (e) {
+    console.error(`Error reading ${file}:`, e);
     return [];
   }
 }
 
 function writeJSON(file: string, data: any) {
-  fs.writeFileSync(file, JSON.stringify(data, null, 2));
+  try {
+    fs.writeFileSync(file, JSON.stringify(data, null, 2));
+  } catch (e) {
+    console.error(`Error writing ${file}:`, e);
+  }
 }
 
 export async function getExtensions() {
@@ -37,8 +42,15 @@ export async function getExtensions() {
 export async function saveExtension(ext: any) {
   const data = readJSON(FILES.extensions);
   const index = data.findIndex((e: any) => e.id === ext.id);
-  if (index > -1) data[index] = ext;
-  else data.push(ext);
+  if (index > -1) {
+    data[index] = { ...data[index], ...ext, lastUpdateDate: new Date().toISOString() };
+  } else {
+    data.push({ 
+      ...ext, 
+      creationDate: new Date().toISOString(),
+      lastUpdateDate: new Date().toISOString() 
+    });
+  }
   writeJSON(FILES.extensions, data);
   return { success: true };
 }
@@ -56,10 +68,19 @@ export async function getTrunks() {
 export async function saveTrunk(trunk: any) {
   const data = readJSON(FILES.trunks);
   const id = trunk.id || trunk.name.toLowerCase().replace(/\s+/g, '-');
-  const trunkWithId = { ...trunk, id };
+  const trunkWithId = { 
+    ...trunk, 
+    id,
+    lastUpdateDate: new Date().toISOString()
+  };
+  
   const index = data.findIndex((t: any) => t.id === id);
-  if (index > -1) data[index] = trunkWithId;
-  else data.push(trunkWithId);
+  if (index > -1) {
+    data[index] = trunkWithId;
+  } else {
+    trunkWithId.creationDate = new Date().toISOString();
+    data.push(trunkWithId);
+  }
   writeJSON(FILES.trunks, data);
   return { success: true };
 }
@@ -77,10 +98,19 @@ export async function getRoutes() {
 export async function saveRoute(route: any) {
   const data = readJSON(FILES.routes);
   const id = route.id || Math.random().toString(36).substr(2, 9);
-  const routeWithId = { ...route, id };
+  const routeWithId = { 
+    ...route, 
+    id,
+    lastUpdateDate: new Date().toISOString()
+  };
+  
   const index = data.findIndex((r: any) => r.id === id);
-  if (index > -1) data[index] = routeWithId;
-  else data.push(routeWithId);
+  if (index > -1) {
+    data[index] = routeWithId;
+  } else {
+    routeWithId.creationDate = new Date().toISOString();
+    data.push(routeWithId);
+  }
   writeJSON(FILES.routes, data);
   return { success: true };
 }
