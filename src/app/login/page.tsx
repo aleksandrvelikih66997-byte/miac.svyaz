@@ -54,7 +54,7 @@ export default function LoginPage() {
           <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/20">
             <PhoneCall className="h-6 w-6" />
           </div>
-          <h1 className="text-2xl font-headline font-bold text-primary">АльтернаТИВ АТС</h1>
+          <h1 className="text-2xl font-headline font-bold text-primary">МИАЦ.СВЯЗЬ</h1>
           <p className="text-sm text-muted-foreground">Система управления Asterisk (Локальный контур)</p>
         </div>
 
@@ -103,7 +103,7 @@ export default function LoginPage() {
               </Button>
               <div className="flex items-center gap-2 p-3 bg-muted/50 rounded-lg text-[10px] text-muted-foreground">
                 <AlertCircle className="h-3 w-3 shrink-0" />
-                <span>Авторизация выполняется локально на сервере МИАЦ.</span>
+                <span>Авторизация выполняется локально на сервере.</span>
               </div>
             </CardFooter>
           </form>

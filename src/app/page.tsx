@@ -95,7 +95,7 @@ export default function Dashboard() {
               </div>
               <div className="flex justify-between items-center text-sm p-4 bg-muted/20 rounded-xl">
                 <span className="text-muted-foreground font-medium">Синхронизация:</span>
-                <span className="font-mono font-bold text-emerald-600">{"WEB -> PJSIP (AUTO)"}</span>
+                <span className="font-mono font-bold text-emerald-600">{"WEB "}{'->'}{" PJSIP (AUTO)"}</span>
               </div>
             </div>
           </CardContent>
