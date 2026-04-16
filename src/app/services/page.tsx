@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState } from "react"
@@ -15,7 +14,9 @@ import {
   Server,
   ShieldCheck,
   ClipboardCheck,
-  AlertTriangle
+  AlertTriangle,
+  Info,
+  HelpCircle
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -25,14 +26,19 @@ import { useCollection, useFirestore, useMemoFirebase } from "@/firebase"
 import { collection, query } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 export default function ServicesPage() {
-  const [status, setStatus] = useState<'running' | 'stopped' | 'restarting'>('running')
+  const [status, setStatus] = useState<'running' | 'stopped' | 'restarting'>('stopped')
   const [logs, setLogs] = useState([
-    "[SYSTEM] AMI miac connected from 127.0.0.1",
-    "[PJSIP] Loading transport-udp...",
-    "[CONFIG] Reading extensions.conf [from-internal]",
-    "[SECURITY] FSTEC Compliance check passed: Local storage active"
+    "[ERROR] Unable to connect to remote asterisk (does /var/run/asterisk/asterisk.ctl exist?)",
+    "[SYSTEM] Проверка статуса службы...",
+    "[CONFIG] Ожидание синхронизации файлов..."
   ])
   const db = useFirestore()
   
@@ -52,11 +58,17 @@ export default function ServicesPage() {
 
   const handleAction = (newStatus: 'running' | 'stopped' | 'restarting') => {
     setStatus(newStatus)
+    const time = new Date().toLocaleTimeString()
+    
     if (newStatus === 'restarting') {
-      setTimeout(() => setStatus('running'), 2000)
+      setLogs(prev => [`[${time}] SYSTEM: Перезагрузка службы Asterisk...`, ...prev])
+      setTimeout(() => {
+        setStatus('running')
+        setLogs(prev => [`[${time}] SYSTEM: Служба Asterisk успешно запущена.`, ...prev])
+      }, 2000)
+    } else {
+      setLogs(prev => [`[${time}] SYSTEM: Статус изменен на ${newStatus.toUpperCase()}`, ...prev])
     }
-    const actionLog = `[${new Date().toLocaleTimeString()}] SYSTEM: Asterisk service changed state to ${newStatus.toUpperCase()}`
-    setLogs(prev => [actionLog, ...prev])
   }
 
   const generatePJSIPFile = () => {
@@ -103,7 +115,7 @@ max_contacts=1
     content += `; --- Автоматически сгенерированные маршруты ---\n\n`
     
     inbound.forEach(r => {
-      content += `exten => ${r.pattern},1,Dial(${r.destination})\n`
+      content += `exten => ${r.pattern},1,Dial(PJSIP/${r.destination})\n`
     })
 
     content += `\n[outbound-routes]\n`
@@ -134,7 +146,7 @@ max_contacts=1
         </div>
         <div className="flex items-center gap-2">
           <Badge variant={status === 'running' ? 'default' : 'destructive'} className={status === 'running' ? 'bg-emerald-500 font-bold px-4 py-1' : ''}>
-            {status === 'running' ? 'Active (Running)' : status === 'restarting' ? 'Reloading...' : 'Stopped'}
+            {status === 'running' ? 'Active (Running)' : status === 'restarting' ? 'Reloading...' : 'Stopped / Error'}
           </Badge>
         </div>
       </div>
@@ -153,6 +165,20 @@ max_contacts=1
               </ol>
             </AlertDescription>
           </Alert>
+
+          {status !== 'running' && (
+            <Alert variant="destructive" className="bg-rose-50 border-rose-200">
+              <ShieldAlert className="h-5 w-5 text-rose-600" />
+              <AlertTitle className="font-bold">Ошибка asterisk.ctl</AlertTitle>
+              <AlertDescription className="text-xs space-y-2">
+                <p>Если вы видите ошибку "Unable to connect to remote asterisk", выполните в терминале:</p>
+                <code className="block bg-slate-900 text-slate-100 p-2 rounded mt-2 font-mono">
+                  systemctl start asterisk <br />
+                  chown -R asterisk:asterisk /var/run/asterisk
+                </code>
+              </AlertDescription>
+            </Alert>
+          )}
 
           <Card className="border-none shadow-xl flex flex-col h-[500px] overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between shrink-0 bg-slate-900 text-white py-4">
@@ -194,18 +220,41 @@ max_contacts=1
             </CardHeader>
             <CardContent className="space-y-4">
                <div className="grid grid-cols-3 gap-2">
-                <Button size="icon" variant="outline" className={`w-full ${status === 'running' ? 'border-emerald-500 text-emerald-600 bg-emerald-50' : ''}`} onClick={() => handleAction('running')} disabled={status === 'running'}>
-                  <Play className="h-4 w-4" />
-                </Button>
-                <Button size="icon" variant="outline" className="w-full" onClick={() => handleAction('restarting')}>
-                  <RotateCcw className="h-4 w-4" />
-                </Button>
-                <Button size="icon" variant="destructive" className="w-full" onClick={() => handleAction('stopped')} disabled={status === 'stopped'}>
-                  <Square className="h-4 w-4" />
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button size="icon" variant="outline" className={`w-full ${status === 'running' ? 'border-emerald-500 text-emerald-600 bg-emerald-50' : ''}`} onClick={() => handleAction('running')} disabled={status === 'running'}>
+                        <Play className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Запустить (systemctl start)</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button size="icon" variant="outline" className="w-full" onClick={() => handleAction('restarting')}>
+                        <RotateCcw className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Перезагрузить (core reload)</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button size="icon" variant="destructive" className="w-full" onClick={() => handleAction('stopped')} disabled={status === 'stopped'}>
+                        <Square className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Остановить (systemctl stop)</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
-              <Button variant="ghost" className="w-full justify-start gap-3 text-xs text-muted-foreground hover:text-primary">
-                <RefreshCw className="h-3 w-3" /> Core Reload (через AMI)
+              <Button variant="ghost" className="w-full justify-start gap-3 text-xs text-muted-foreground hover:text-primary" onClick={() => handleAction('restarting')}>
+                <RefreshCw className="h-3 w-3" /> Перезапустить модули AMI
               </Button>
             </CardContent>
           </Card>
@@ -223,18 +272,26 @@ max_contacts=1
               <Button className="w-full justify-start gap-3 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-none shadow-none" onClick={generateExtensionsFile}>
                 <ClipboardCheck className="h-4 w-4" /> Dialplan Маршруты
               </Button>
-              <Button variant="outline" className="w-full justify-start gap-3 text-xs">
-                <Download className="h-3 w-3" /> Бэкап БД (JSON)
-              </Button>
+              <div className="pt-2">
+                <Button variant="outline" className="w-full justify-start gap-3 text-xs">
+                  <Download className="h-3 w-3" /> Бэкап всей базы (JSON)
+                </Button>
+              </div>
             </CardContent>
           </Card>
 
-          <Alert className="bg-emerald-50 border-emerald-100">
-            <ShieldCheck className="h-4 w-4 text-emerald-600" />
-            <AlertDescription className="text-[10px] text-emerald-700">
-              Ваши данные защищены локальным контуром безопасности. Облако используется только для управления метаданными.
-            </AlertDescription>
-          </Alert>
+          <Card className="border-none shadow-lg h-fit bg-slate-50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-2">
+                <HelpCircle className="h-3 w-3" /> Помощь по серверу
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-[11px] text-slate-600 leading-relaxed">
+              Если команды <code>asterisk -rx</code> не работают, проверьте права на <code>/var/run/asterisk/asterisk.ctl</code>.
+              Обычно помогает: <br />
+              <code>chmod 777 /var/run/asterisk/asterisk.ctl</code>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

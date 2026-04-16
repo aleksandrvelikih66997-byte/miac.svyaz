@@ -32,7 +32,7 @@ cd miac.svyaz
 npm install
 ```
 
-### 3. Сборка и запуск
+### 3. Сборка и запуск интерфейса
 ```bash
 # Сборка оптимизированного приложения
 npm run build
@@ -41,6 +41,27 @@ npm run build
 npm install -g pm2
 pm2 start npm --name "miac-svyaz" -- start
 pm2 save
+```
+
+## ⚙️ Управление службой Asterisk
+
+Если при выполнении команд вы видите ошибку `Unable to connect to remote asterisk (does /var/run/asterisk/asterisk.ctl exist?)`, выполните следующие действия:
+
+### 1. Запуск службы
+```bash
+systemctl enable asterisk
+systemctl start asterisk
+```
+
+### 2. Проверка статуса
+```bash
+systemctl status asterisk
+```
+
+### 3. Исправление прав доступа (если служба запущена, но нет доступа)
+```bash
+chown -R asterisk:asterisk /var/run/asterisk
+chmod 770 /var/run/asterisk/asterisk.ctl
 ```
 
 ## 🌐 Настройка Apache (httpd2) как Reverse Proxy
