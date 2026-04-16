@@ -17,9 +17,20 @@ import { Badge } from "@/components/ui/badge"
 export default function Dashboard() {
   const db = useFirestore()
   
-  const extensionsRef = useMemoFirebase(() => collection(db, "extensions"), [db]);
-  const trunksRef = useMemoFirebase(() => collection(db, "trunks"), [db]);
-  const routesRef = useMemoFirebase(() => collection(db, "routes"), [db]);
+  const extensionsRef = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, "extensions");
+  }, [db]);
+  
+  const trunksRef = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, "trunks");
+  }, [db]);
+  
+  const routesRef = useMemoFirebase(() => {
+    if (!db) return null;
+    return collection(db, "routes");
+  }, [db]);
 
   const { data: extensions } = useCollection(extensionsRef)
   const { data: trunks } = useCollection(trunksRef)

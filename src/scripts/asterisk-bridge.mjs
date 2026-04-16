@@ -1,63 +1,76 @@
 
+/**
+ * @fileOverview Мост между Firestore и Asterisk (PJSIP + AMI).
+ * Автоматически обновляет конфиги и транслирует статусы.
+ */
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 import { firebaseConfig } from '../firebase/config.mjs';
-import AsteriskManager from 'asterisk-manager';
+import asteriskManager from 'asterisk-manager';
 import fs from 'fs';
 import { exec } from 'child_process';
 
-// Инициализация Firebase
+// Путь к конфигурационному файлу абонентов
+const PJSIP_CONFIG_PATH = '/etc/asterisk/pjsip_miac_users.conf';
+
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// Настройки Asterisk
-const AMI_USER = 'miac';
-const AMI_SECRET = 'MiacAMI2026';
-const CONFIG_PATH = '/etc/asterisk/pjsip_miac_users.conf';
+console.log('--- МИАЦ.СВЯЗЬ: BRIDGE СТАРТ ---');
 
-const ami = new AsteriskManager(5038, 'localhost', AMI_USER, AMI_SECRET, true);
+// 1. Инициализация AMI
+const ami = new asteriskManager(5038, 'localhost', 'miac', 'MiacAMI2026', true);
 
-console.log('--- МИАЦ.СВЯЗЬ: Запуск моста синхронизации ---');
-
-// 1. Синхронизация: WEB -> Asterisk (Генерация конфига)
-onSnapshot(collection(db, 'extensions'), (snapshot) => {
-  let configContent = '; Генерируемый файл МИАЦ.СВЯЗЬ. Не редактировать вручную.\n\n';
-  
-  snapshot.forEach((doc) => {
-    const ext = doc.data();
-    configContent += `[${ext.id}]\ntype=endpoint\ncontext=${ext.context || 'from-internal'}\ndisallow=all\nallow=ulaw,alaw\nauth=auth${ext.id}\naors=${ext.id}\ntransport=transport-udp\n\n`;
-    configContent += `[auth${ext.id}]\ntype=auth\nauth_type=userpass\nusername=${ext.id}\npassword=${ext.secret}\n\n`;
-    configContent += `[${ext.id}]\ntype=aor\nmax_contacts=1\n\n`;
-  });
-
-  try {
-    fs.writeFileSync(CONFIG_PATH, configContent);
-    console.log(`[SYNC] Конфигурация обновлена: ${snapshot.size} абонентов.`);
-    exec('asterisk -rx "core reload"', (err) => {
-      if (err) console.error('[ERROR] Ошибка перезагрузки Asterisk:', err);
-      else console.log('[SYNC] Asterisk перезагружен.');
-    });
-  } catch (err) {
-    console.error('[ERROR] Ошибка записи файла:', err.message);
+ami.on('managerevent', (evt) => {
+  if (evt.event === 'PeerStatus') {
+    const peer = evt.peer.replace('PJSIP/', '');
+    const status = evt.peerstatus.toLowerCase() === 'registered' ? 'online' : 'offline';
+    console.log(`[AMI] Статус абонента ${peer}: ${status}`);
+    
+    // Обновляем статус в Firestore
+    const extRef = doc(db, 'extensions', peer);
+    updateDoc(extRef, { status }).catch(() => {});
   }
 });
 
-// 2. Статусы: Asterisk -> WEB (AMI мониторинг)
-ami.on('peerstatus', (evt) => {
-  // Событие приходит в формате PJSIP/101
-  const extId = evt.peer.split('/')[1];
-  if (!extId) return;
-
-  const status = evt.peerstatus.toLowerCase() === 'registered' ? 'online' : 'offline';
+// 2. Синхронизация Конфигов (Firestore -> Asterisk)
+onSnapshot(collection(db, 'extensions'), (snapshot) => {
+  let configContent = '; --- Генерируется автоматически МИАЦ.СВЯЗЬ ---\n\n';
   
-  updateDoc(doc(db, 'extensions', extId), { status })
-    .then(() => console.log(`[STATUS] Абонент ${extId} теперь ${status}`))
-    .catch(() => {}); // Игнорируем если абонента нет в базе
-});
+  snapshot.forEach((doc) => {
+    const ext = doc.data();
+    if (ext.tech === 'PJSIP') {
+      configContent += `[${ext.id}]\n`;
+      configContent += `type=endpoint\n`;
+      configContent += `context=${ext.context || 'from-internal'}\n`;
+      configContent += `disallow=all\n`;
+      configContent += `allow=ulaw,alaw\n`;
+      configContent += `auth=auth${ext.id}\n`;
+      configContent += `aors=${ext.id}\n`;
+      configContent += `transport=transport-udp\n\n`;
 
-ami.on('managerevent', (evt) => {
-  // Логирование важных событий в консоль для отладки
-  if (evt.event === 'FullyBooted') console.log('[AMI] Подключение установлено.');
-});
+      configContent += `[auth${ext.id}]\n`;
+      configContent += `type=auth\n`;
+      configContent += `auth_type=userpass\n`;
+      configContent += `password=${ext.secret}\n`;
+      configContent += `username=${ext.id}\n\n`;
 
-ami.keepConnected();
+      configContent += `[${ext.id}]\n`;
+      configContent += `type=aor\n`;
+      configContent += `max_contacts=1\n\n`;
+    }
+  });
+
+  try {
+    fs.writeFileSync(PJSIP_CONFIG_PATH, configContent);
+    console.log(`[FS] Конфигурация обновлена: ${PJSIP_CONFIG_PATH}`);
+    
+    // Применяем настройки в Asterisk
+    exec('asterisk -rx "pjsip reload"', (err) => {
+      if (!err) console.log('[ASTERISK] PJSIP Reload OK');
+    });
+  } catch (e) {
+    console.error(`[ERROR] Не удалось записать файл: ${e.message}`);
+    console.log('СОВЕТ: Проверьте права доступа: chown -R asterisk:asterisk /etc/asterisk');
+  }
+});

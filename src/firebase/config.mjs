@@ -1,4 +1,5 @@
 
+// Конфигурация Firebase специально для Node.js скриптов (.mjs обеспечивает поддержку ESM)
 export const firebaseConfig = {
   apiKey: "api-key",
   authDomain: "project-id.firebaseapp.com",
