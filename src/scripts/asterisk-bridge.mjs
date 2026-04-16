@@ -1,105 +1,92 @@
 
 import fs from 'fs';
 import path from 'path';
-import ami from 'asterisk-manager';
-import { fileURLToPath } from 'url';
+import { exec } from 'child_process';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const ROOT_DIR = path.join(__dirname, '../..');
-const DATA_DIR = path.join(ROOT_DIR, 'src/data');
-const PJSIP_FILE = '/etc/asterisk/pjsip_miac_users.conf';
+/**
+ * @fileOverview Скрипт синхронизации (Мост).
+ * Следит за локальной базой данных и обновляет конфиги Asterisk.
+ * Совместим с Asterisk 17/20 (PJSIP).
+ */
 
-// Настройки AMI (согласно вашему manager.conf)
-const amiClient = ami(5038, '127.0.0.1', 'miac', 'MiacAMI2026', true);
-
-function readJSON(filename) {
-  const filePath = path.join(DATA_DIR, filename);
-  if (!fs.existsSync(filePath)) return [];
-  try {
-    const data = fs.readFileSync(filePath, 'utf8');
-    return data ? JSON.parse(data) : [];
-  } catch (e) {
-    console.error(`❌ [BRIDGE] Ошибка чтения ${filename}:`, e.message);
-    return [];
-  }
-}
-
-function syncFiles() {
-  console.log('🔄 [BRIDGE] Начало синхронизации...');
-  
-  const extensions = readJSON('extensions.json');
-  let configContent = '; --- Сгенерировано МИАЦ.СВЯЗЬ ---\n\n';
-
-  if (extensions.length === 0) {
-    console.log('⚠️ [BRIDGE] Абоненты не найдены в базе данных.');
-  }
-
-  extensions.forEach(ext => {
-    console.log(`📡 [BRIDGE] Обработка абонента: ${ext.id} (${ext.name})`);
-    
-    // Генерируем полный PJSIP блок (Endpoint + Auth + AOR)
-    configContent += `
-[${ext.id}]
-type=endpoint
-context=${ext.context || 'from-internal'}
-disallow=all
-allow=ulaw,alaw,g722
-auth=${ext.id}
-aors=${ext.id}
-callerid=${ext.name} <${ext.id}>
-direct_media=no
-
-[${ext.id}]
-type=auth
-auth_type=userpass
-username=${ext.id}
-password=${ext.secret}
-
-[${ext.id}]
-type=aor
-max_contacts=1
-remove_existing=yes
-\n`;
-  });
-
-  try {
-    fs.writeFileSync(PJSIP_FILE, configContent);
-    console.log(`✅ [BRIDGE] Файл ${PJSIP_FILE} успешно обновлен. Абонентов: ${extensions.length}`);
-    
-    // Даем команду Asterisk на перезагрузку PJSIP
-    amiClient.action({
-      action: 'Command',
-      command: 'pjsip reload'
-    }, (err, res) => {
-      if (err) console.error('❌ [BRIDGE] AMI Error:', err);
-      else console.log('🚀 [BRIDGE] Asterisk PJSIP Reload: OK');
-    });
-
-  } catch (e) {
-    console.error(`❌ [BRIDGE] Ошибка записи в ${PJSIP_FILE}:`, e.message);
-    console.log('👉 Убедитесь, что вы выполнили: chmod 666 ' + PJSIP_FILE);
-  }
-}
+const EXTENSIONS_FILE = path.join(process.cwd(), 'src/data/extensions.json');
+const TARGET_CONF = '/etc/asterisk/pjsip_miac_users.conf';
 
 console.log('🚀 [BRIDGE] Мост МИАЦ.СВЯЗЬ запущен...');
-console.log(`📂 [BRIDGE] Директория данных: ${DATA_DIR}`);
+console.log(`📂 [BRIDGE] Отслеживание базы: ${EXTENSIONS_FILE}`);
+console.log(`📂 [BRIDGE] Целевой файл: ${TARGET_CONF}`);
 
-// Следим за изменениями в папке данных
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
+// Функция генерации конфига PJSIP
+function generatePjsipConfig(extensions) {
+  let config = '; АВТОГЕНЕРАЦИЯ МИАЦ.СВЯЗЬ\n';
+  config += `; Обновлено: ${new Date().toLocaleString()}\n\n`;
+
+  extensions.forEach(ext => {
+    const id = ext.id;
+    const secret = ext.secret || 'password';
+    const context = ext.context || 'from-internal';
+
+    // 1. Endpoint
+    config += `[${id}]\n`;
+    config += `type=endpoint\n`;
+    config += `context=${context}\n`;
+    config += `disallow=all\n`;
+    config += `allow=ulaw,alaw,g722\n`;
+    config += `auth=${id}\n`;
+    config += `aors=${id}\n`;
+    config += `callerid=${ext.name} <${id}>\n`;
+    config += `dtmf_mode=rfc4733\n`;
+    config += `direct_media=no\n\n`;
+
+    // 2. Auth
+    config += `[${id}]\n`;
+    config += `type=auth\n`;
+    config += `auth_type=userpass\n`;
+    config += `password=${secret}\n`;
+    config += `username=${id}\n\n`;
+
+    // 3. AOR
+    config += `[${id}]\n`;
+    config += `type=aor\n`;
+    config += `max_contacts=1\n`;
+    config += `remove_existing=yes\n\n`;
+  });
+
+  return config;
 }
 
-fs.watch(DATA_DIR, (eventType, filename) => {
-  if (filename && filename.endsWith('.json')) {
-    console.log(`📝 [BRIDGE] Изменение в файле: ${filename}`);
-    syncFiles();
+// Функция синхронизации
+function sync() {
+  if (!fs.existsSync(EXTENSIONS_FILE)) return;
+
+  try {
+    const data = JSON.parse(fs.readFileSync(EXTENSIONS_FILE, 'utf8'));
+    const config = generatePjsipConfig(data);
+
+    fs.writeFileSync(TARGET_CONF, config);
+    console.log(`✅ [BRIDGE] Файл ${TARGET_CONF} обновлен. Абонентов: ${data.length}`);
+
+    // Перезагрузка PJSIP в Asterisk
+    exec('asterisk -rx "pjsip reload"', (error, stdout, stderr) => {
+      if (error) {
+        console.error(`❌ [BRIDGE] Ошибка перезагрузки Asterisk: ${error.message}`);
+        return;
+      }
+      console.log(`🔄 [BRIDGE] Asterisk PJSIP Reload: OK`);
+    });
+  } catch (err) {
+    console.error(`❌ [BRIDGE] Ошибка при обработке данных: ${err.message}`);
   }
-});
+}
 
-// Первичная синхронизация при запуске
-syncFiles();
+// Первоначальный запуск
+sync();
 
-// Обработка ошибок AMI
-amiClient.on('error', (err) => {
-  console.error('❌ [BRIDGE] AMI Connection Error:', err.message);
+// Следим за изменениями в JSON файле
+fs.watch(EXTENSIONS_FILE, (eventType) => {
+  if (eventType === 'change') {
+    console.log('📝 [BRIDGE] Обнаружены изменения в базе абонентов...');
+    // Небольшая задержка, чтобы файл успел полностью записаться
+    setTimeout(sync, 100);
+  }
 });

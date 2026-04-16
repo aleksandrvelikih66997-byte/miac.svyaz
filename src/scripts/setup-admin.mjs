@@ -4,37 +4,31 @@ import path from 'path';
 import crypto from 'crypto';
 
 /**
- * @fileOverview Скрипт создания локального администратора панели управления.
- * Используется для первичной настройки системы.
+ * @fileOverview Скрипт создания администраторов.
+ * Использование: node src/scripts/setup-admin.mjs admin@miac.ru myPassword123
  */
 
-const ADMINS_FILE = 'src/data/admins.json';
+const DATA_DIR = path.join(process.cwd(), 'src/data');
+const ADMINS_FILE = path.join(DATA_DIR, 'admins.json');
+
+const [,, email, password] = process.argv;
+
+if (!email || !password) {
+  console.log('Использование: node setup-admin.mjs <email> <password>');
+  process.exit(1);
+}
+
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
 
 function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
 
-const args = process.argv.slice(2);
-if (args.length < 2) {
-  console.log('\x1b[33m%s\x1b[0m', 'Использование: node src/scripts/setup-admin.mjs <email> <password>');
-  process.exit(1);
-}
-
-const [email, password] = args;
-
-// Гарантируем наличие папки
-const dir = path.dirname(ADMINS_FILE);
-if (!fs.existsSync(dir)) {
-  fs.mkdirSync(dir, { recursive: true });
-}
-
 let admins = [];
 if (fs.existsSync(ADMINS_FILE)) {
-  try {
-    admins = JSON.parse(fs.readFileSync(ADMINS_FILE, 'utf8'));
-  } catch (e) {
-    admins = [];
-  }
+  admins = JSON.parse(fs.readFileSync(ADMINS_FILE, 'utf8'));
 }
 
 const existingIndex = admins.findIndex(a => a.email === email);
@@ -45,12 +39,13 @@ const adminData = {
   createdAt: new Date().toISOString()
 };
 
-if (existingIndex >= 0) {
+if (existingIndex > -1) {
   admins[existingIndex] = adminData;
-  console.log(`\x1b[32m[OK] Администратор ${email} обновлен.\x1b[0m`);
+  console.log(`👤 Администратор ${email} обновлен.`);
 } else {
   admins.push(adminData);
-  console.log(`\x1b[32m[OK] Администратор ${email} успешно создан.\x1b[0m`);
+  console.log(`👤 Администратор ${email} успешно создан.`);
 }
 
 fs.writeFileSync(ADMINS_FILE, JSON.stringify(admins, null, 2));
+console.log('✅ Данные сохранены в src/data/admins.json');
