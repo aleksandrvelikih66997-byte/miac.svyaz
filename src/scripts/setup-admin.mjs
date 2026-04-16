@@ -2,7 +2,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 
-// Конфигурация должна совпадать с src/firebase/config.ts
+// Конфигурация из вашего проекта
 const firebaseConfig = {
   apiKey: "api-key",
   authDomain: "project-id.firebaseapp.com",
@@ -15,22 +15,19 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
-const email = process.argv[2];
-const password = process.argv[3];
+const [,, email, password] = process.argv;
 
 if (!email || !password) {
   console.log('Использование: node src/scripts/setup-admin.mjs <email> <password>');
   process.exit(1);
 }
 
-console.log(`Создание администратора: ${email}...`);
-
 createUserWithEmailAndPassword(auth, email, password)
   .then((userCredential) => {
-    console.log('Успех! Пользователь создан. Теперь вы можете войти через веб-интерфейс.');
+    console.log('Администратор успешно создан:', userCredential.user.email);
     process.exit(0);
   })
   .catch((error) => {
-    console.error('Ошибка создания пользователя:', error.message);
+    console.error('Ошибка создания администратора:', error.message);
     process.exit(1);
   });

@@ -1,11 +1,10 @@
 
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
-import { exec } from 'child_process';
+import amigen from 'asterisk-manager';
 import fs from 'fs';
-import AmiClient from 'asterisk-manager';
+import { exec } from 'child_process';
 
-// Конфигурация Firebase
 const firebaseConfig = {
   apiKey: "api-key",
   authDomain: "project-id.firebaseapp.com",
@@ -18,49 +17,44 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// Настройки Asterisk
-const CONF_PATH = '/etc/asterisk/pjsip_miac_users.conf';
-const AMI_PORT = 5038;
-const AMI_USER = 'miac';
-const AMI_PASS = 'MiacAMI2026';
+// Настройки AMI (из вашего контекста)
+const ami = new amigen(5038, 'localhost', 'miac', 'MiacAMI2026', true);
 
-// 1. Подключение к AMI для получения статусов
-const ami = new AmiClient(AMI_PORT, 'localhost', AMI_USER, AMI_PASS, true);
+ami.keepconnected();
 
-ami.on('peerstatus', (evt) => {
-  const extId = evt.peer.split('/')[1];
-  const status = evt.peerstatus.toLowerCase() === 'registered' ? 'online' : 'offline';
-  
-  console.log(`[AMI] Статус абонента ${extId} изменился на: ${status}`);
-  
-  // Обновляем статус в Firestore
-  const extRef = doc(db, 'extensions', extId);
-  updateDoc(extRef, { status }).catch(err => console.error('Ошибка обновления статуса:', err.message));
-});
+console.log('--- МИАЦ.СВЯЗЬ: МОСТ ЗАПУЩЕН ---');
 
-ami.keepConnected();
-
-// 2. Слушаем изменения в Firestore для записи конфигов
-console.log('[BRIDGE] Запуск синхронизации...');
-
+// 1. СЛУШАЕМ ИЗМЕНЕНИЯ В FIRESTORE И ОБНОВЛЯЕМ КОНФИГИ
 onSnapshot(collection(db, 'extensions'), (snapshot) => {
-  let configContent = '; Генерируемый файл МИАЦ.СВЯЗЬ\n; НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ\n\n';
+  let config = '; АВТОГЕНЕРАЦИЯ МИАЦ.СВЯЗЬ\n\n';
   
   snapshot.forEach((doc) => {
-    const data = doc.data();
-    if (data.tech === 'PJSIP') {
-      configContent += `[${data.id}]\ntype=endpoint\ncontext=${data.context || 'from-internal'}\ndisallow=all\nallow=alaw,ulaw\nauth=${data.id}\naors=${data.id}\ntransport=transport-udp\n\n`;
-      configContent += `[${data.id}]\ntype=auth\nauth_type=userpass\nusername=${data.id}\npassword=${data.secret}\n\n`;
-      configContent += `[${data.id}]\ntype=aor\nmax_contacts=1\n\n`;
-    }
+    const ext = doc.data();
+    config += `[${ext.id}]\ntype=endpoint\ncontext=${ext.context || 'from-internal'}\ndirect_media=no\nauth=${ext.id}\noutbound_auth=${ext.id}\naors=${ext.id}\ntransport=transport-udp\n\n`;
+    config += `[${ext.id}]\ntype=auth\nauth_type=userpass\npassword=${ext.secret}\nusername=${ext.id}\n\n`;
+    config += `[${ext.id}]\ntype=aor\nmax_contacts=1\n\n`;
   });
 
-  fs.writeFileSync(CONF_PATH, configContent);
-  console.log(`[BRIDGE] Файл ${CONF_PATH} обновлен.`);
+  fs.writeFileSync('/etc/asterisk/pjsip_miac_users.conf', config);
+  console.log('[BRIDGE] Файл pjsip_miac_users.conf обновлен');
   
-  // Перезагрузка Asterisk
-  exec('asterisk -rx "pjsip reload"', (error) => {
-    if (error) console.error('[BRIDGE] Ошибка перезагрузки Asterisk:', error.message);
-    else console.log('[BRIDGE] Asterisk: Конфигурация PJSIP перезагружена.');
+  exec('asterisk -rx "core reload"', (err) => {
+    if (!err) console.log('[BRIDGE] Конфигурация Asterisk перезагружена');
   });
+});
+
+// 2. СЛУШАЕМ СОБЫТИЯ ASTERISK И ОБНОВЛЯЕМ СТАТУСЫ В FIRESTORE
+ami.on('peerstatus', (evt) => {
+  const endpoint = evt.peer.replace('PJSIP/', '');
+  const status = evt.peerstatus.toLowerCase() === 'registered' ? 'online' : 'offline';
+  
+  console.log(`[AMI] Абонент ${endpoint} теперь ${status}`);
+  
+  updateDoc(doc(db, 'extensions', endpoint), { status })
+    .catch(e => console.error('[BRIDGE] Ошибка обновления статуса:', e.message));
+});
+
+ami.on('managerevent', (evt) => {
+  // Логирование событий для отладки
+  if (evt.event === 'FullyBooted') console.log('[AMI] Соединение установлено');
 });
