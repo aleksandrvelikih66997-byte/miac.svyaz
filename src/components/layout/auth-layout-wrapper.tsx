@@ -2,30 +2,39 @@
 "use client"
 
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Button } from "@/components/ui/button";
-import { RefreshCcw, LogOut, Loader2 } from "lucide-react";
-import { useAuth, useUser } from "@/firebase";
-import { signOut } from "firebase/auth";
+import { LogOut, Loader2 } from "lucide-react";
+import { logoutLocal, getLocalSession } from '@/lib/auth-local';
 
 export function AuthLayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const isLoginPage = pathname === '/login';
-  const auth = useAuth();
-  const { user, loading } = useUser();
+  
+  const [session, setSession] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!loading && !user && !isLoginPage) {
-      router.push('/login');
+    async function checkAuth() {
+      const currentSession = await getLocalSession();
+      setSession(currentSession);
+      setLoading(false);
+      
+      if (!currentSession && !isLoginPage) {
+        router.push('/login');
+      }
     }
-  }, [user, loading, isLoginPage, router]);
+    checkAuth();
+  }, [isLoginPage, router]);
 
   const handleLogout = async () => {
-    await signOut(auth);
+    await logoutLocal();
+    setSession(null);
     router.push('/login');
+    router.refresh();
   };
 
   const getPageTitle = (path: string) => {
@@ -45,7 +54,7 @@ export function AuthLayoutWrapper({ children }: { children: React.ReactNode }) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm font-medium text-muted-foreground font-headline uppercase tracking-widest">Проверка доступа...</p>
+        <p className="text-sm font-medium text-muted-foreground font-headline uppercase tracking-widest">Проверка локального доступа...</p>
       </div>
     );
   }
@@ -54,7 +63,7 @@ export function AuthLayoutWrapper({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
-  if (!user) return null;
+  if (!session) return null;
 
   return (
     <SidebarProvider>
