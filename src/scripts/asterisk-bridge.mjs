@@ -1,6 +1,7 @@
 /**
- * @fileOverview МОСТ МИАЦ.СВЯЗЬ (Локальная версия)
- * Синхронизирует локальный JSON-файл с конфигурацией Asterisk PJSIP.
+ * @fileOverview МОСТ АВТОНОМНОЙ СИНХРОНИЗАЦИИ (МИАЦ.СВЯЗЬ)
+ * Слушает изменения в локальных JSON файлах и обновляет Asterisk.
+ * Работает полностью оффлайн.
  */
 
 import fs from 'fs';
@@ -10,69 +11,81 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const USERS_FILE = '/etc/asterisk/pjsip_miac_users.conf';
-const LOCAL_DATA = path.join(process.cwd(), 'src/data/extensions.json');
+const EXTENSIONS_FILE = path.resolve('src/data/extensions.json');
+const TARGET_CONF = '/etc/asterisk/pjsip_miac_users.conf';
 
-// Конфигурация AMI
-const ami = asteriskManager(
-  5038,
-  '127.0.0.1',
-  'miac',
-  'MiacAMI2026',
-  true
-);
+// Настройки AMI
+const AMI_PORT = 5038;
+const AMI_HOST = '127.0.0.1';
+const AMI_USER = 'miac';
+const AMI_PASS = 'MiacAMI2026';
 
-ami.keepConnected();
+const ami = new asteriskManager(AMI_PORT, AMI_HOST, AMI_USER, AMI_PASS, true);
 
-console.log('🚀 [BRIDGE] Мост МИАЦ.СВЯЗЬ запущен (Локальный режим)...');
-console.log(`📂 [BRIDGE] Отслеживание: ${LOCAL_DATA}`);
+ami.on('connect', () => console.log('🚀 [AMI] Подключено к Asterisk'));
+ami.on('error', (err) => console.error('❌ [AMI] Ошибка подключения:', err.message));
 
-function generatePjsipConfig(extensions) {
-  let config = '; АВТОГЕНЕРАЦИЯ МИАЦ.СВЯЗЬ - НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ\n\n';
+function generatePJSIPConfig(extensions) {
+  let config = `; АВТОГЕНЕРАЦИЯ МИАЦ.СВЯЗЬ - ${new Date().toLocaleString()}\n\n`;
   
   extensions.forEach(ext => {
-    config += `[${ext.id}]\ntype=endpoint\ncontext=from-internal\ndisallow=all\nallow=ulaw,alaw\nauth=${ext.id}\naors=${ext.id}\n\n`;
-    config += `[${ext.id}]\ntype=auth\nauth_type=userpass\nusername=${ext.id}\npassword=${ext.secret}\n\n`;
-    config += `[${ext.id}]\ntype=aor\nmax_contacts=1\n\n`;
+    config += `[${ext.id}]\n`;
+    config += `type=endpoint\n`;
+    config += `context=${ext.context || 'from-internal'}\n`;
+    config += `disallow=all\n`;
+    config += `allow=ulaw,alaw\n`;
+    config += `auth=${ext.id}-auth\n`;
+    config += `aors=${ext.id}\n\n`;
+
+    config += `[${ext.id}-auth]\n`;
+    config += `type=auth\n`;
+    config += `auth_type=userpass\n`;
+    config += `password=${ext.secret}\n`;
+    config += `username=${ext.id}\n\n`;
+
+    config += `[${ext.id}]\n`;
+    config += `type=aor\n`;
+    config += `max_contacts=1\n\n`;
   });
-  
+
   return config;
 }
 
 function sync() {
-  if (!fs.existsSync(LOCAL_DATA)) {
-    console.log('⚠️ [BRIDGE] Файл данных еще не создан.');
+  if (!fs.existsSync(EXTENSIONS_FILE)) {
+    console.log('ℹ️ [BRIDGE] Файл данных пуст или не найден.');
     return;
   }
 
   try {
-    const extensions = JSON.parse(fs.readFileSync(LOCAL_DATA, 'utf8'));
-    const config = generatePjsipConfig(extensions);
-    
-    fs.writeFileSync(USERS_FILE, config);
-    console.log(`✅ [BRIDGE] Обновлено: ${extensions.length} абонентов.`);
-    
-    // Перезагрузка Asterisk через AMI
+    const data = JSON.parse(fs.readFileSync(EXTENSIONS_FILE, 'utf8'));
+    const pjsipConfig = generatePJSIPConfig(data);
+
+    fs.writeFileSync(TARGET_CONF, pjsipConfig);
+    console.log(`✅ [BRIDGE] Обновлено: ${data.length} абонентов.`);
+
+    // Перезагрузка PJSIP через AMI
     ami.action({
       action: 'Command',
       command: 'pjsip reload'
     }, (err, res) => {
-      if (err) console.error('❌ [BRIDGE] Ошибка AMI:', err);
+      if (err) console.error('❌ [BRIDGE] Ошибка перезагрузки Asterisk:', err);
       else console.log('🔄 [BRIDGE] Asterisk PJSIP Reload: OK');
     });
-    
-  } catch (err) {
-    console.error('❌ [BRIDGE] Ошибка синхронизации:', err.message);
+
+  } catch (error) {
+    console.error('❌ [BRIDGE] Ошибка синхронизации:', error.message);
   }
 }
 
-// Следим за файлом
-fs.watch(LOCAL_DATA, (eventType) => {
-  if (eventType === 'change') {
-    console.log('🔔 [BRIDGE] Обнаружены изменения в данных...');
+// Следим за изменениями в файле
+console.log(`📂 [BRIDGE] Мост запущен. Слежение за: ${EXTENSIONS_FILE}`);
+fs.watch(path.dirname(EXTENSIONS_FILE), (eventType, filename) => {
+  if (filename === 'extensions.json') {
+    console.log('📝 [BRIDGE] Обнаружены изменения в данных абонентов...');
     sync();
   }
 });
 
-// Первичная синхронизация
+// Первичная синхронизация при запуске
 sync();

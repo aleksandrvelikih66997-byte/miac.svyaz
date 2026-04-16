@@ -35,6 +35,7 @@ function writeJSON(file: string, data: any) {
   }
 }
 
+/** АБОНЕНТЫ (EXTENSIONS) **/
 export async function getExtensions() {
   return readJSON(FILES.extensions);
 }
@@ -42,13 +43,15 @@ export async function getExtensions() {
 export async function saveExtension(ext: any) {
   const data = readJSON(FILES.extensions);
   const index = data.findIndex((e: any) => e.id === ext.id);
+  const now = new Date().toISOString();
+  
   if (index > -1) {
-    data[index] = { ...data[index], ...ext, lastUpdateDate: new Date().toISOString() };
+    data[index] = { ...data[index], ...ext, lastUpdateDate: now };
   } else {
     data.push({ 
       ...ext, 
-      creationDate: new Date().toISOString(),
-      lastUpdateDate: new Date().toISOString() 
+      creationDate: now,
+      lastUpdateDate: now 
     });
   }
   writeJSON(FILES.extensions, data);
@@ -61,6 +64,7 @@ export async function deleteExtension(id: string) {
   return { success: true };
 }
 
+/** ТРАНКИ (TRUNKS) **/
 export async function getTrunks() {
   return readJSON(FILES.trunks);
 }
@@ -68,17 +72,19 @@ export async function getTrunks() {
 export async function saveTrunk(trunk: any) {
   const data = readJSON(FILES.trunks);
   const id = trunk.id || trunk.name.toLowerCase().replace(/\s+/g, '-');
+  const now = new Date().toISOString();
+  
   const trunkWithId = { 
     ...trunk, 
     id,
-    lastUpdateDate: new Date().toISOString()
+    lastUpdateDate: now
   };
   
   const index = data.findIndex((t: any) => t.id === id);
   if (index > -1) {
     data[index] = trunkWithId;
   } else {
-    trunkWithId.creationDate = new Date().toISOString();
+    trunkWithId.creationDate = now;
     data.push(trunkWithId);
   }
   writeJSON(FILES.trunks, data);
@@ -91,6 +97,7 @@ export async function deleteTrunk(id: string) {
   return { success: true };
 }
 
+/** МАРШРУТЫ (ROUTES) **/
 export async function getRoutes() {
   return readJSON(FILES.routes);
 }
@@ -98,17 +105,19 @@ export async function getRoutes() {
 export async function saveRoute(route: any) {
   const data = readJSON(FILES.routes);
   const id = route.id || Math.random().toString(36).substr(2, 9);
+  const now = new Date().toISOString();
+  
   const routeWithId = { 
     ...route, 
     id,
-    lastUpdateDate: new Date().toISOString()
+    lastUpdateDate: now
   };
   
   const index = data.findIndex((r: any) => r.id === id);
   if (index > -1) {
     data[index] = routeWithId;
   } else {
-    routeWithId.creationDate = new Date().toISOString();
+    routeWithId.creationDate = now;
     data.push(routeWithId);
   }
   writeJSON(FILES.routes, data);

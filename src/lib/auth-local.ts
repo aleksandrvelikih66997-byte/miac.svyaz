@@ -1,4 +1,3 @@
-
 'use server';
 
 import fs from 'fs';
@@ -27,7 +26,7 @@ export async function loginLocal(email: string, password: string) {
 
     const cookieStore = await cookies();
     
-    // ВАЖНО: secure: false ОБЯЗАТЕЛЕН для работы по локальному IP без HTTPS
+    // ВАЖНО: secure: false ОБЯЗАТЕЛЕН для работы по локальному IP (HTTP) без SSL
     cookieStore.set('miac_session', JSON.stringify({ email: admin.email, role: admin.role }), {
       httpOnly: true,
       secure: false, 
