@@ -1,45 +1,79 @@
 
 /**
- * @fileOverview Мост между Firestore и локальным Asterisk на AltLinux.
+ * @fileOverview Мост между Firestore и локальным сервером Asterisk.
+ * Автоматически генерирует pjsip_miac_users.conf и обновляет статусы абонентов.
  */
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, onSnapshot } from 'firebase/firestore';
+import { getFirestore, collection, onSnapshot, query, updateDoc, doc } from 'firebase/firestore';
 import { firebaseConfig } from '../firebase/config.mjs';
-import * as fs from 'fs';
+import fs from 'fs';
+import path from 'path';
 import asteriskManager from 'asterisk-manager';
+
+// Настройка путей (для AltLinux SP)
+const ASTERISK_CONF_PATH = '/etc/asterisk/pjsip_miac_users.conf';
 
 // Инициализация Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// Конфигурация путей (для AltLinux SP 10)
-const PJSIP_CONF_PATH = '/etc/asterisk/pjsip_miac_users.conf';
+// Подключение к AMI (Asterisk Manager Interface)
+const ami = new asteriskManager(5038, 'localhost', 'miac', 'MiacAMI2026', true);
+ami.keepConnected();
 
 console.log('🚀 Мост МИАЦ.СВЯЗЬ запущен...');
 
-// 1. Синхронизация: Firestore -> Asterisk .conf файлы
-onSnapshot(collection(db, 'extensions'), (snapshot) => {
-  let configContent = '; ГЕНЕРИРУЕМЫЙ ФАЙЛ. НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.\n\n';
+// 1. Синхронизация: Firestore -> Asterisk Config
+const q = query(collection(db, "extensions"));
+onSnapshot(q, (snapshot) => {
+  let configContent = '; --- АВТОГЕНЕРАЦИЯ МИАЦ.СВЯЗЬ ---\n\n';
   
-  snapshot.forEach((doc) => {
-    const ext = doc.data();
-    if (ext.tech === 'PJSIP') {
-      configContent += `[${ext.id}]\ntype=endpoint\ncontext=${ext.context || 'from-internal'}\ndisallow=all\nallow=ulaw,alaw\nauth=${ext.id}-auth\naors=${ext.id}\n\n`;
-      configContent += `[${ext.id}-auth]\ntype=auth\nauth_type=userpass\nusername=${ext.id}\npassword=${ext.secret}\n\n`;
-      configContent += `[${ext.id}]\ntype=aor\nmax_contacts=1\n\n`;
-    }
+  snapshot.forEach((docSnap) => {
+    const ext = docSnap.data();
+    const id = docSnap.id;
+    
+    configContent += `[${id}](endpoint-internal)\n`;
+    configContent += `auth=${id}-auth\n`;
+    configContent += `aors=${id}\n\n`;
+    
+    configContent += `[${id}-auth](auth-internal)\n`;
+    configContent += `username=${id}\n`;
+    configContent += `password=${ext.secret}\n\n`;
+    
+    configContent += `[${id}](aor-internal)\n\n`;
   });
 
   try {
-    fs.writeFileSync(PJSIP_CONF_PATH, configContent);
-    console.log(`[${new Date().toLocaleTimeString()}] ✅ Обновлен ${PJSIP_CONF_PATH}`);
-    // Команда Asterisk на перезагрузку (требует прав записи в сокет или sudo)
-    // exec('asterisk -rx "pjsip reload"');
+    // Внимание: на сервере нужны права на запись в /etc/asterisk/
+    fs.writeFileSync(ASTERISK_CONF_PATH, configContent);
+    console.log(`[${new Date().toLocaleTimeString()}] Конфигурация PJSIP обновлена.`);
+    
+    // Перезагрузка PJSIP в Asterisk
+    ami.action({
+      action: 'Command',
+      command: 'pjsip reload'
+    }, (err, res) => {
+      if (err) console.error('Ошибка перезагрузки PJSIP:', err);
+    });
   } catch (e) {
-    console.error('❌ Ошибка записи конфига. Проверьте права на /etc/asterisk/');
+    console.error('❌ Ошибка записи конфига (проверьте права sudo):', e.message);
   }
 });
 
-// 2. Статусы: Asterisk (AMI) -> Firestore
-// В реальной среде здесь должен быть коннект к AMI
-console.log('📡 Ожидание подключений AMI для обновления статусов...');
+// 2. Мониторинг статусов: Asterisk (AMI) -> Firestore
+ami.on('peerstatus', (evt) => {
+  const peer = evt.peer; // e.g. "PJSIP/101"
+  const status = evt.peerstatus; // Registered/Unregistered
+  
+  if (peer.startsWith('PJSIP/')) {
+    const extId = peer.split('/')[1];
+    const online = status === 'Registered';
+    
+    console.log(`[AMI] Абонент ${extId} теперь ${status}`);
+    
+    updateDoc(doc(db, "extensions", extId), {
+      status: online ? 'online' : 'offline',
+      lastSeen: new Date().toISOString()
+    }).catch(err => console.error('Ошибка обновления статуса в БД:', err.message));
+  }
+});

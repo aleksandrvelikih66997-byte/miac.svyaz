@@ -1,7 +1,6 @@
 
 /**
  * Конфигурация Firebase для Node.js скриптов (ESM).
- * ЗАМЕНИТЕ ЭТИ ЗНАЧЕНИЯ на данные из вашего Firebase Console!
  */
 export const firebaseConfig = {
   apiKey: "api-key",
