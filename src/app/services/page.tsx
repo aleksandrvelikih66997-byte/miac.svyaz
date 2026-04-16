@@ -11,7 +11,9 @@ import {
   RefreshCw,
   Settings2,
   FileCode,
-  Download
+  Download,
+  ShieldAlert,
+  Server
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -21,6 +23,7 @@ import { Label } from "@/components/ui/label"
 import { useCollection, useFirestore } from "@/firebase"
 import { collection } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function ServicesPage() {
   const [status, setStatus] = useState<'running' | 'stopped' | 'restarting'>('running')
@@ -87,6 +90,14 @@ max_contacts=1
         </div>
       </div>
 
+      <Alert className="bg-blue-50 border-blue-200">
+        <Server className="h-4 w-4 text-blue-600" />
+        <AlertTitle className="text-blue-800 font-bold">Соответствие требованиям ФСТЭК / Безопасность</AlertTitle>
+        <AlertDescription className="text-blue-700 text-xs">
+          Приложение работает в гибридном режиме. Все конфигурационные файлы (`.conf`) хранятся и исполняются <strong>локально</strong> на сервере AltLinux SP. Облачная панель используется только для интерфейса управления и может быть заменена на локальную БД без потери данных.
+        </AlertDescription>
+      </Alert>
+
       <div className="grid gap-6 md:grid-cols-3">
         <Card className="col-span-1 border-none shadow-sm h-fit">
           <CardHeader>
@@ -121,7 +132,7 @@ max_contacts=1
                 <RefreshCw className="h-3 w-3" /> Core Reload
               </Button>
               <Button variant="ghost" className="w-full justify-start gap-3 text-muted-foreground text-xs">
-                <Settings2 className="h-3 w-3" /> AMI Settings
+                <ShieldAlert className="h-3 w-3" /> Audit Logs (Local)
               </Button>
             </div>
           </CardContent>

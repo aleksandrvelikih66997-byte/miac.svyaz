@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
-import { collection, doc, setDoc, deleteDoc } from "firebase/firestore"
+import { collection, doc, setDoc, deleteDoc, query } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
@@ -30,11 +30,12 @@ export default function TrunksPage() {
   const db = useFirestore()
   const { toast } = useToast()
 
-  const trunksRef = useMemoFirebase(() => {
+  const trunksQuery = useMemoFirebase(() => {
     if (!db) return null;
-    return collection(db, "trunks")
+    return query(collection(db, "trunks"))
   }, [db])
-  const { data: trunks, loading } = useCollection(trunksRef)
+  
+  const { data: trunks, loading } = useCollection(trunksQuery)
 
   const handleAdd = () => {
     if (!newTrunk.name || !newTrunk.host || !newTrunk.user || !newTrunk.password) {
@@ -51,11 +52,6 @@ export default function TrunksPage() {
     }
 
     setDoc(doc(db, "trunks", id), trunkData)
-      .then(() => {
-        setIsAddOpen(false)
-        setNewTrunk({ name: "", host: "", port: "5060", user: "", password: "", protocol: "udp", phone: "" })
-        toast({ title: "Транк добавлен" })
-      })
       .catch(async (err) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: `trunks/${id}`,
@@ -63,19 +59,21 @@ export default function TrunksPage() {
           requestResourceData: trunkData
         }))
       })
+    
+    setIsAddOpen(false)
+    setNewTrunk({ name: "", host: "", port: "5060", user: "", password: "", protocol: "udp", phone: "" })
+    toast({ title: "Транк добавлен" })
   }
 
   const handleDelete = (id: string) => {
     deleteDoc(doc(db, "trunks", id))
-      .then(() => {
-        toast({ title: "Транк удален" })
-      })
       .catch(async (err) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: `trunks/${id}`,
           operation: 'delete'
         }))
       })
+    toast({ title: "Транк удален" })
   }
 
   return (

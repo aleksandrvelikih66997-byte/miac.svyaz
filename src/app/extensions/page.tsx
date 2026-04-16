@@ -73,11 +73,6 @@ export default function ExtensionsPage() {
     };
 
     setDoc(doc(db, "extensions", newExt.id), extData)
-      .then(() => {
-        setIsAddOpen(false)
-        setNewExt({ id: "", name: "", secret: "", tech: "PJSIP", context: "from-internal" })
-        toast({ title: "Успех", description: `Абонент ${newExt.id} добавлен` })
-      })
       .catch(async (err) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: `extensions/${newExt.id}`,
@@ -85,19 +80,21 @@ export default function ExtensionsPage() {
           requestResourceData: extData
         }))
       });
+    
+    setIsAddOpen(false)
+    setNewExt({ id: "", name: "", secret: "", tech: "PJSIP", context: "from-internal" })
+    toast({ title: "Успех", description: `Абонент ${newExt.id} добавлен` })
   }
 
   const handleDelete = (id: string) => {
     deleteDoc(doc(db, "extensions", id))
-      .then(() => {
-        toast({ title: "Удалено", description: `Абонент ${id} удален` })
-      })
       .catch(async (err) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: `extensions/${id}`,
           operation: 'delete'
         }))
       });
+    toast({ title: "Удалено", description: `Абонент ${id} удален` })
   }
 
   const filtered = extensions?.filter(e => 
