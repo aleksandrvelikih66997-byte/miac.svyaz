@@ -1,4 +1,8 @@
 
+/**
+ * @fileOverview Скрипт создания администратора панели управления.
+ * Запускается из консоли сервера: node src/scripts/setup-admin.mjs email password
+ */
 import { initializeApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
 import { firebaseConfig } from '../firebase/config.js';
@@ -6,22 +10,21 @@ import { firebaseConfig } from '../firebase/config.js';
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
-const email = process.argv[2];
-const password = process.argv[3];
+const [,, email, password] = process.argv;
 
 if (!email || !password) {
   console.log('Использование: node src/scripts/setup-admin.mjs <email> <password>');
   process.exit(1);
 }
 
-console.log(`[AUTH] Попытка создания администратора: ${email}...`);
+console.log(`[SETUP] Попытка создания пользователя: ${email}...`);
 
 createUserWithEmailAndPassword(auth, email, password)
-  .then((userCredential) => {
-    console.log('[AUTH] УСПЕХ: Пользователь создан и может войти в панель.');
+  .then(() => {
+    console.log(`[SUCCESS] Администратор ${email} успешно создан.`);
     process.exit(0);
   })
   .catch((error) => {
-    console.error('[AUTH] ОШИБКА:', error.message);
+    console.error(`[ERROR] Не удалось создать пользователя: ${error.message}`);
     process.exit(1);
   });
