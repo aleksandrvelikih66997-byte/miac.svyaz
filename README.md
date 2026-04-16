@@ -28,8 +28,10 @@ write = all
 ```
 
 ### 3. Права доступа и подготовка
-Если `chown asterisk:asterisk` выдает ошибку, значит в вашей системе другой пользователь. Самый надежный способ для работы скрипта:
 ```bash
+# Перейдите в папку с проектом
+cd /etc/asterisk/miac.svyaz
+
 # Создаем файл для абонентов
 touch /etc/asterisk/pjsip_miac_users.conf
 
@@ -39,18 +41,18 @@ chmod 666 /etc/asterisk/pjsip_miac_users.conf
 
 ### 4. Запуск системы
 ```bash
-# 1. Установка зависимостей
+# 1. Установка зависимостей (выполняется один раз)
 npm install
 
 # 2. Создание админа (локально)
-# Пример: node src/scripts/setup-admin.mjs admin@miac.ru your_password
-node src/scripts/setup-admin.mjs <email> <password>
+# Важно: запускать из корневой папки проекта!
+node src/scripts/setup-admin.mjs admin@miac.ru your_password
 
-# 3. Запуск моста синхронизации (в фоне или отдельном терминале)
-# Этот процесс должен работать постоянно для применения настроек
+# 3. Запуск моста синхронизации
+# Этот процесс должен работать постоянно!
 npm run bridge
 
-# 4. Запуск веб-интерфейса
+# 4. Запуск веб-интерфейса (в другом терминале)
 npm run build
 npm start
 ```

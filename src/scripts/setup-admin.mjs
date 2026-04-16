@@ -1,38 +1,44 @@
 
-/**
- * @fileOverview Скрипт для создания локальных администраторов панели управления.
- * Использование: node src/scripts/setup-admin.mjs email@example.com password
- */
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 
-const email = process.argv[2];
-const password = process.argv[3];
+/**
+ * @fileOverview Скрипт создания локального администратора панели управления.
+ * Используется для первичной настройки системы.
+ */
 
-if (!email || !password) {
-  console.log('Использование: node src/scripts/setup-admin.mjs <email> <password>');
+const ADMINS_FILE = 'src/data/admins.json';
+
+function hashPassword(password) {
+  return crypto.createHash('sha256').update(password).digest('hex');
+}
+
+const args = process.argv.slice(2);
+if (args.length < 2) {
+  console.log('\x1b[33m%s\x1b[0m', 'Использование: node src/scripts/setup-admin.mjs <email> <password>');
   process.exit(1);
 }
 
-const DATA_DIR = path.join(process.cwd(), 'src/data');
-const ADMINS_FILE = path.join(DATA_DIR, 'admins.json');
+const [email, password] = args;
 
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-
-function hashPassword(pass) {
-  return crypto.createHash('sha256').update(pass).digest('hex');
+// Гарантируем наличие папки
+const dir = path.dirname(ADMINS_FILE);
+if (!fs.existsSync(dir)) {
+  fs.mkdirSync(dir, { recursive: true });
 }
 
 let admins = [];
 if (fs.existsSync(ADMINS_FILE)) {
-  admins = JSON.parse(fs.readFileSync(ADMINS_FILE, 'utf8'));
+  try {
+    admins = JSON.parse(fs.readFileSync(ADMINS_FILE, 'utf8'));
+  } catch (e) {
+    admins = [];
+  }
 }
 
 const existingIndex = admins.findIndex(a => a.email === email);
-const newAdmin = {
+const adminData = {
   email,
   passwordHash: hashPassword(password),
   role: 'Admin',
@@ -40,12 +46,11 @@ const newAdmin = {
 };
 
 if (existingIndex >= 0) {
-  admins[existingIndex] = newAdmin;
-  console.log(`[ADMIN] Пароль для ${email} обновлен.`);
+  admins[existingIndex] = adminData;
+  console.log(`\x1b[32m[OK] Администратор ${email} обновлен.\x1b[0m`);
 } else {
-  admins.push(newAdmin);
-  console.log(`[ADMIN] Пользователь ${email} создан.`);
+  admins.push(adminData);
+  console.log(`\x1b[32m[OK] Администратор ${email} успешно создан.\x1b[0m`);
 }
 
 fs.writeFileSync(ADMINS_FILE, JSON.stringify(admins, null, 2));
-console.log('[SUCCESS] Файл src/data/admins.json обновлен.');
