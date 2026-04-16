@@ -12,14 +12,12 @@ import {
   Download,
   ShieldAlert,
   Server,
-  ShieldCheck,
   ClipboardCheck,
   AlertTriangle,
-  Info,
   HelpCircle
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase"
@@ -36,8 +34,8 @@ import {
 export default function ServicesPage() {
   const [status, setStatus] = useState<'running' | 'stopped' | 'restarting'>('stopped')
   const [logs, setLogs] = useState([
-    "[ERROR] Unable to connect to remote asterisk (does /var/run/asterisk/asterisk.ctl exist?)",
-    "[SYSTEM] Проверка статуса службы...",
+    "[CRITICAL] /var/run/asterisk/asterisk.ctl not found. Is Asterisk service running?",
+    "[SYSTEM] Проверка статуса службы в AltLinux SP...",
     "[CONFIG] Ожидание синхронизации файлов..."
   ])
   const db = useFirestore()
@@ -157,34 +155,36 @@ max_contacts=1
             <AlertTriangle className="h-5 w-5 text-amber-600" />
             <AlertTitle className="text-amber-800 font-bold italic">Внимание: требуется синхронизация</AlertTitle>
             <AlertDescription className="text-amber-700 text-xs mt-1 leading-relaxed">
-              Вы внесли изменения в интерфейсе. Чтобы они появились в **Asterisk**, вам нужно:
+              Чтобы изменения вступили в силу в <strong>Asterisk</strong>:
               <ol className="list-decimal ml-4 mt-2 space-y-1">
-                <li>Нажать кнопки <strong>Экспорт</strong> в правой панели.</li>
-                <li>Скопировать скачанные файлы в директорию <code>/etc/asterisk/</code> на вашем сервере AltLinux.</li>
-                <li>Выполнить команду <code>asterisk -rx "core reload"</code> в терминале сервера.</li>
+                <li>Нажмите <strong>«PJSIP Абоненты»</strong> справа.</li>
+                <li>Скопируйте скачанный файл в <code>/etc/asterisk/pjsip_miac_users.conf</code>.</li>
+                <li>Выполните <code>asterisk -rx "core reload"</code> на сервере.</li>
               </ol>
             </AlertDescription>
           </Alert>
 
-          {status !== 'running' && (
-            <Alert variant="destructive" className="bg-rose-50 border-rose-200">
-              <ShieldAlert className="h-5 w-5 text-rose-600" />
-              <AlertTitle className="font-bold">Ошибка asterisk.ctl</AlertTitle>
-              <AlertDescription className="text-xs space-y-2">
-                <p>Если вы видите ошибку "Unable to connect to remote asterisk", выполните в терминале:</p>
-                <code className="block bg-slate-900 text-slate-100 p-2 rounded mt-2 font-mono">
-                  systemctl start asterisk <br />
-                  chown -R asterisk:asterisk /var/run/asterisk
-                </code>
-              </AlertDescription>
-            </Alert>
-          )}
+          <Alert variant="destructive" className="bg-rose-50 border-rose-200">
+            <ShieldAlert className="h-5 w-5 text-rose-600" />
+            <AlertTitle className="font-bold">Ошибка: asterisk.ctl не найден</AlertTitle>
+            <AlertDescription className="text-xs space-y-3">
+              <p>Файл сокета создается <strong>только при запущенной службе</strong>. Если его нет, Asterisk выключен.</p>
+              <div className="bg-slate-900 text-slate-100 p-3 rounded font-mono space-y-1">
+                <p className="text-emerald-400"># 1. Запустить службу</p>
+                <p>systemctl enable asterisk</p>
+                <p>systemctl start asterisk</p>
+                <p className="text-emerald-400 mt-2"># 2. Если файл появился, но нет прав</p>
+                <p>chown -R asterisk:asterisk /var/run/asterisk</p>
+                <p>chmod 770 /var/run/asterisk/asterisk.ctl</p>
+              </div>
+            </AlertDescription>
+          </Alert>
 
-          <Card className="border-none shadow-xl flex flex-col h-[500px] overflow-hidden">
+          <Card className="border-none shadow-xl flex flex-col h-[400px] overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between shrink-0 bg-slate-900 text-white py-4">
               <div className="flex items-center gap-3">
                 <Terminal className="h-5 w-5 text-emerald-400" />
-                <span className="font-mono text-sm uppercase tracking-widest font-bold">Системные логи (AMI)</span>
+                <span className="font-mono text-sm uppercase tracking-widest font-bold">Системный терминал (AMI)</span>
               </div>
               <Button variant="ghost" size="icon" onClick={() => setLogs([])} className="hover:bg-slate-800 text-slate-400">
                 <Trash2 className="h-4 w-4" />
@@ -196,14 +196,14 @@ max_contacts=1
                   {logs.map((log, i) => (
                     <div key={i} className="flex gap-3">
                       <span className="text-slate-600 shrink-0">[{new Date().toLocaleTimeString()}]</span>
-                      <span className={log.includes('ERROR') ? 'text-rose-400' : log.includes('SYSTEM') ? 'text-blue-400' : 'text-slate-300'}>
+                      <span className={log.includes('CRITICAL') || log.includes('ERROR') ? 'text-rose-400' : log.includes('SYSTEM') ? 'text-blue-400' : 'text-slate-300'}>
                         {log}
                       </span>
                     </div>
                   ))}
                   <div className="flex items-center gap-2 text-emerald-400 pt-2">
                     <span className="animate-pulse">_</span>
-                    <span className="font-bold">CLI READY: miac@altlinux-sp10:~$</span>
+                    <span className="font-bold">bash@altlinux-sp10:~$</span>
                   </div>
                 </div>
               </ScrollArea>
@@ -227,7 +227,7 @@ max_contacts=1
                         <Play className="h-4 w-4" />
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>Запустить (systemctl start)</TooltipContent>
+                    <TooltipContent>Start service</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
 
@@ -238,7 +238,7 @@ max_contacts=1
                         <RotateCcw className="h-4 w-4" />
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>Перезагрузить (core reload)</TooltipContent>
+                    <TooltipContent>Reload config</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
 
@@ -249,12 +249,12 @@ max_contacts=1
                         <Square className="h-4 w-4" />
                       </Button>
                     </TooltipTrigger>
-                    <TooltipContent>Остановить (systemctl stop)</TooltipContent>
+                    <TooltipContent>Stop service</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               </div>
               <Button variant="ghost" className="w-full justify-start gap-3 text-xs text-muted-foreground hover:text-primary" onClick={() => handleAction('restarting')}>
-                <RefreshCw className="h-3 w-3" /> Перезапустить модули AMI
+                <RefreshCw className="h-3 w-3" /> Перезагрузить AMI
               </Button>
             </CardContent>
           </Card>
@@ -262,7 +262,7 @@ max_contacts=1
           <Card className="border-none shadow-lg h-fit">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-bold flex items-center gap-2">
-                <FileCode className="h-4 w-4 text-primary" /> Экспорт конфигураций
+                <FileCode className="h-4 w-4 text-primary" /> Экспорт (AltLinux)
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -272,24 +272,17 @@ max_contacts=1
               <Button className="w-full justify-start gap-3 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-none shadow-none" onClick={generateExtensionsFile}>
                 <ClipboardCheck className="h-4 w-4" /> Dialplan Маршруты
               </Button>
-              <div className="pt-2">
-                <Button variant="outline" className="w-full justify-start gap-3 text-xs">
-                  <Download className="h-3 w-3" /> Бэкап всей базы (JSON)
-                </Button>
-              </div>
             </CardContent>
           </Card>
 
           <Card className="border-none shadow-lg h-fit bg-slate-50">
             <CardHeader className="pb-2">
               <CardTitle className="text-[10px] font-bold uppercase text-slate-500 flex items-center gap-2">
-                <HelpCircle className="h-3 w-3" /> Помощь по серверу
+                <HelpCircle className="h-3 w-3" /> Помощь ФСТЭК
               </CardTitle>
             </CardHeader>
             <CardContent className="text-[11px] text-slate-600 leading-relaxed">
-              Если команды <code>asterisk -rx</code> не работают, проверьте права на <code>/var/run/asterisk/asterisk.ctl</code>.
-              Обычно помогает: <br />
-              <code>chmod 777 /var/run/asterisk/asterisk.ctl</code>
+              Для соблюдения контура безопасности все секреты передаются только при ручном экспорте файлов конфигурации.
             </CardContent>
           </Card>
         </div>

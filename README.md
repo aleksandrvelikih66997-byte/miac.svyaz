@@ -2,96 +2,44 @@
 
 Профессиональный веб-интерфейс управления IP-АТС Asterisk v17/20, оптимизированный для работы в среде **AltLinux SP**. 
 
-Проект разработан специально для медицинских информационно-аналитических центров (МИАЦ) для централизованного и удобного управления телефонными сетями в соответствии с требованиями информационной безопасности.
-
-## 🚀 Основные возможности
-
-- **Дашборд**: Мониторинг активных вызовов и статуса абонентов в реальном времени.
-- **Управление абонентами**: Настройка PJSIP/SIP экстеншенов с хранением секретов (passwords).
-- **Маршрутизация**: Визуальное управление входящими и исходящие правилами набора.
-- **Транки**: Конфигурация внешних линий связи (Port, Host, DID, Auth).
-- **ИИ-Помощник**: Генерация конфигурационных файлов Asterisk на основе запросов на естественном языке (Genkit + Gemini).
-- **Безопасность (ФСТЭК)**: Гибридная архитектура — экспорт всех настроек в локальные `.conf` файлы на сервере.
-
-## 🛠 Технологический стек
-
-- **Frontend**: Next.js 15 (App Router), React 19, Tailwind CSS.
-- **UI Components**: ShadCN UI, Lucide Icons.
-- **Backend/Auth**: Firebase (Authentication & Firestore).
-- **AI**: Genkit 1.x, Google Gemini 2.5 Flash.
-
-## 📦 Инструкция по развертыванию на AltLinux SP
+## 🚀 Быстрый старт на AltLinux SP
 
 ### 1. Подготовка окружения
-Убедитесь, что на сервере установлен Node.js версии 18 или выше.
-
-### 2. Клонирование и установка
 ```bash
 git clone https://github.com/aleksandrvelikih66997-byte/miac.svyaz.git
 cd miac.svyaz
 npm install
-```
-
-### 3. Сборка и запуск интерфейса
-```bash
-# Сборка оптимизированного приложения
 npm run build
-
-# Запуск в фоновом режиме через PM2
-npm install -g pm2
 pm2 start npm --name "miac-svyaz" -- start
-pm2 save
 ```
 
-## ⚙️ Управление службой Asterisk
+### 2. Запуск и настройка Asterisk
+Если вы видите ошибку `Unable to connect to remote asterisk`, это значит, что служба остановлена. Выполните:
 
-Если при выполнении команд вы видите ошибку `Unable to connect to remote asterisk (does /var/run/asterisk/asterisk.ctl exist?)`, выполните следующие действия:
-
-### 1. Запуск службы
 ```bash
+# Включить и запустить службу
 systemctl enable asterisk
 systemctl start asterisk
-```
 
-### 2. Проверка статуса
-```bash
-systemctl status asterisk
-```
+# Проверить наличие сокета
+ls -l /var/run/asterisk/asterisk.ctl
 
-### 3. Исправление прав доступа (если служба запущена, но нет доступа)
-```bash
+# Исправить права (если файл есть, но нет доступа)
 chown -R asterisk:asterisk /var/run/asterisk
 chmod 770 /var/run/asterisk/asterisk.ctl
 ```
 
-## 🌐 Настройка Apache (httpd2) как Reverse Proxy
+### 3. Синхронизация данных
+1. Добавьте абонентов в веб-интерфейсе.
+2. Перейдите в раздел **Управление**.
+3. Скачайте файл **PJSIP Абоненты**.
+4. Поместите его в `/etc/asterisk/pjsip_miac_users.conf`.
+5. Примените настройки: `asterisk -rx "core reload"`.
 
-Чтобы зайти в интерфейс по адресу сервера (порт 80), необходимо настроить проксирование запросов на порт 3000.
+## 🛠 Технологический стек
+- **Frontend**: Next.js 15, React 19.
+- **Backend/Auth**: Firebase (Authentication & Firestore).
+- **AI**: Genkit 1.x, Google Gemini 2.5 Flash.
 
-1. **Создайте файл конфигурации для Apache**:
-```bash
-nano /etc/httpd2/conf.d/miac-svyaz.conf
-```
-
-2. **Вставьте следующее содержимое**:
-```apache
-<VirtualHost *:80>
-    ServerName your-server-ip
-    
-    ProxyPreserveHost On
-    ProxyPass / http://localhost:3000/
-    ProxyPassReverse / http://localhost:3000/
-
-    ErrorLog /var/log/httpd2/miac-svyaz-error.log
-    CustomLog /var/log/httpd2/miac-svyaz-access.log combined
-</VirtualHost>
-```
-
-3. **Перезапустите Apache**:
-```bash
-systemctl restart httpd2
-```
-
-## 📄 Лицензия
-
-Разработано для внутреннего использования в структурах МИАЦ.
+## 📄 Безопасность
+Проект разработан с учетом требований ФСТЭК: все конфигурационные файлы хранятся локально, а веб-интерфейс служит лишь инструментом генерации и управления базой данных.
