@@ -5,16 +5,22 @@
 
 ## 🚀 Настройка Asterisk 17 (ОБЯЗАТЕЛЬНО)
 
-Для того чтобы Asterisk увидел абонентов, созданных в панели, необходимо связать файлы.
+Для того чтобы Asterisk увидел абонентов и маршруты, необходимо связать файлы.
 
 ### 1. Настройка PJSIP
 Отредактируйте `/etc/asterisk/pjsip.conf`. В самом конце файла добавьте строку:
 ```ini
 #include "/etc/asterisk/pjsip_miac_users.conf"
 ```
-**Важно:** Убедитесь, что в `pjsip.conf` у вас есть транспорт с именем `[transport-udp-nat]`. Наша система будет использовать его.
+**Важно:** Убедитесь, что в `pjsip.conf` у вас есть транспорт с именем `[transport-udp-nat]`. Наша система использует его.
 
-### 2. Настройка AMI (Manager)
+### 2. Настройка Dialplan (Маршрутизация)
+Отредактируйте `/etc/asterisk/extensions.conf`. В самом конце файла добавьте:
+```ini
+#include "/etc/asterisk/extensions_miac_dialplan.conf"
+```
+
+### 3. Настройка AMI (Manager)
 Отредактируйте `/etc/asterisk/manager.conf`:
 ```ini
 [general]
@@ -24,28 +30,27 @@ bindaddr = 127.0.0.1
 
 [miac]
 secret = MiacAMI2026
-read = all
-write = all
+read = all,system,command
+write = all,system,command
 ```
 После сохранения: `asterisk -rx "manager reload"`
 
-### 3. Права доступа
-Сделайте файл доступным для записи веб-интерфейсом:
+### 4. Права доступа
+Сделайте файлы доступными для записи:
 ```bash
 touch /etc/asterisk/pjsip_miac_users.conf
+touch /etc/asterisk/extensions_miac_dialplan.conf
 chmod 666 /etc/asterisk/pjsip_miac_users.conf
+chmod 666 /etc/asterisk/extensions_miac_dialplan.conf
 ```
 
-### 4. Запуск системы
+### 5. Запуск системы
 ```bash
-# Перейдите в папку проекта
-cd /etc/asterisk/miac.svyaz/
-
-# Запуск моста (в фоне или отдельном терминале)
+# В папке проекта
 npm run bridge
 ```
 
 ## 🛠 Команды отладки
 - `pjsip show endpoints` — список всех номеров.
-- `pjsip show transports` — проверка доступности сети.
+- `dialplan show from-internal` — проверка маршрутизации.
 - `manager show connected` — проверка связи моста с астериском.
