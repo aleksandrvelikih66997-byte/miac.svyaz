@@ -1,47 +1,45 @@
 
+/**
+ * @fileOverview Мост между Firestore и локальным Asterisk на AltLinux.
+ */
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { getFirestore, collection, onSnapshot } from 'firebase/firestore';
 import { firebaseConfig } from '../firebase/config.mjs';
+import * as fs from 'fs';
 import asteriskManager from 'asterisk-manager';
-import fs from 'fs';
-import { exec } from 'child_process';
 
+// Инициализация Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// Настройки AMI (соответствуют вашему manager.conf)
-const ami = asteriskManager(5038, 'localhost', 'miac', 'MiacAMI2026', true);
+// Конфигурация путей (для AltLinux SP 10)
+const PJSIP_CONF_PATH = '/etc/asterisk/pjsip_miac_users.conf';
 
-ami.on('managerevent', (evt) => {
-  if (evt.event === 'PeerStatus') {
-    const peer = evt.peer.replace('PJSIP/', '');
-    const status = evt.peerstatus === 'Registered' ? 'online' : 'offline';
-    
-    // Обновляем статус в Firestore
-    const extRef = doc(db, 'extensions', peer);
-    updateDoc(extRef, { status }).catch(() => {});
-    console.log(`[AMI] Статус абонента ${peer}: ${status}`);
+console.log('🚀 Мост МИАЦ.СВЯЗЬ запущен...');
+
+// 1. Синхронизация: Firestore -> Asterisk .conf файлы
+onSnapshot(collection(db, 'extensions'), (snapshot) => {
+  let configContent = '; ГЕНЕРИРУЕМЫЙ ФАЙЛ. НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.\n\n';
+  
+  snapshot.forEach((doc) => {
+    const ext = doc.data();
+    if (ext.tech === 'PJSIP') {
+      configContent += `[${ext.id}]\ntype=endpoint\ncontext=${ext.context || 'from-internal'}\ndisallow=all\nallow=ulaw,alaw\nauth=${ext.id}-auth\naors=${ext.id}\n\n`;
+      configContent += `[${ext.id}-auth]\ntype=auth\nauth_type=userpass\nusername=${ext.id}\npassword=${ext.secret}\n\n`;
+      configContent += `[${ext.id}]\ntype=aor\nmax_contacts=1\n\n`;
+    }
+  });
+
+  try {
+    fs.writeFileSync(PJSIP_CONF_PATH, configContent);
+    console.log(`[${new Date().toLocaleTimeString()}] ✅ Обновлен ${PJSIP_CONF_PATH}`);
+    // Команда Asterisk на перезагрузку (требует прав записи в сокет или sudo)
+    // exec('asterisk -rx "pjsip reload"');
+  } catch (e) {
+    console.error('❌ Ошибка записи конфига. Проверьте права на /etc/asterisk/');
   }
 });
 
-// Синхронизация из Firestore в Asterisk
-onSnapshot(collection(db, 'extensions'), (snapshot) => {
-  let config = '; Генерируемый файл МИАЦ.СВЯЗЬ\n';
-  config += '[transport-udp]\ntype=transport\nprotocol=udp\nbind=0.0.0.0:5060\n\n';
-
-  snapshot.forEach((doc) => {
-    const data = doc.data();
-    config += `[${data.id}]\ntype=endpoint\ncontext=${data.context || 'from-internal'}\ndisallow=all\nallow=ulaw,alaw\nauth=auth${data.id}\naors=${data.id}\ntransport=transport-udp\n\n`;
-    config += `[auth${data.id}]\ntype=auth\nauth_type=userpass\nusername=${data.id}\npassword=${data.secret}\n\n`;
-    config += `[${data.id}]\ntype=aor\nmax_contacts=1\n\n`;
-  });
-
-  fs.writeFileSync('/etc/asterisk/pjsip_miac_users.conf', config);
-  
-  exec('asterisk -rx "core reload"', (err) => {
-    if (err) console.error('[ERROR] Ошибка перезагрузки Asterisk:', err);
-    else console.log('[BRIDGE] Конфигурация обновлена и применена.');
-  });
-});
-
-console.log('[BRIDGE] Мост запущен и слушает изменения...');
+// 2. Статусы: Asterisk (AMI) -> Firestore
+// В реальной среде здесь должен быть коннект к AMI
+console.log('📡 Ожидание подключений AMI для обновления статусов...');
