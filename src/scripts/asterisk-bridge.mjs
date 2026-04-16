@@ -1,42 +1,44 @@
+import { initializeApp } from 'firebase/app';
+import { getFirestore, collection, onSnapshot } from 'firebase/firestore';
+import { firebaseConfig } from '../firebase/config.mjs';
+import fs from 'fs';
+import { exec } from 'child_process';
 
 /**
- * @fileOverview Bridge-скрипт для синхронизации Firestore -> Asterisk Config.
- * Работает на сервере AltLinux.
+ * @fileOverview Серверный мост (Bridge) для синхронизации настроек из веба в Asterisk 20.
  */
 
-import { initializeApp } from "firebase/app";
-import { getFirestore, collection, onSnapshot } from "firebase/firestore";
-import fs from "fs";
-import { exec } from "child_process";
-import { firebaseConfig } from "../firebase/config.mjs";
+const CONF_FILE = '/etc/asterisk/pjsip_miac_users.conf';
 
+// Инициализация
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-const PJSIP_FILE = "/etc/asterisk/pjsip_miac_users.conf";
+console.log('🚀 [BRIDGE] Мост МИАЦ.СВЯЗЬ запущен...');
+console.log(`📂 [BRIDGE] Целевой файл: ${CONF_FILE}`);
 
-console.log("🚀 Bridge активен. Ожидание изменений в Firestore...");
-
-// Слушаем изменения экстеншенов
-onSnapshot(collection(db, "extensions"), (snapshot) => {
-  let configContent = "; АВТОГЕНЕРИРУЕМЫЙ ФАЙЛ МИАЦ.СВЯЗЬ\n; НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ\n\n";
+// Слушаем изменения в коллекции extensions
+onSnapshot(collection(db, 'extensions'), (snapshot) => {
+  let configContent = '; ГЕНЕРИРУЕМЫЙ ФАЙЛ МИАЦ.СВЯЗЬ\n; НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ\n\n';
 
   snapshot.forEach((doc) => {
     const ext = doc.data();
-    configContent += `[${doc.id}]\ntype=endpoint\nauth=${doc.id}\naors=${doc.id}\ncontext=${ext.context || 'from-internal'}\ndisallow=all\nallow=ulaw,alaw\ndirect_media=no\n\n`;
-    configContent += `[${doc.id}]\ntype=auth\nauth_type=userpass\nusername=${doc.id}\npassword=${ext.secret}\n\n`;
-    configContent += `[${doc.id}]\ntype=aor\nmax_contacts=1\nremove_existing=yes\n\n`;
+    configContent += `[${ext.id}]\ntype=endpoint\ncontext=${ext.context || 'from-internal'}\ndisallow=all\nallow=ulaw,alaw\nauth=auth${ext.id}\naors=${ext.id}\n\n`;
+    configContent += `[auth${ext.id}]\ntype=auth\nauth_type=userpass\nusername=${ext.id}\npassword=${ext.secret}\n\n`;
+    configContent += `[${ext.id}]\ntype=aor\nmax_contacts=1\n\n`;
   });
 
   try {
-    fs.writeFileSync(PJSIP_FILE, configContent);
-    console.log(`[${new Date().toLocaleTimeString()}] ✅ Обновлен ${PJSIP_FILE}`);
+    // ВНИМАНИЕ: На сервере AltLinux убедитесь, что у пользователя Node.js есть права на запись в /etc/asterisk
+    fs.writeFileSync(CONF_FILE, configContent);
+    console.log(`✅ [BRIDGE] Обновлено: ${snapshot.size} абонентов.`);
     
-    // Перезагружаем PJSIP в Asterisk
-    exec('asterisk -rx "pjsip reload"', (err) => {
-      if (err) console.error("❌ Ошибка reload:", err.message);
+    // Перезагрузка Asterisk
+    exec('asterisk -rx "pjsip reload"', (error, stdout, stderr) => {
+      if (error) console.error(`❌ [BRIDGE] Ошибка перезагрузки: ${error.message}`);
+      else console.log('🔄 [BRIDGE] Asterisk PJSIP Reload: OK');
     });
-  } catch (e) {
-    console.error("❌ Ошибка записи файла. Проверьте права доступа к /etc/asterisk/");
+  } catch (err) {
+    console.error('❌ [BRIDGE] Ошибка записи файла:', err.message);
   }
 });

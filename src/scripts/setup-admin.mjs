@@ -1,34 +1,31 @@
-
-/**
- * @fileOverview Скрипт создания администратора в ЛОКАЛЬНОМ JSON-файле.
- * Не требует Firebase Auth API Key.
- * Использование: node src/scripts/setup-admin.mjs email password
- */
-
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { fileURLToPath } from 'url';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const ADMINS_DIR = path.join(__dirname, '../data');
-const ADMINS_FILE = path.join(ADMINS_DIR, 'admins.json');
+/**
+ * @fileOverview Скрипт создания администратора панели МИАЦ.СВЯЗЬ.
+ * Использование: node src/scripts/setup-admin.mjs email password
+ */
+
+const ADMINS_FILE = path.join(process.cwd(), 'src/data/admins.json');
 
 function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
 
-async function setup() {
-  const [email, password] = process.argv.slice(2);
-
-  if (!email || !password) {
-    console.error('❌ Укажите email и пароль: node setup-admin.mjs user@miac.ru password123');
+async function main() {
+  const args = process.argv.slice(2);
+  if (args.length < 2) {
+    console.log('Использование: node src/scripts/setup-admin.mjs <email> <password>');
     process.exit(1);
   }
 
+  const [email, password] = args;
+
   try {
-    if (!fs.existsSync(ADMINS_DIR)) {
-      fs.mkdirSync(ADMINS_DIR, { recursive: true });
+    const dataDir = path.dirname(ADMINS_FILE);
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
     }
 
     let admins = [];
@@ -36,7 +33,6 @@ async function setup() {
       admins = JSON.parse(fs.readFileSync(ADMINS_FILE, 'utf8'));
     }
 
-    // Проверяем, существует ли уже такой пользователь
     const existingIndex = admins.findIndex(a => a.email === email);
     const newAdmin = {
       email,
@@ -47,19 +43,18 @@ async function setup() {
 
     if (existingIndex > -1) {
       admins[existingIndex] = newAdmin;
-      console.log(`ℹ️ Пользователь ${email} обновлен.`);
+      console.log(`✅ Пользователь ${email} обновлен.`);
     } else {
       admins.push(newAdmin);
-      console.log(`✅ Пользователь ${email} создан.`);
+      console.log(`✅ Пользователь ${email} успешно создан.`);
     }
 
     fs.writeFileSync(ADMINS_FILE, JSON.stringify(admins, null, 2));
-    console.log(`📁 Данные сохранены в ${ADMINS_FILE}`);
-
+    console.log('Данные сохранены в src/data/admins.json');
+    
   } catch (error) {
     console.error('❌ Ошибка при создании:', error.message);
-    process.exit(1);
   }
 }
 
-setup();
+main();

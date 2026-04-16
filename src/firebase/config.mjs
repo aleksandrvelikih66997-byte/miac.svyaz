@@ -1,7 +1,4 @@
-
-/**
- * Конфигурация Firebase для Node.js скриптов (ESM).
- */
+// Вспомогательный файл для Node.js скриптов (ESM)
 export const firebaseConfig = {
   apiKey: "api-key",
   authDomain: "project-id.firebaseapp.com",
