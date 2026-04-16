@@ -1,7 +1,7 @@
 
 /**
- * @fileOverview Скрипт создания локального администратора
- * Использование: node src/scripts/setup-admin.mjs email@miac.ru password
+ * @fileOverview Скрипт для создания локальных администраторов панели управления.
+ * Использование: node src/scripts/setup-admin.mjs email@example.com password
  */
 import fs from 'fs';
 import path from 'path';
@@ -32,19 +32,20 @@ if (fs.existsSync(ADMINS_FILE)) {
 }
 
 const existingIndex = admins.findIndex(a => a.email === email);
-const adminData = {
+const newAdmin = {
   email,
   passwordHash: hashPassword(password),
   role: 'Admin',
   createdAt: new Date().toISOString()
 };
 
-if (existingIndex > -1) {
-  admins[existingIndex] = adminData;
-  console.log(`[OK] Пароль администратора ${email} обновлен.`);
+if (existingIndex >= 0) {
+  admins[existingIndex] = newAdmin;
+  console.log(`[ADMIN] Пароль для ${email} обновлен.`);
 } else {
-  admins.push(adminData);
-  console.log(`[OK] Администратор ${email} создан.`);
+  admins.push(newAdmin);
+  console.log(`[ADMIN] Пользователь ${email} создан.`);
 }
 
 fs.writeFileSync(ADMINS_FILE, JSON.stringify(admins, null, 2));
+console.log('[SUCCESS] Файл src/data/admins.json обновлен.');

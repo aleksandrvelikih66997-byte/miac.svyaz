@@ -1,118 +1,69 @@
 
 /**
- * @fileOverview Скрипт синхронизации Firestore -> Asterisk .conf
- * Мониторит коллекцию 'extensions' и 'trunks' и перезаписывает файлы в /etc/asterisk/
+ * @fileOverview Мост синхронизации между Firestore и локальными конфигами Asterisk.
+ * Слушает изменения в коллекции 'extensions' и обновляет pjsip_miac_users.conf.
  */
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, onSnapshot, query, orderBy } from 'firebase/firestore';
-import { firebaseConfig } from '../firebase/config.js';
-import asteriskManager from 'asterisk-manager';
+import { getFirestore, collection, onSnapshot, query } from 'firebase/firestore';
 import fs from 'fs';
 import path from 'path';
+import ami from 'asterisk-manager';
 
-const PJSIP_FILE = '/etc/asterisk/pjsip_miac_users.conf';
-const AMI_CONFIG = {
-  port: 5038,
-  host: '127.0.0.1',
-  user: 'miac',
-  password: 'MiacAMI2026'
+// Конфиг Firebase (локальные заглушки для закрытого контура, если нет реальных)
+const firebaseConfig = {
+  apiKey: "api-key",
+  authDomain: "project-id.firebaseapp.com",
+  projectId: "project-id",
 };
 
-// Инициализация Firebase (Client SDK для Node.js)
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// Подключение к Asterisk AMI
-const ami = new asteriskManager(AMI_CONFIG.port, AMI_CONFIG.host, AMI_CONFIG.user, AMI_CONFIG.password, true);
+const PJSIP_FILE = '/etc/asterisk/pjsip_miac_users.conf';
+const AMI_PORT = 5038;
+const AMI_HOST = '127.0.0.1';
+const AMI_USER = 'miac';
+const AMI_PASS = 'MiacAMI2026';
 
-ami.on('managerevent', (evt) => {
-  // Можно логировать события звонков здесь
+// Подключение к AMI для перезагрузки конфигов
+const manager = new ami(AMI_PORT, AMI_HOST, AMI_USER, AMI_PASS, true);
+
+manager.on('error', (err) => {
+  console.error('[AMI ERROR]', err.message);
 });
 
-function generatePjsipConfig(extensions, trunks) {
-  let config = '; АВТОМАТИЧЕСКИ СГЕНЕРИРОВАНО МИАЦ.СВЯЗЬ\n';
-  config += '; НЕ РЕДАКТИРУЙТЕ ВРУЧНУЮ\n\n';
-
-  // Обработка абонентов
-  extensions.forEach(ext => {
-    config += `[${ext.id}]\n`;
-    config += `type=endpoint\n`;
-    config += `context=${ext.context || 'from-internal'}\n`;
-    config += `disallow=all\n`;
-    config += `allow=ulaw,alaw,g729\n`;
-    config += `auth=auth${ext.id}\n`;
-    config += `aors=${ext.id}\n`;
-    config += `callerid=${ext.name} <${ext.id}>\n`;
-    config += `device_state_busy_at=1\n\n`;
-
-    config += `[auth${ext.id}]\n`;
-    config += `type=auth\n`;
-    config += `auth_type=userpass\n`;
-    config += `username=${ext.id}\n`;
-    config += `password=${ext.secret}\n\n`;
-
-    config += `[${ext.id}]\n`;
-    config += `type=aor\n`;
-    config += `max_contacts=1\n\n`;
+function reloadAsterisk() {
+  manager.action({
+    action: 'Command',
+    command: 'pjsip reload'
+  }, (err, res) => {
+    if (err) console.error('[RELOAD ERROR]', err);
+    else console.log('[ASTERISK] Config reloaded successfully');
   });
-
-  // Обработка транков (упрощенно)
-  trunks.forEach(trunk => {
-    config += `[trunk-${trunk.id}]\n`;
-    config += `type=endpoint\n`;
-    config += `context=from-external\n`;
-    config += `disallow=all\n`;
-    config += `allow=ulaw,alaw\n`;
-    config += `outbound_auth=auth-trunk-${trunk.id}\n`;
-    config += `aors=aor-trunk-${trunk.id}\n\n`;
-
-    config += `[auth-trunk-${trunk.id}]\n`;
-    config += `type=auth\n`;
-    config += `auth_type=userpass\n`;
-    config += `username=${trunk.user}\n`;
-    config += `password=${trunk.password}\n\n`;
-
-    config += `[aor-trunk-${trunk.id}]\n`;
-    config += `type=aor\n`;
-    config += `contact=sip:${trunk.host}:${trunk.port}\n\n`;
-  });
-
-  return config;
 }
+
+console.log('[BRIDGE] Запуск мониторинга абонентов...');
 
 // Слушаем изменения в Firestore
-let extensions = [];
-let trunks = [];
+const q = query(collection(db, "extensions"));
+onSnapshot(q, (snapshot) => {
+  let configContent = '; --- Генерируемый файл МИАЦ.СВЯЗЬ ---\n; Не редактируйте вручную!\n\n';
 
-function sync() {
-  console.log('[BRIDGE] Синхронизация с Asterisk...');
-  const config = generatePjsipConfig(extensions, trunks);
-  
+  snapshot.forEach((doc) => {
+    const ext = doc.data();
+    const id = doc.id;
+
+    configContent += `[${id}]\ntype=endpoint\ncontext=${ext.context || 'from-internal'}\ndisallow=all\nallow=ulaw,alaw\nauth=auth${id}\naors=${id}\n\n`;
+    configContent += `[auth${id}]\ntype=auth\nauth_type=userpass\nusername=${id}\npassword=${ext.secret}\n\n`;
+    configContent += `[${id}]\ntype=aor\nmax_contacts=1\n\n`;
+  });
+
   try {
-    fs.writeFileSync(PJSIP_FILE, config);
-    console.log('[BRIDGE] Конфиг записан:', PJSIP_FILE);
-    
-    // Перезагрузка PJSIP в Asterisk
-    ami.action({
-      action: 'Command',
-      command: 'pjsip reload'
-    }, (err, res) => {
-      if (err) console.error('[AMI ERROR]', err);
-      else console.log('[BRIDGE] Asterisk PJSIP reloaded');
-    });
+    fs.writeFileSync(PJSIP_FILE, configContent);
+    console.log(`[BRIDGE] Файл ${PJSIP_FILE} обновлен. Абонентов: ${snapshot.size}`);
+    reloadAsterisk();
   } catch (err) {
-    console.error('[FS ERROR] Проверьте права на ' + PJSIP_FILE, err.message);
+    console.error('[FILE ERROR] Ошибка записи конфига:', err.message);
+    console.log('Подсказка: Выполните chmod 666 ' + PJSIP_FILE);
   }
-}
-
-onSnapshot(collection(db, 'extensions'), (snap) => {
-  extensions = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  sync();
 });
-
-onSnapshot(collection(db, 'trunks'), (snap) => {
-  trunks = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  sync();
-});
-
-console.log('[BRIDGE] Мост запущен и ожидает изменений в Firestore...');
