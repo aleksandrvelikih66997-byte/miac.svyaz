@@ -1,64 +1,78 @@
 
-import { initializeApp } from "firebase/app";
-import { getFirestore, collection, onSnapshot, doc, updateDoc } from "firebase/firestore";
-import aml from "asterisk-manager";
-import { writeFileSync } from "fs";
-import { exec } from "child_process";
+import { initializeApp } from 'firebase/app';
+import { getFirestore, collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import asteriskManager from 'asterisk-manager';
+import fs from 'fs';
+import { exec } from 'child_process';
+import { firebaseConfig } from '../firebase/config.js';
 
-// Конфигурация Firebase
-const firebaseConfig = {
-  apiKey: "api-key",
-  authDomain: "project-id.firebaseapp.com",
-  projectId: "project-id",
-  storageBucket: "project-id.appspot.com",
-  messagingSenderId: "sender-id",
-  appId: "app-id"
-};
-
+// Инициализация Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// Настройки AMI
-const ami = new aml(5038, 'localhost', 'miac', 'MiacAMI2026', true);
-ami.keepConnected();
+// Конфигурация AMI
+const ami = asteriskManager(5038, '127.0.0.1', 'miac', 'MiacAMI2026', true);
 
-console.log("--- МИАЦ.СВЯЗЬ: Запуск моста синхронизации ---");
+const PJSIP_CONF_PATH = '/etc/asterisk/pjsip_miac_users.conf';
 
-// 1. Слушаем изменения абонентов в Firestore и обновляем pjsip_miac_users.conf
-onSnapshot(collection(db, "extensions"), (snapshot) => {
-  let configContent = "; --- МИАЦ.СВЯЗЬ: Автоматически сгенерированный файл ---\n\n";
+console.log('[BRIDGE] Запуск моста МИАЦ.СВЯЗЬ...');
+
+// 1. Слушаем изменения в Firestore (Абоненты)
+onSnapshot(collection(db, 'extensions'), (snapshot) => {
+  console.log('[BRIDGE] Обнаружены изменения абонентов в базе. Обновляем конфиг...');
+  let config = '';
   
-  snapshot.forEach((doc) => {
-    const ext = doc.data();
-    configContent += `[${ext.id}]\ntype=endpoint\ncontext=${ext.context || 'from-internal'}\ndisallow=all\nallow=ulaw,alaw\nauth=${ext.id}\naors=${ext.id}\ntransport=transport-udp\n\n`;
-    configContent += `[${ext.id}]\ntype=auth\nauth_type=userpass\nusername=${ext.id}\npassword=${ext.secret}\n\n`;
-    configContent += `[${ext.id}]\ntype=aor\nmax_contacts=1\n\n`;
+  snapshot.docs.forEach((doc) => {
+    const data = doc.data();
+    config += `
+[${data.id}]
+type=endpoint
+context=${data.context || 'from-internal'}
+disallow=all
+allow=alaw,ulaw
+auth=${data.id}
+aors=${data.id}
+transport=transport-udp
+
+[${data.id}]
+type=auth
+auth_type=userpass
+password=${data.secret}
+username=${data.id}
+
+[${data.id}]
+type=aor
+max_contacts=1
+`;
   });
 
   try {
-    writeFileSync("/etc/asterisk/pjsip_miac_users.conf", configContent);
-    console.log("[BRIDGE] Файл pjsip_miac_users.conf обновлен.");
+    fs.writeFileSync(PJSIP_CONF_PATH, config);
+    console.log(`[BRIDGE] Файл ${PJSIP_CONF_PATH} успешно обновлен.`);
     
-    // Перезагружаем Asterisk
-    exec('asterisk -rx "core reload"', (err) => {
-      if (!err) console.log("[BRIDGE] Команда core reload выполнена.");
+    // Перезагрузка Asterisk
+    exec('asterisk -rx "pjsip reload"', (error) => {
+      if (error) console.error('[BRIDGE] Ошибка при pjsip reload:', error);
+      else console.log('[BRIDGE] Asterisk PJSIP конфигурация перезагружена.');
     });
-  } catch (e) {
-    console.error("[BRIDGE] ОШИБКА записи файла. Проверьте права на /etc/asterisk/");
+  } catch (err) {
+    console.error('[BRIDGE] КРИТИЧЕСКАЯ ОШИБКА записи файла:', err.message);
   }
 });
 
-// 2. Слушаем события регистрации из AMI и обновляем статусы в Firestore
+// 2. Слушаем события AMI для обновления статусов в реальном времени
 ami.on('peerstatus', (evt) => {
-  const peer = evt.peer.split('/')[1]; // PJSIP/101 -> 101
-  if (!peer) return;
-
-  const status = evt.peerstatus === 'Registered' ? 'online' : 'offline';
-  console.log(`[AMI] Изменение статуса: ${peer} -> ${status}`);
-
-  updateDoc(doc(db, "extensions", peer), { status }).catch(() => {});
+  const extId = evt.peer.replace('PJSIP/', '');
+  const status = evt.peerstatus.toLowerCase() === 'registered' ? 'online' : 'offline';
+  
+  console.log(`[BRIDGE] Статус абонента ${extId} изменен на ${status}`);
+  
+  const extRef = doc(db, 'extensions', extId);
+  updateDoc(extRef, { status }).catch(e => {
+    // Тихо игнорируем если абонента нет в базе
+  });
 });
 
 ami.on('managerevent', (evt) => {
-  // Можно добавить дополнительные события (Busy и т.д.)
+  // Логирование всех событий для отладки если нужно
 });

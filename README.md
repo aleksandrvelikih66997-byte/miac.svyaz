@@ -5,7 +5,7 @@
 
 ## 🚀 Быстрый старт на сервере
 
-### 1. Подготовка
+### 1. Подготовка и установка
 ```bash
 git pull origin main
 npm install
@@ -26,10 +26,14 @@ npm run bridge
 ## 🛠 Настройка прав Asterisk
 Чтобы Bridge мог управлять Asterisk, убедитесь, что у него есть доступ к сокету и файлам:
 ```bash
+# Доступ к сокету управления
 chown -R asterisk:asterisk /var/run/asterisk
-chown -R asterisk:asterisk /etc/asterisk
 chmod 770 /var/run/asterisk/asterisk.ctl
+
+# Доступ к конфигурационным файлам
+chown -R asterisk:asterisk /etc/asterisk
+chmod 775 /etc/asterisk
 ```
 
 ## 🛡 Безопасность
-Система работает в закрытом контуре. Все пароли SIP хранятся локально на вашем сервере в `/etc/asterisk/pjsip_miac_users.conf`.
+Система работает в закрытом контуре. Все пароли SIP хранятся локально на вашем сервере в `/etc/asterisk/pjsip_miac_users.conf`. Доступ к панели разрешен только пользователям, созданным через консольный скрипт `setup-admin.mjs`.
