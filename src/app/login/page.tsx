@@ -1,7 +1,7 @@
+
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -24,10 +24,12 @@ export default function LoginPage() {
       const result = await loginLocal(email, password);
       
       if (result.success) {
-        toast({ title: "Успешный вход", description: "Добро пожаловать в систему." });
-        // Используем window.location.href для полной перезагрузки страницы.
-        // Это гарантирует, что AuthLayoutWrapper на корневом уровне увидит новую куку сессии.
-        window.location.href = '/';
+        toast({ title: "Успешный вход", description: "Переход в систему..." });
+        
+        // Небольшая задержка, чтобы кука успела прописаться в браузере
+        setTimeout(() => {
+          window.location.assign('/');
+        }, 100);
       } else {
         toast({
           variant: "destructive",

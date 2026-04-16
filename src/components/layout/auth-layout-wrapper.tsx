@@ -2,7 +2,7 @@
 "use client"
 
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Button } from "@/components/ui/button";
@@ -17,25 +17,26 @@ export function AuthLayoutWrapper({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function checkAuth() {
-      try {
-        const currentSession = await getLocalSession();
-        setSession(currentSession);
-        
-        if (!currentSession && !isLoginPage) {
-          router.replace('/login');
-        } else if (currentSession && isLoginPage) {
-          router.replace('/');
-        }
-      } catch (err) {
-        console.error("Auth check failed", err);
-      } finally {
-        setLoading(false);
+  const checkAuth = useCallback(async () => {
+    try {
+      const currentSession = await getLocalSession();
+      setSession(currentSession);
+      
+      if (!currentSession && !isLoginPage) {
+        router.replace('/login');
+      } else if (currentSession && isLoginPage) {
+        router.replace('/');
       }
+    } catch (err) {
+      console.error("Auth check failed", err);
+    } finally {
+      setLoading(false);
     }
+  }, [isLoginPage, router]);
+
+  useEffect(() => {
     checkAuth();
-  }, [isLoginPage, router, pathname]);
+  }, [checkAuth, pathname]);
 
   const handleLogout = async () => {
     await logoutLocal();
