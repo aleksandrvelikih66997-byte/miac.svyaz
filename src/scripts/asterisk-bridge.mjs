@@ -1,126 +1,139 @@
 
 /**
- * @fileOverview Мост МИАЦ.СВЯЗЬ (МИАЦ.АТС)
- * Синхронизирует локальные JSON-файлы с конфигурацией Asterisk PJSIP.
- * Оптимизировано для Asterisk 17/20 на AltLinux SP.
+ * @fileOverview Мост синхронизации локальной базы данных с Asterisk PJSIP.
+ * Оптимизировано для Asterisk 17/20 в изолированном контуре.
  */
 
 import fs from 'fs';
 import path from 'path';
 import asteriskManager from 'asterisk-manager';
-import { fileURLToPath } from 'url';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PROJECT_ROOT = path.join(__dirname, '../../');
-const DATA_DIR = path.join(PROJECT_ROOT, 'src/data');
-const PJSIP_FILE = '/etc/asterisk/pjsip_miac_users.conf';
+const DATA_DIR = path.join(process.cwd(), 'src/data');
+const EXTENSIONS_FILE = path.join(DATA_DIR, 'extensions.json');
+const TARGET_CONF = '/etc/asterisk/pjsip_miac_users.conf';
 
-// Конфигурация AMI (должна совпадать с manager.conf)
+// Настройки AMI (должны совпадать с /etc/asterisk/manager.conf)
 const amiConfig = {
   port: 5038,
   host: '127.0.0.1',
   user: 'miac',
-  secret: 'MiacAMI2026'
+  password: 'MiacAMI2026'
 };
 
-const ami = new asteriskManager(
-  amiConfig.port,
-  amiConfig.host,
-  amiConfig.user,
-  amiConfig.secret,
-  true // Reconnect
-);
+const ami = asteriskManager(amiConfig.port, amiConfig.host, amiConfig.user, amiConfig.password, true);
 
 console.log('🚀 [BRIDGE] Мост МИАЦ.СВЯЗЬ запущен...');
 console.log(`📂 [BRIDGE] Директория данных: ${DATA_DIR}`);
 
 // Функция генерации конфига PJSIP
 function generatePjsipConfig(extensions) {
-  let config = '';
+  let config = '; ГЕНЕРИРУЕМЫЙ ФАЙЛ. НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.\n\n';
+
   extensions.forEach(ext => {
-    config += `; --- Абонент ${ext.id} (${ext.name}) ---\n`;
+    config += `;;; Абонент ${ext.id} (${ext.name})\n`;
     
-    // Auth
-    config += `[${ext.id}-auth](!)\ntype=auth\nauth_type=userpass\nusername=${ext.id}\npassword=${ext.secret}\n\n`;
-    
-    // AOR
-    config += `[${ext.id}-aor](!)\ntype=aor\nmax_contacts=1\nremove_existing=yes\n\n`;
-    
-    // Endpoint
-    config += `[${ext.id}]\ntype=endpoint\ncontext=from-internal\ndisallow=all\nallow=ulaw,alaw,g722\nauth=${ext.id}-auth\naors=${ext.id}-aor\ndirect_media=no\nrewrite_contact=yes\n\n`;
+    // Блок Endpoint
+    config += `[${ext.id}]\n`;
+    config += `type=endpoint\n`;
+    config += `context=from-internal\n`;
+    config += `disallow=all\n`;
+    config += `allow=ulaw,alaw,g722\n`;
+    config += `auth=${ext.id}\n`;
+    config += `outbound_auth=${ext.id}\n`;
+    config += `aors=${ext.id}\n`;
+    config += `direct_media=no\n`;
+    config += `rewrite_contact=yes\n`;
+    config += `force_rport=yes\n\n`;
+
+    // Блок Auth
+    config += `[${ext.id}]\n`;
+    config += `type=auth\n`;
+    config += `auth_type=userpass\n`;
+    config += `username=${ext.id}\n`;
+    config += `password=${ext.secret}\n\n`;
+
+    // Блок AOR
+    config += `[${ext.id}]\n`;
+    config += `type=aor\n`;
+    config += `max_contacts=5\n`;
+    config += `remove_existing=yes\n\n`;
   });
+
   return config;
 }
 
-// Функция синхронизации
+// Функция отправки команды перезагрузки через AMI
+async function reloadAsteriskPjsip() {
+  // Список команд для пробы (в порядке приоритета для v17)
+  const commands = [
+    'module reload res_pjsip.so',
+    'pjsip reload',
+    'core reload'
+  ];
+
+  for (const cmd of commands) {
+    try {
+      const result = await new Promise((resolve, reject) => {
+        ami.action({
+          action: 'Command',
+          command: cmd
+        }, (err, res) => {
+          if (err) reject(err);
+          else resolve(res);
+        });
+      });
+
+      if (result.response === 'Success' || (result.output && !result.output.includes('No such command'))) {
+        console.log(`✅ [BRIDGE] Asterisk Command (${cmd}): OK`);
+        return true;
+      }
+    } catch (e) {
+      // Продолжаем пробовать следующую команду
+    }
+  }
+  
+  console.error('❌ [BRIDGE] Все попытки перезагрузки провалились. Проверьте права AMI.');
+  return false;
+}
+
+// Основной цикл синхронизации
 async function sync() {
-  console.log('🔄 [BRIDGE] Начало синхронизации...');
   try {
-    const extPath = path.join(DATA_DIR, 'extensions.json');
-    if (!fs.existsSync(extPath)) {
-      console.log('⚠️ [BRIDGE] Файл extensions.json не найден. Пропуск.');
+    if (!fs.existsSync(EXTENSIONS_FILE)) {
+      console.log('ℹ️ [BRIDGE] Файл данных пуст. Ожидание абонентов...');
       return;
     }
 
-    const extensions = JSON.parse(fs.readFileSync(extPath, 'utf8'));
-    const pjsipConfig = generatePjsipConfig(extensions);
+    const extensions = JSON.parse(fs.readFileSync(EXTENSIONS_FILE, 'utf8'));
+    const config = generatePjsipConfig(extensions);
 
-    // Запись в системный конфиг Asterisk
-    fs.writeFileSync(PJSIP_FILE, pjsipConfig);
-    console.log(`✅ [BRIDGE] Файл ${PJSIP_FILE} успешно обновлен. Абонентов: ${extensions.length}`);
+    // Записываем файл (нужны права 666 на /etc/asterisk/pjsip_miac_users.conf)
+    fs.writeFileSync(TARGET_CONF, config);
+    console.log(`✅ [BRIDGE] Файл ${TARGET_CONF} обновлен. Абонентов: ${extensions.length}`);
 
-    // Перезагрузка PJSIP через AMI
-    // Пробуем разные команды для разных версий Asterisk
-    const reloadCommands = ['module reload res_pjsip.so', 'pjsip reload', 'core reload'];
-    
-    let success = false;
-    for (const cmd of reloadCommands) {
-      if (success) break;
-      
-      try {
-        await new Promise((resolve, reject) => {
-          ami.action({
-            action: 'Command',
-            command: cmd
-          }, (err, res) => {
-            if (err || (res && res.response === 'Error' && !res.output)) {
-              reject(err || res);
-            } else {
-              console.log(`🔄 [BRIDGE] Asterisk Command (${cmd}): OK`);
-              success = true;
-              resolve(res);
-            }
-          });
-        });
-      } catch (e) {
-        // Игнорируем ошибки конкретной команды, пробуем следующую
-      }
-    }
-
-    if (!success) {
-      console.error('❌ [BRIDGE] Все команды перезагрузки AMI завершились неудачей.');
-    }
-
+    // Даем команду Asterisk
+    await reloadAsteriskPjsip();
   } catch (error) {
     console.error('❌ [BRIDGE] Ошибка синхронизации:', error.message);
   }
 }
 
-// Следим за изменениями в папке данных
+// Следим за изменениями в JSON файле
 fs.watch(DATA_DIR, (eventType, filename) => {
   if (filename === 'extensions.json') {
-    console.log(`🔔 [BRIDGE] Изменение в ${filename}. Синхронизация...`);
+    console.log('🔄 [BRIDGE] Обнаружены изменения в абонентах...');
     sync();
   }
 });
 
-// Первоначальный запуск
+// Первичный запуск
 sync();
 
+// Обработка ошибок AMI
 ami.on('error', (err) => {
   console.error('❌ [BRIDGE] AMI Connection Error:', err.message);
 });
 
-ami.on('managerevent', (evt) => {
-  // Можно добавить логирование звонков здесь
+ami.on('rawevent', (evt) => {
+  // Можно добавить логирование событий Asterisk здесь
 });

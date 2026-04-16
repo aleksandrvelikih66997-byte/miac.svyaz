@@ -26,6 +26,16 @@ write = all
 #include pjsip_miac_users.conf
 ```
 
+**ВАЖНО для Asterisk 17:** 
+Убедитесь, что модуль PJSIP загружен. Проверьте в `asterisk -rx "module show like pjsip"`. 
+Если пусто, добавьте в `/etc/asterisk/modules.conf`:
+```ini
+load => res_pjsip.so
+load => res_pjsip_session.so
+load => res_pjsip_authenticator_digest.so
+load => res_pjsip_registrar.so
+```
+
 ### 3. Права доступа
 Выполните команды в консоли сервера (из папки проекта):
 ```bash
