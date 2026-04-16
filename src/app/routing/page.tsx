@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect } from "react"
@@ -74,7 +73,7 @@ export default function RoutingPage() {
               <Info className="h-5 w-5 shrink-0" />
               <div>
                 <p className="font-bold uppercase mb-1">Как это работает?</p>
-                <p>Внутренние звонки (100 -> 123) работают автоматически. Здесь настраивается только связь с внешним миром.</p>
+                <p>Внутренние звонки (100 {"->"} 123) работают автоматически. Здесь настраивается только связь с внешним миром.</p>
               </div>
             </CardContent>
           </Card>
@@ -97,6 +96,11 @@ export default function RoutingPage() {
                 </CardContent>
               </Card>
             ))}
+            {routes.filter(r => r.type === 'inbound').length === 0 && (
+               <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-xl">
+                 Нет настроенных входящих маршрутов
+               </div>
+            )}
           </TabsContent>
 
           <TabsContent value="outbound" className="space-y-4">
@@ -117,6 +121,11 @@ export default function RoutingPage() {
                 </CardContent>
               </Card>
             ))}
+            {routes.filter(r => r.type === 'outbound').length === 0 && (
+               <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-xl">
+                 Нет настроенных исходящих маршрутов
+               </div>
+            )}
           </TabsContent>
         </div>
       </Tabs>
@@ -128,32 +137,36 @@ export default function RoutingPage() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label>{activeTab === 'inbound' ? 'DID Номер' : 'Шаблон (например 8X.)'}</Label>
-              <Input value={newRoute.pattern} onChange={e => setNewRoute({...newRoute, pattern: e.target.value})} />
+              <Label>{activeTab === 'inbound' ? 'Внешний DID (например 7495...)' : 'Шаблон набора (например 8X.)'}</Label>
+              <Input value={newRoute.pattern} onChange={e => setNewRoute({...newRoute, pattern: e.target.value})} placeholder={activeTab === 'inbound' ? "DID" : "8X."} />
             </div>
             <div className="grid gap-2">
-              <Label>Назначение</Label>
+              <Label>Назначение (Куда направить звонок)</Label>
               <Select value={newRoute.destination} onValueChange={v => setNewRoute({...newRoute, destination: v})}>
-                <SelectTrigger><SelectValue placeholder="Выберите..." /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Выберите цель..." /></SelectTrigger>
                 <SelectContent>
                   {activeTab === 'inbound' ? (
                     <>
-                      <SelectItem value="" disabled>--- Абоненты ---</SelectItem>
-                      {extensions.map(e => <SelectItem key={e.id} value={`Ext: ${e.id}`}>{e.id} - {e.name}</SelectItem>)}
-                      <SelectItem value="" disabled>--- Очереди ---</SelectItem>
-                      {queues.map(q => <SelectItem key={q.id} value={`Queue: ${q.name}`}>{q.name}</SelectItem>)}
-                      <SelectItem value="" disabled>--- IVR Меню ---</SelectItem>
-                      {ivrs.map(i => <SelectItem key={i.id} value={`IVR: ${i.id}`}>Меню: {i.name}</SelectItem>)}
+                      <SelectItem value="" disabled className="font-bold text-primary">Абоненты</SelectItem>
+                      {extensions.map(e => <SelectItem key={e.id} value={`Extension:${e.id}`}>{e.id} - {e.name}</SelectItem>)}
+                      <SelectItem value="" disabled className="font-bold text-primary">Группы (Очереди)</SelectItem>
+                      {queues.map(q => <SelectItem key={q.id} value={`Queue:${q.name}`}>{q.name}</SelectItem>)}
+                      <SelectItem value="" disabled className="font-bold text-primary">Голосовое меню (IVR)</SelectItem>
+                      {ivrs.map(i => <SelectItem key={i.id} value={`IVR:${i.id}`}>Меню: {i.name}</SelectItem>)}
                     </>
                   ) : (
-                    trunks.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)
+                    <>
+                      <SelectItem value="" disabled className="font-bold text-primary">Внешние линии (Транки)</SelectItem>
+                      {trunks.map(t => <SelectItem key={t.id} value={`Trunk:${t.id}`}>{t.name}</SelectItem>)}
+                    </>
                   )}
                 </SelectContent>
               </Select>
             </div>
           </div>
           <DialogFooter>
-            <Button onClick={handleAdd}>Сохранить</Button>
+            <Button variant="outline" onClick={() => setIsAddOpen(false)}>Отмена</Button>
+            <Button onClick={handleAdd}>Создать маршрут</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
