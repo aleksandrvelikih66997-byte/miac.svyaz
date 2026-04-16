@@ -8,18 +8,23 @@ import { getFirestore } from 'firebase/firestore'
 
 /**
  * Инициализация Firebase.
- * Проверяет валидность ключей перед инициализацией, чтобы не ломать сборку.
+ * Использует надежные заглушки для предотвращения ошибок во время сборки (build),
+ * если реальные ключи еще не подставлены.
  */
 export function initializeFirebase() {
   const isValidConfig = firebaseConfig.apiKey && firebaseConfig.apiKey !== 'api-key';
+  
+  const config = isValidConfig ? firebaseConfig : {
+    apiKey: "AIzaSyDummyKey-ForBuild-Only-123456",
+    authDomain: "miac-project.firebaseapp.com",
+    projectId: "miac-project",
+    storageBucket: "miac-project.appspot.com",
+    messagingSenderId: "123456789",
+    appId: "1:123456789:web:abcdef123456"
+  };
 
   if (!getApps().length) {
-    // Если конфиг невалидный (заглушка), инициализируем с минимальными данными для предотвращения вылета
-    const app = initializeApp(isValidConfig ? firebaseConfig : {
-      apiKey: "dummy",
-      authDomain: "dummy",
-      projectId: "dummy-project"
-    });
+    const app = initializeApp(config);
     return getSdks(app);
   }
 

@@ -24,13 +24,13 @@ export default function LoginPage() {
       const result = await loginLocal(email, password);
       
       if (result.success) {
-        toast({ title: "Успешный вход", description: "Переход в систему..." });
+        toast({ title: "Успешный вход", description: "Добро пожаловать в систему!" });
         
-        // Гарантированный редирект через перезагрузку страницы
-        // Используем assign для принудительного перехода
+        // Принудительный редирект через перезагрузку всей страницы.
+        // Это самый надежный способ для локальной авторизации на куках.
         setTimeout(() => {
-          window.location.assign('/');
-        }, 500);
+          window.location.href = '/';
+        }, 300);
       } else {
         toast({
           variant: "destructive",
