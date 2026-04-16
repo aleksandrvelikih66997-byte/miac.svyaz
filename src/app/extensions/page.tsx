@@ -62,7 +62,7 @@ export default function ExtensionsPage() {
 
   const handleAdd = () => {
     if (!newExt.id || !newExt.name || !newExt.secret) {
-      toast({ title: "Ошибка", description: "Заполните все обязательные поля", variant: "destructive" })
+      toast({ title: "Ошибка", description: "Заполните все обязательные поля (Номер, Имя, Пароль)", variant: "destructive" })
       return
     }
     
@@ -105,7 +105,7 @@ export default function ExtensionsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-headline font-bold text-primary">Экстеншены</h2>
-          <p className="text-sm text-muted-foreground">Управление внутренними номерами и пользователями</p>
+          <p className="text-sm text-muted-foreground">Управление внутренними номерами и пользователями АТС</p>
         </div>
         <Button className="gap-2 shadow-lg" onClick={() => setIsAddOpen(true)}>
           <Plus className="h-4 w-4" /> Добавить номер
@@ -134,8 +134,8 @@ export default function ExtensionsPage() {
               <TableHeader className="bg-muted/10">
                 <TableRow>
                   <TableHead className="w-[120px] font-bold">Номер</TableHead>
-                  <TableHead className="font-bold">Имя / Описание</TableHead>
-                  <TableHead className="font-bold">Протокол</TableHead>
+                  <TableHead className="font-bold">Имя / Отдел</TableHead>
+                  <TableHead className="font-bold">Технология</TableHead>
                   <TableHead className="font-bold">Контекст</TableHead>
                   <TableHead className="font-bold">Статус</TableHead>
                   <TableHead className="text-right font-bold">Действия</TableHead>
@@ -171,7 +171,7 @@ export default function ExtensionsPage() {
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-muted">
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
                             <MoreHorizontal className="h-4 w-4" />
                           </Button>
                         </DropdownMenuTrigger>

@@ -1,7 +1,7 @@
 'use server';
 /**
- * @fileOverview ИИ-помощник, настроенный под среду AltLinux SP и Asterisk 20.
- * Учитывает настройки manager.conf (пользователь miac) и PJSIP.
+ * @fileOverview ИИ-помощник, адаптированный под конкретную среду МИАЦ.
+ * Учитывает настройки manager.conf и PJSIP транспорт.
  */
 
 import {ai} from '@/ai/genkit';
@@ -28,17 +28,17 @@ const prompt = ai.definePrompt({
   name: 'intelligentConfigurationAssistantPrompt',
   input: {schema: IntelligentConfigurationAssistantInputSchema},
   output: {schema: IntelligentConfigurationAssistantOutputSchema},
-  prompt: `Вы — эксперт по Asterisk 20 в среде AltLinux SP. 
-Контекст сервера пользователя:
-- Используется PJSIP.
-- Контекст для внутренних вызовов: [from-internal].
-- AMI пользователь: miac (secret: MiacAMI2026).
-- Основной транспорт: [transport-udp].
-- Конфиги абонентов подключаются через #include pjsip_miac_users.conf.
+  prompt: `Вы — ведущий эксперт по Asterisk 20 в среде AltLinux SP 10.
+Ваш контекст:
+- Пользователь AMI: miac
+- Секрет AMI: MiacAMI2026
+- Транспорт PJSIP: [transport-udp] (bind 0.0.0.0:5060)
+- Контекст для внутренних номеров: [from-internal]
+- Структура: файлы абонентов должны попадать в pjsip_miac_users.conf
 
 Запрос пользователя: {{{request}}}
 
-Сгенерируйте оптимальный конфиг, соответствующий этой архитектуре. Если создается абонент, укажите, что его нужно добавить в pjsip_miac_users.conf.`,
+Сгенерируйте код конфигурации, который будет безопасным и соответствовать архитектуре МИАЦ. Используйте только PJSIP.`,
 });
 
 const intelligentConfigurationAssistantFlow = ai.defineFlow(

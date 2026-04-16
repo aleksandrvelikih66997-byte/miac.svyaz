@@ -80,7 +80,7 @@ export default function TrunksPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-headline font-bold text-primary">Внешние линии (Транки)</h2>
-          <p className="text-sm text-muted-foreground">Настройка SIP/PJSIP подключения к провайдерам</p>
+          <p className="text-sm text-muted-foreground">Настройка SIP/PJSIP подключения к провайдерам связи</p>
         </div>
         <Button className="gap-2 shadow-lg" onClick={() => setIsAddOpen(true)}>
           <Plus className="h-4 w-4" /> Добавить транк
@@ -99,7 +99,7 @@ export default function TrunksPage() {
                     <Globe className="h-6 w-6" />
                   </div>
                   <Badge variant={trunk.status === "Registered" ? "default" : "destructive"} className={trunk.status === "Registered" ? "bg-emerald-500" : ""}>
-                    {trunk.status === "Registered" ? "Активен" : "Ошибка рег."}
+                    {trunk.status === "Registered" ? "Активен" : "Отключен"}
                   </Badge>
                 </div>
                 <CardTitle className="pt-4 text-xl font-headline text-primary">{trunk.name}</CardTitle>

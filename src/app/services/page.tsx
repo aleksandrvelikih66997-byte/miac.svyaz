@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState } from "react"
@@ -20,8 +19,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Label } from "@/components/ui/label"
-import { useCollection, useFirestore } from "@/firebase"
-import { collection } from "firebase/firestore"
+import { useCollection, useFirestore, useMemoFirebase } from "@/firebase"
+import { collection, query } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
@@ -34,7 +33,13 @@ export default function ServicesPage() {
     "[SECURITY] FSTEC Compliance check passed: Local storage active"
   ])
   const db = useFirestore()
-  const { data: extensions } = useCollection(collection(db, "extensions"))
+  
+  const extensionsQuery = useMemoFirebase(() => {
+    if (!db) return null;
+    return query(collection(db, "extensions"));
+  }, [db]);
+
+  const { data: extensions } = useCollection(extensionsQuery)
   const { toast } = useToast()
 
   const handleAction = (newStatus: 'running' | 'stopped' | 'restarting') => {
@@ -47,7 +52,11 @@ export default function ServicesPage() {
   }
 
   const generatePJSIPFile = () => {
-    if (!extensions) return
+    if (!extensions || extensions.length === 0) {
+      toast({ title: "Ошибка", description: "Нет абонентов для экспорта", variant: "destructive" })
+      return
+    }
+    
     const content = extensions.map(ext => `
 ; --- Extension ${ext.id} ---
 [${ext.id}]
@@ -57,7 +66,6 @@ disallow=all
 allow=alaw,ulaw
 auth=${ext.id}_auth
 aors=${ext.id}
-mailboxes=${ext.id}@default
 
 [${ext.id}_auth]
 type=auth
@@ -99,9 +107,10 @@ max_contacts=1
             <ShieldCheck className="h-5 w-5 text-emerald-600" />
             <AlertTitle className="text-emerald-800 font-bold">Контур безопасности МИАЦ (ФСТЭК)</AlertTitle>
             <AlertDescription className="text-emerald-700 text-xs mt-1 leading-relaxed">
-              Система работает по принципу <strong>"Cloud Control - Local Execution"</strong>. 
-              Все пароли, маршруты и логи телефонии после настройки экспортируются и исполняются исключительно 
-              в закрытом контуре вашего сервера <strong>AltLinux SP 10</strong>. Внешняя панель не имеет прямого доступа к разговорам.
+              Система работает по принципу <strong>"Hybrid Management"</strong>. 
+              Управление осуществляется через интерфейс, но исполнение и хранение секретов происходит 
+              исключительно в закрытом контуре вашего сервера <strong>AltLinux SP 10</strong>. 
+              Файлы конфигурации генерируются локально и не покидают периметр безопасности.
             </AlertDescription>
           </Alert>
 
@@ -164,7 +173,7 @@ max_contacts=1
           <Card className="border-none shadow-lg h-fit">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-bold flex items-center gap-2">
-                <FileCode className="h-4 w-4 text-primary" /> Экспорт
+                <FileCode className="h-4 w-4 text-primary" /> Экспорт данных
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -179,14 +188,14 @@ max_contacts=1
 
           <Card className="border-none shadow-lg h-fit bg-amber-50">
             <CardHeader className="pb-2">
-              <CardTitle className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">Аудит системы</CardTitle>
+              <CardTitle className="text-[10px] font-bold text-amber-700 uppercase tracking-widest">Аудит AMI</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="text-[10px] text-amber-900 leading-tight flex items-start gap-2">
                 <ShieldAlert className="h-3 w-3 shrink-0 mt-0.5" />
                 <span>Последний вход AMI: 5 мин. назад с 127.0.0.1 (user: miac)</span>
               </div>
-              <Button variant="link" className="text-[10px] h-auto p-0 text-amber-700 font-bold hover:no-underline">ПРОСМОТРЕТЬ ЛОГИ БЕЗОПАСНОСТИ →</Button>
+              <Button variant="link" className="text-[10px] h-auto p-0 text-amber-700 font-bold hover:no-underline">ПОЛНЫЙ ОТЧЕТ БЕЗОПАСНОСТИ →</Button>
             </CardContent>
           </Card>
         </div>
