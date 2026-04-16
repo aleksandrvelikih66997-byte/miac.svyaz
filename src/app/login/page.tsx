@@ -27,10 +27,10 @@ export default function LoginPage() {
         toast({ title: "Успешный вход", description: "Добро пожаловать в систему!" });
         
         // Принудительный редирект через перезагрузку всей страницы.
-        // Это самый надежный способ для локальной авторизации на куках.
+        // Это гарантирует, что браузер применит сессионную куку miac_session.
         setTimeout(() => {
           window.location.href = '/';
-        }, 300);
+        }, 500);
       } else {
         toast({
           variant: "destructive",
