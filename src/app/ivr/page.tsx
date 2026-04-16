@@ -8,6 +8,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import { getIvrs, saveIvr, deleteIvr, getExtensions, getQueues } from "@/lib/telephony-store"
 
@@ -17,103 +24,178 @@ export default function IvrPage() {
   const [queues, setQueues] = useState<any[]>([])
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [newIvr, setNewIvr] = useState({ name: "", announcementFile: "demo-congrats", digitMappings: [] as string[] })
-  const { toast } = useToast()
+  
+  // Состояния для временного ввода в диалоге добавления перехода
+  const [tempDigit, setTempDigit] = useState("")
+  const [tempType, setTempType] = useState("ext")
+  const [tempTarget, setTempTarget] = useState("")
 
   const load = async () => {
-    const [i, e, q] = await Promise.all([getIvrs(), getExtensions(), getQueues()])
-    setIvrs(i); setExtensions(e); setQueues(q);
+    try {
+      const [i, e, q] = await Promise.all([getIvrs(), getExtensions(), getQueues()])
+      setIvrs(i || [])
+      setExtensions(e || [])
+      setQueues(q || [])
+    } catch (error) {
+      console.error("Failed to load IVR data", error)
+    }
   }
 
   useEffect(() => { load() }, [])
 
   const handleSave = async () => {
+    if (!newIvr.name) {
+      toast({ title: "Ошибка", description: "Введите название меню", variant: "destructive" })
+      return
+    }
     await saveIvr(newIvr)
     setIsAddOpen(false)
     setNewIvr({ name: "", announcementFile: "demo-congrats", digitMappings: [] })
+    setTempDigit("")
+    setTempTarget("")
     load()
     toast({ title: "Голосовое меню сохранено" })
   }
 
+  const addMapping = () => {
+    if (!tempDigit || !tempTarget) {
+      toast({ title: "Ошибка", description: "Заполните кнопку и ID", variant: "destructive" })
+      return
+    }
+    const mapping = `${tempDigit}:${tempType}:${tempTarget}`
+    setNewIvr({
+      ...newIvr,
+      digitMappings: [...newIvr.digitMappings, mapping]
+    })
+    setTempDigit("")
+    setTempTarget("")
+  }
+
+  const { toast } = useToast()
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-primary">Голосовое меню (IVR)</h2>
-        <Button onClick={() => setIsAddOpen(true)} className="gap-2">
+        <div>
+          <h2 className="text-2xl font-bold text-primary">Голосовое меню (IVR)</h2>
+          <p className="text-sm text-muted-foreground">Настройка приветствий и переходов по кнопкам</p>
+        </div>
+        <Button onClick={() => setIsAddOpen(true)} className="gap-2 shadow-lg">
           <Plus className="h-4 w-4" /> Добавить меню
         </Button>
       </div>
 
       <div className="grid gap-6">
         {ivrs.map(ivr => (
-          <Card key={ivr.id} className="border-none shadow-lg">
+          <Card key={ivr.id} className="border-none shadow-lg group">
             <CardHeader className="bg-primary/5 border-b flex flex-row items-center justify-between py-4">
               <CardTitle className="text-lg flex items-center gap-3">
                 <Mic2 className="h-5 w-5 text-primary" /> {ivr.name}
               </CardTitle>
-              <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteIvr(ivr.id).then(load)}>
+              <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" onClick={() => deleteIvr(ivr.id).then(load)}>
                 <Trash2 className="h-4 w-4" />
               </Button>
             </CardHeader>
             <CardContent className="pt-4 grid md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <p className="text-xs font-bold text-muted-foreground uppercase">Файл приветствия:</p>
-                <code className="bg-muted px-2 py-1 rounded text-sm">{ivr.announcementFile}.wav</code>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Файл приветствия:</p>
+                <code className="bg-muted px-2 py-1 rounded text-xs font-mono border block w-fit">
+                  {ivr.announcementFile}.wav
+                </code>
               </div>
               <div className="space-y-2">
-                <p className="text-xs font-bold text-muted-foreground uppercase mb-2">Назначения кнопок:</p>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Назначения кнопок:</p>
                 <div className="space-y-1">
                   {(ivr.digitMappings || []).map((m: string) => {
                     const [d, type, id] = m.split(':');
                     return (
-                      <div key={m} className="flex items-center gap-2 text-sm bg-muted/30 p-2 rounded">
-                        <Keyboard className="h-3 w-3" /> <span className="font-bold">Кнопка {d}:</span>
-                        <span>{type === 'ext' ? `Абонент ${id}` : `Группа ${id}`}</span>
+                      <div key={m} className="flex items-center gap-2 text-xs bg-muted/30 p-2 rounded border border-transparent hover:border-muted-foreground/20 transition-colors">
+                        <Keyboard className="h-3 w-3 text-primary" /> 
+                        <span className="font-bold">Кнопка {d}:</span>
+                        <span className="text-muted-foreground">
+                          {type === 'ext' ? 'Абонент' : type === 'queue' ? 'Группа' : 'IVR'}
+                        </span>
+                        <span className="font-mono bg-white px-1 rounded border ml-auto">{id}</span>
                       </div>
                     )
                   })}
+                  {(!ivr.digitMappings || ivr.digitMappings.length === 0) && (
+                    <p className="text-xs text-muted-foreground italic">Кнопки не настроены</p>
+                  )}
                 </div>
               </div>
             </CardContent>
           </Card>
         ))}
+        {ivrs.length === 0 && (
+          <div className="py-20 text-center border-2 border-dashed rounded-2xl text-muted-foreground">
+            Нет настроенных IVR-меню
+          </div>
+        )}
       </div>
 
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>Настройка IVR</DialogTitle></DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label>Название меню</Label>
-              <Input value={newIvr.name} onChange={e => setNewIvr({...newIvr, name: e.target.value})} />
+              <Input value={newIvr.name} onChange={e => setNewIvr({...newIvr, name: e.target.value})} placeholder="Main Menu" />
             </div>
             <div className="grid gap-2">
-              <Label>Имя файла (без .wav)</Label>
-              <Input value={newIvr.announcementFile} onChange={e => setNewIvr({...newIvr, announcementFile: e.target.value})} />
+              <Label>Имя аудиофайла (без .wav)</Label>
+              <div className="flex gap-2 items-center">
+                <Input value={newIvr.announcementFile} onChange={e => setNewIvr({...newIvr, announcementFile: e.target.value})} placeholder="miac-welcome" />
+                <span className="text-xs text-muted-foreground">.wav</span>
+              </div>
             </div>
-            <div className="p-4 border rounded bg-muted/20">
-              <p className="text-xs font-bold mb-3">ДОБАВИТЬ ПЕРЕХОД (Нажмите 1, чтобы...)</p>
+            
+            <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
+              <p className="text-[10px] font-bold uppercase text-primary">Добавить переход (Нажмите 1, чтобы...)</p>
               <div className="flex gap-2">
-                <Input placeholder="Кнопка" id="ivr-digit" className="w-20" />
-                <Select id="ivr-type">
-                  <SelectTrigger><SelectValue placeholder="Тип" /></SelectTrigger>
+                <Input 
+                  placeholder="Цифра" 
+                  className="w-20" 
+                  value={tempDigit} 
+                  onChange={e => setTempDigit(e.target.value)} 
+                />
+                <Select value={tempType} onValueChange={setTempType}>
+                  <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ext">Абонент</SelectItem>
                     <SelectItem value="queue">Группа</SelectItem>
+                    <SelectItem value="ivr">Другой IVR</SelectItem>
                   </SelectContent>
                 </Select>
-                <Input placeholder="ID (например 100)" id="ivr-id" />
-                <Button variant="secondary" onClick={() => {
-                  const digit = (document.getElementById('ivr-digit') as HTMLInputElement).value;
-                  const type = (document.getElementById('ivr-type') as HTMLSelectElement).getAttribute('data-value') || 'ext';
-                  const target = (document.getElementById('ivr-id') as HTMLInputElement).value;
-                  if (digit && target) {
-                    setNewIvr({...newIvr, digitMappings: [...newIvr.digitMappings, `${digit}:${type}:${target}`]})
-                  }
-                }}>OK</Button>
+                <Input 
+                  placeholder="ID / Номер" 
+                  value={tempTarget} 
+                  onChange={e => setTempTarget(e.target.value)} 
+                />
               </div>
+              <Button variant="secondary" size="sm" className="w-full h-8" onClick={addMapping}>
+                Добавить в список
+              </Button>
+              
+              {newIvr.digitMappings.length > 0 && (
+                <div className="pt-2 border-t space-y-1">
+                   {newIvr.digitMappings.map((m, idx) => (
+                     <div key={idx} className="flex items-center justify-between text-[10px] bg-white p-1 px-2 rounded border">
+                       <span>{m}</span>
+                       <button onClick={() => {
+                         const filtered = newIvr.digitMappings.filter((_, i) => i !== idx);
+                         setNewIvr({...newIvr, digitMappings: filtered});
+                       }} className="text-destructive hover:text-rose-700">Удалить</button>
+                     </div>
+                   ))}
+                </div>
+              )}
             </div>
           </div>
-          <DialogFooter><Button onClick={handleSave}>Сохранить меню</Button></DialogFooter>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddOpen(false)}>Отмена</Button>
+            <Button onClick={handleSave}>Сохранить меню</Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
