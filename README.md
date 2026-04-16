@@ -48,17 +48,17 @@ pm2 save
 
 ## 🌐 Настройка Apache (httpd2) как Reverse Proxy
 
-Чтобы зайти в интерфейс по адресу сервера (порт 80), создайте файл конфигурации для Apache:
+Чтобы зайти в интерфейс по адресу сервера (порт 80), необходимо настроить проксирование запросов на порт 3000 (где работает Next.js).
 
-1. **Создайте файл конфигурации**:
+1. **Создайте файл конфигурации для Apache**:
 ```bash
 nano /etc/httpd2/conf.d/miac-svyaz.conf
 ```
 
-2. **Вставьте следующее содержимое**:
+2. **Вставьте следующее содержимое** (замените `your-server-ip` на IP вашего сервера):
 ```apache
 <VirtualHost *:80>
-    ServerName your-server-ip-or-domain
+    ServerName your-server-ip
     
     ProxyPreserveHost On
     ProxyPass / http://localhost:3000/
@@ -70,12 +70,13 @@ nano /etc/httpd2/conf.d/miac-svyaz.conf
 ```
 
 3. **Включите необходимые модули и перезапустите Apache**:
+Убедитесь, что в основном конфиге Apache (`/etc/httpd2/conf/httpd2.conf`) раскомментированы модули `proxy_module` и `proxy_http_module`.
+
 ```bash
-# Убедитесь, что модули proxy и proxy_http загружены в основном конфиге
 systemctl restart httpd2
 ```
 
-4. **Проверьте статус приложения**:
+4. **Проверьте статус приложения в PM2**:
 ```bash
 pm2 list
 ```
