@@ -11,7 +11,7 @@
 [general]
 enabled = yes
 port = 5038
-bindaddr = 127.0.0.1
+bindaddr = 0.0.0.0
 
 [miac]
 secret = MiacAMI2026
@@ -27,7 +27,7 @@ write = all
 ```
 
 ### 3. Права доступа
-Выполните команды в консоли сервера:
+Выполните команды в консоли сервера (из папки проекта):
 ```bash
 # Создаем пустой файл абонентов
 touch /etc/asterisk/pjsip_miac_users.conf
