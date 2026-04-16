@@ -19,22 +19,28 @@ export function AuthLayoutWrapper({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     async function checkAuth() {
-      const currentSession = await getLocalSession();
-      setSession(currentSession);
-      setLoading(false);
-      
-      if (!currentSession && !isLoginPage) {
-        router.push('/login');
+      try {
+        const currentSession = await getLocalSession();
+        setSession(currentSession);
+        
+        if (!currentSession && !isLoginPage) {
+          router.replace('/login');
+        } else if (currentSession && isLoginPage) {
+          router.replace('/');
+        }
+      } catch (err) {
+        console.error("Auth check failed", err);
+      } finally {
+        setLoading(false);
       }
     }
     checkAuth();
-  }, [isLoginPage, router]);
+  }, [isLoginPage, router, pathname]);
 
   const handleLogout = async () => {
     await logoutLocal();
     setSession(null);
-    router.push('/login');
-    router.refresh();
+    window.location.href = '/login';
   };
 
   const getPageTitle = (path: string) => {
@@ -50,11 +56,11 @@ export function AuthLayoutWrapper({ children }: { children: React.ReactNode }) {
     }
   };
 
-  if (loading && !isLoginPage) {
+  if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm font-medium text-muted-foreground font-headline uppercase tracking-widest">Проверка локального доступа...</p>
+        <p className="text-sm font-medium text-muted-foreground font-headline uppercase tracking-widest">Проверка доступа...</p>
       </div>
     );
   }

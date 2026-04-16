@@ -15,24 +15,33 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const router = useRouter();
   const { toast } = useToast();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
-    const result = await loginLocal(email, password);
-    
-    if (result.success) {
-      toast({ title: "Успешный вход", description: "Добро пожаловать в систему." });
-      router.push('/');
-      router.refresh(); // Обновляем состояние сервера
-    } else {
+    try {
+      const result = await loginLocal(email, password);
+      
+      if (result.success) {
+        toast({ title: "Успешный вход", description: "Добро пожаловать в систему." });
+        // Используем window.location.href для полной перезагрузки страницы.
+        // Это гарантирует, что AuthLayoutWrapper на корневом уровне увидит новую куку сессии.
+        window.location.href = '/';
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Ошибка входа",
+          description: result.error || "Неверный логин или пароль.",
+        });
+        setLoading(false);
+      }
+    } catch (err) {
       toast({
         variant: "destructive",
-        title: "Ошибка входа",
-        description: result.error || "Неверный логин или пароль.",
+        title: "Системная ошибка",
+        description: "Не удалось связаться с сервером авторизации.",
       });
       setLoading(false);
     }
