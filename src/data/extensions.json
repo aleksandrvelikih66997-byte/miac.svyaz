@@ -9,5 +9,15 @@
     "dnd": false,
     "creationDate": "2026-04-16T17:24:46.049Z",
     "lastUpdateDate": "2026-04-16T17:24:46.049Z"
+  },
+  {
+    "id": "124",
+    "name": "124",
+    "secret": "124",
+    "tech": "PJSIP",
+    "context": "from-internal",
+    "status": "offline",
+    "creationDate": "2026-04-16T17:38:58.572Z",
+    "lastUpdateDate": "2026-04-16T17:38:58.572Z"
   }
 ]

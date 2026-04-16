@@ -1,8 +1,8 @@
 
 "use client"
 
-import { useState, useEffect } from "react"
-import { Mic2, Plus, Trash2, Keyboard, Phone } from "lucide-react"
+import { useState, useEffect, useRef } from "react"
+import { Mic2, Plus, Trash2, Keyboard, Upload, Loader2, CheckCircle2, Music } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
@@ -17,18 +17,22 @@ import {
 } from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import { getIvrs, saveIvr, deleteIvr, getExtensions, getQueues } from "@/lib/telephony-store"
+import { uploadAudioAction } from "@/app/actions/audio-actions"
 
 export default function IvrPage() {
   const [ivrs, setIvrs] = useState<any[]>([])
   const [extensions, setExtensions] = useState<any[]>([])
   const [queues, setQueues] = useState<any[]>([])
   const [isAddOpen, setIsAddOpen] = useState(false)
+  const [isUploading, setIsUploading] = useState(false)
   const [newIvr, setNewIvr] = useState({ name: "", announcementFile: "demo-congrats", digitMappings: [] as string[] })
   
-  // Состояния для временного ввода в диалоге добавления перехода
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [tempDigit, setTempDigit] = useState("")
   const [tempType, setTempType] = useState("ext")
   const [tempTarget, setTempTarget] = useState("")
+
+  const { toast } = useToast()
 
   const load = async () => {
     try {
@@ -42,6 +46,34 @@ export default function IvrPage() {
   }
 
   useEffect(() => { load() }, [])
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.name.endsWith('.wav') && !file.name.endsWith('.mp3')) {
+      toast({ title: "Ошибка", description: "Допускаются только .wav или .mp3", variant: "destructive" })
+      return
+    }
+
+    setIsUploading(true)
+    const formData = new FormData()
+    formData.append('audio', file)
+
+    try {
+      const result = await uploadAudioAction(formData)
+      if (result.success) {
+        setNewIvr({ ...newIvr, announcementFile: result.fileName.replace(/\.[^/.]+$/, "") })
+        toast({ title: "Файл загружен", description: `Сохранен как ${result.fileName}` })
+      } else {
+        throw new Error(result.error)
+      }
+    } catch (error: any) {
+      toast({ title: "Ошибка загрузки", description: error.message, variant: "destructive" })
+    } finally {
+      setIsUploading(false)
+    }
+  }
 
   const handleSave = async () => {
     if (!newIvr.name) {
@@ -71,8 +103,6 @@ export default function IvrPage() {
     setTempTarget("")
   }
 
-  const { toast } = useToast()
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -99,9 +129,12 @@ export default function IvrPage() {
             <CardContent className="pt-4 grid md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Файл приветствия:</p>
-                <code className="bg-muted px-2 py-1 rounded text-xs font-mono border block w-fit">
-                  {ivr.announcementFile}.wav
-                </code>
+                <div className="flex items-center gap-2">
+                   <Music className="h-4 w-4 text-primary/40" />
+                   <code className="bg-muted px-2 py-1 rounded text-xs font-mono border block w-fit">
+                    {ivr.announcementFile}.wav
+                  </code>
+                </div>
               </div>
               <div className="space-y-2">
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Назначения кнопок:</p>
@@ -142,12 +175,34 @@ export default function IvrPage() {
               <Label>Название меню</Label>
               <Input value={newIvr.name} onChange={e => setNewIvr({...newIvr, name: e.target.value})} placeholder="Main Menu" />
             </div>
+            
             <div className="grid gap-2">
-              <Label>Имя аудиофайла (без .wav)</Label>
+              <Label>Приветствие (Audio)</Label>
               <div className="flex gap-2 items-center">
-                <Input value={newIvr.announcementFile} onChange={e => setNewIvr({...newIvr, announcementFile: e.target.value})} placeholder="miac-welcome" />
-                <span className="text-xs text-muted-foreground">.wav</span>
+                <Input 
+                  value={newIvr.announcementFile} 
+                  onChange={e => setNewIvr({...newIvr, announcementFile: e.target.value})} 
+                  placeholder="miac-welcome" 
+                  className="flex-1"
+                />
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleFileUpload} 
+                  className="hidden" 
+                  accept=".wav,.mp3"
+                />
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="icon" 
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isUploading}
+                >
+                  {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                </Button>
               </div>
+              <p className="text-[10px] text-muted-foreground">Введите имя файла или загрузите новый (wav/mp3)</p>
             </div>
             
             <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
@@ -194,7 +249,9 @@ export default function IvrPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddOpen(false)}>Отмена</Button>
-            <Button onClick={handleSave}>Сохранить меню</Button>
+            <Button onClick={handleSave} className="gap-2">
+              <CheckCircle2 className="h-4 w-4" /> Сохранить меню
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
