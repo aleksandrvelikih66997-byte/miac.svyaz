@@ -6,7 +6,7 @@
 ## 🚀 Быстрая настройка сервера
 
 ### 1. Подготовка AMI (ОБЯЗАТЕЛЬНО)
-Создайте файл `/etc/asterisk/manager.conf`:
+Создайте или отредактируйте `/etc/asterisk/manager.conf`:
 ```ini
 [general]
 enabled = yes
@@ -21,42 +21,27 @@ write = all
 После создания выполните: `asterisk -rx "manager reload"`
 
 ### 2. Подготовка PJSIP
-Добавьте в конец `/etc/asterisk/pjsip.conf`:
+Добавьте в конец `/etc/asterisk/pjsip.conf` **абсолютный путь**:
 ```ini
-#include pjsip_miac_users.conf
-```
-
-**ВАЖНО для Asterisk 17:** 
-Убедитесь, что модуль PJSIP загружен. Проверьте в `asterisk -rx "module show like pjsip"`. 
-Если список пуст, добавьте в `/etc/asterisk/modules.conf`:
-```ini
-load => res_pjsip.so
-load => res_pjsip_session.so
-load => res_pjsip_authenticator_digest.so
-load => res_pjsip_registrar.so
-load => res_pjsip_endpoint_identifier_user.so
+#include "/etc/asterisk/pjsip_miac_users.conf"
 ```
 
 ### 3. Права доступа
-Выполните команды в консоли сервера (из папки проекта):
+Выполните команды под root:
 ```bash
 # Создаем файл для абонентов
 touch /etc/asterisk/pjsip_miac_users.conf
 
-# Даем права на запись (666 для работы скрипта без root)
+# Даем права на запись (чтобы node-скрипт мог писать в файл)
 chmod 666 /etc/asterisk/pjsip_miac_users.conf
 ```
 
 ### 4. Запуск системы
 ```bash
-# 1. Создание администратора
+# 1. Создание администратора (выполнять из папки проекта)
 node src/scripts/setup-admin.mjs <ваш_email> <пароль>
 
-# 2. Сборка и запуск веб-интерфейса
-npm run build
-npm start
-
-# 3. Запуск моста синхронизации (в отдельном терминале/screen)
+# 2. Запуск моста синхронизации (в отдельном терминале/screen)
 npm run bridge
 ```
 
