@@ -1,13 +1,57 @@
 
 "use client"
 
+import { useState } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, ArrowDownLeft, ArrowUpRight, GripVertical, Play, Settings2, Trash2 } from "lucide-react"
+import { Plus, ArrowDownLeft, ArrowUpRight, GripVertical, Settings2, Trash2, Loader2 } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { useFirestore, useCollection } from "@/firebase"
+import { collection, doc, addDoc, deleteDoc, query, where } from "firebase/firestore"
+import { useToast } from "@/hooks/use-toast"
 
 export default function RoutingPage() {
+  const [isAddOpen, setIsAddOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState("inbound")
+  const [newRoute, setNewRoute] = useState({ pattern: "", destination: "", priority: 1 })
+  
+  const db = useFirestore()
+  const { toast } = useToast()
+  
+  const inboundQuery = query(collection(db, "routes"), where("type", "==", "inbound"))
+  const outboundQuery = query(collection(db, "routes"), where("type", "==", "outbound"))
+  
+  const { data: inboundRoutes, loading: inLoading } = useCollection(inboundQuery)
+  const { data: outboundRoutes, loading: outLoading } = useCollection(outboundQuery)
+
+  const handleAdd = async () => {
+    try {
+      await addDoc(collection(db, "routes"), {
+        ...newRoute,
+        type: activeTab,
+        status: "Active"
+      })
+      setIsAddOpen(false)
+      setNewRoute({ pattern: "", destination: "", priority: 1 })
+      toast({ title: "Маршрут создан" })
+    } catch (e) {
+      toast({ title: "Ошибка", variant: "destructive" })
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, "routes", id))
+      toast({ title: "Маршрут удален" })
+    } catch (e) {
+      toast({ title: "Ошибка", variant: "destructive" })
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -17,7 +61,7 @@ export default function RoutingPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="inbound" className="space-y-6">
+      <Tabs defaultValue="inbound" className="space-y-6" onValueChange={setActiveTab}>
         <TabsList className="bg-card shadow-sm border p-1 h-11">
           <TabsTrigger value="inbound" className="gap-2 px-6">
             <ArrowDownLeft className="h-4 w-4" /> Входящие
@@ -29,78 +73,91 @@ export default function RoutingPage() {
 
         <TabsContent value="inbound" className="space-y-4">
           <div className="flex justify-end">
-            <Button size="sm" className="gap-2">
+            <Button size="sm" className="gap-2" onClick={() => setIsAddOpen(true)}>
               <Plus className="h-4 w-4" /> Новый маршрут
             </Button>
           </div>
           
-          {[
-            { id: 1, did: "74951234567", dest: "IVR: MainMenu", priority: 1, status: "Active" },
-            { id: 2, did: "74959998877", dest: "Queue: Support", priority: 2, status: "Active" },
-            { id: 3, did: "ANY", dest: "Ext: 100", priority: 10, status: "Disabled" },
-          ].map((route) => (
-            <Card key={route.id} className="border-none shadow-sm group">
-              <CardContent className="flex items-center p-4 gap-6">
-                <GripVertical className="h-5 w-5 text-muted-foreground/30 cursor-grab" />
-                <div className="flex-1">
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono font-bold text-primary">{route.did}</span>
-                    <Badge variant={route.status === 'Active' ? 'secondary' : 'outline'} className="text-[10px]">
-                      {route.status === 'Active' ? 'Активен' : 'Отключен'}
-                    </Badge>
+          {inLoading ? <Loader2 className="mx-auto animate-spin" /> : (
+            inboundRoutes?.map((route) => (
+              <Card key={route.id} className="border-none shadow-sm group">
+                <CardContent className="flex items-center p-4 gap-6">
+                  <GripVertical className="h-5 w-5 text-muted-foreground/30 cursor-grab" />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono font-bold text-primary">{route.pattern}</span>
+                      <Badge variant="secondary" className="text-[10px]">Активен</Badge>
+                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">Приоритет: {route.priority}</p>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-muted-foreground">Направление:</span>
-                  <span className="font-medium bg-accent/10 text-accent px-2 py-1 rounded">{route.dest}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="icon" className="h-8 w-8"><Settings2 className="h-4 w-4" /></Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"><Trash2 className="h-4 w-4" /></Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-muted-foreground">Назначение:</span>
+                    <span className="font-medium bg-accent/10 text-accent px-2 py-1 rounded">{route.destination}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(route.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </TabsContent>
 
         <TabsContent value="outbound" className="space-y-4">
            <div className="flex justify-end">
-            <Button size="sm" className="gap-2">
+            <Button size="sm" className="gap-2" onClick={() => setIsAddOpen(true)}>
               <Plus className="h-4 w-4" /> Новый маршрут
             </Button>
           </div>
-
-          {[
-            { id: 1, name: "City-Calls", pattern: "8[2-9]XXXXXXXXX", trunk: "Beeline-Main", status: "Active" },
-            { id: 2, name: "Emergency", pattern: "112|911", trunk: "Rostelecom-Backup", status: "Active" },
-            { id: 3, name: "International", pattern: "00X.", trunk: "Zadarma", status: "Active" },
-          ].map((route) => (
-            <Card key={route.id} className="border-none shadow-sm group">
-              <CardContent className="flex items-center p-4 gap-6">
-                <GripVertical className="h-5 w-5 text-muted-foreground/30 cursor-grab" />
-                <div className="flex-1">
-                  <div className="flex items-center gap-3">
-                    <span className="font-bold text-primary">{route.name}</span>
-                    <Badge variant="secondary" className="text-[10px] bg-primary/10 text-primary">
-                      {route.pattern}
-                    </Badge>
+          
+          {outLoading ? <Loader2 className="mx-auto animate-spin" /> : (
+            outboundRoutes?.map((route) => (
+              <Card key={route.id} className="border-none shadow-sm group">
+                <CardContent className="flex items-center p-4 gap-6">
+                  <GripVertical className="h-5 w-5 text-muted-foreground/30 cursor-grab" />
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3">
+                      <span className="font-bold text-primary">{route.pattern}</span>
+                    </div>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">Шаблон набора</p>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-muted-foreground">Транк:</span>
-                  <span className="font-medium bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-1 rounded">{route.trunk}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="ghost" size="icon" className="h-8 w-8"><Settings2 className="h-4 w-4" /></Button>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"><Trash2 className="h-4 w-4" /></Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-muted-foreground">Транк:</span>
+                    <span className="font-medium bg-emerald-50 text-emerald-700 px-2 py-1 rounded">{route.destination}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDelete(route.id)}>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </TabsContent>
       </Tabs>
+
+      <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Новый {activeTab === 'inbound' ? 'входящий' : 'исходящий'} маршрут</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>{activeTab === 'inbound' ? 'DID Номер' : 'Шаблон набора'}</Label>
+              <Input value={newRoute.pattern} onChange={e => setNewRoute({...newRoute, pattern: e.target.value})} placeholder={activeTab === 'inbound' ? "7495..." : "8X."} />
+            </div>
+            <div className="grid gap-2">
+              <Label>{activeTab === 'inbound' ? 'Куда направить' : 'Через какой транк'}</Label>
+              <Input value={newRoute.destination} onChange={e => setNewRoute({...newRoute, destination: e.target.value})} placeholder={activeTab === 'inbound' ? "Ext: 101" : "Beeline"} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddOpen(false)}>Отмена</Button>
+            <Button onClick={handleAdd}>Сохранить</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

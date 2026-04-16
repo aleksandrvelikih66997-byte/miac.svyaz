@@ -1,9 +1,63 @@
 
 {
-  "entities": {},
+  "entities": {
+    "Extension": {
+      "title": "Extension",
+      "description": "SIP/PJSIP internal extension",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Extension number (e.g. 101)" },
+        "name": { "type": "string", "description": "Display name" },
+        "tech": { "type": "string", "enum": ["PJSIP", "SIP"], "description": "Technology" },
+        "context": { "type": "string", "description": "Asterisk context" },
+        "status": { "type": "string", "enum": ["online", "offline", "busy"], "description": "Realtime status" }
+      },
+      "required": ["id", "name", "tech"]
+    },
+    "Trunk": {
+      "title": "Trunk",
+      "description": "External SIP trunk",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "host": { "type": "string" },
+        "user": { "type": "string" },
+        "status": { "type": "string" },
+        "channels": { "type": "string" }
+      },
+      "required": ["name", "host", "user"]
+    },
+    "Route": {
+      "title": "Route",
+      "description": "Call routing rule",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string", "enum": ["inbound", "outbound"] },
+        "pattern": { "type": "string", "description": "DID or Dial Pattern" },
+        "destination": { "type": "string", "description": "Destination trunk or extension" },
+        "priority": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["type", "pattern", "destination"]
+    }
+  },
   "auth": {
     "providers": [
       "password"
     ]
+  },
+  "firestore": {
+    "/extensions/{extensionId}": {
+      "schema": "Extension",
+      "description": "Asterisk internal extensions"
+    },
+    "/trunks/{trunkId}": {
+      "schema": "Trunk",
+      "description": "External connectivity trunks"
+    },
+    "/routes/{routeId}": {
+      "schema": "Route",
+      "description": "Inbound and outbound call rules"
+    }
   }
 }
