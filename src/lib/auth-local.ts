@@ -15,7 +15,7 @@ function hashPassword(password: string) {
 export async function loginLocal(email: string, password: string) {
   try {
     if (!fs.existsSync(ADMINS_FILE)) {
-      return { success: false, error: 'Система не настроена. Создайте админа через консоль.' };
+      return { success: false, error: 'Система не настроена. Создайте админа через консоль сервера.' };
     }
 
     const admins = JSON.parse(fs.readFileSync(ADMINS_FILE, 'utf8'));
@@ -25,7 +25,6 @@ export async function loginLocal(email: string, password: string) {
       return { success: false, error: 'Неверный логин или пароль.' };
     }
 
-    // Устанавливаем простую сессионную куку
     const cookieStore = await cookies();
     cookieStore.set('miac_session', JSON.stringify({ email: admin.email, role: admin.role }), {
       httpOnly: true,
