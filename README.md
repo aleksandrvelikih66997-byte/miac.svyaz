@@ -46,11 +46,38 @@ pm2 start npm --name "miac-svyaz" -- start
 pm2 save
 ```
 
-### 4. Решение проблем с Git (Non-fast-forward)
-Если при `git push` или `git pull` возникает ошибка расхождения веток, выполните:
+## 🌐 Настройка Apache (httpd2) как Reverse Proxy
+
+Чтобы зайти в интерфейс по адресу сервера (порт 80), выполните следующие шаги от имени root:
+
+1. **Создайте файл конфигурации**:
 ```bash
-git pull origin main --rebase
-git push -u origin main
+nano /etc/httpd2/conf.d/miac-svyaz.conf
+```
+
+2. **Вставьте следующее содержимое**:
+```apache
+<VirtualHost *:80>
+    ServerName your-server-ip-or-domain
+    
+    ProxyPreserveHost On
+    ProxyPass / http://localhost:3000/
+    ProxyPassReverse / http://localhost:3000/
+
+    ErrorLog /var/log/httpd2/miac-svyaz-error.log
+    CustomLog /var/log/httpd2/miac-svyaz-access.log combined
+</VirtualHost>
+```
+
+3. **Включите необходимые модули и перезапустите Apache**:
+```bash
+# Проверьте, что модули proxy и proxy_http загружены в основном конфиге
+systemctl restart httpd2
+```
+
+4. **Проверьте статус приложения**:
+```bash
+pm2 list
 ```
 
 ## 📄 Лицензия
