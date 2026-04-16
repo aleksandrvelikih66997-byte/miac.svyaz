@@ -105,7 +105,7 @@ export default function TrunksPage() {
                 <CardTitle className="pt-4 text-xl font-headline text-primary">{trunk.name}</CardTitle>
                 <CardDescription className="font-mono text-xs flex items-center gap-2 mt-1">
                   {trunk.host}:{trunk.port} 
-                  <Badge variant="outline" className="text-[9px] h-4 font-mono bg-white">{trunk.protocol.toUpperCase()}</Badge>
+                  <Badge variant="outline" className="text-[9px] h-4 font-mono bg-white">{trunk.protocol?.toUpperCase() || 'UDP'}</Badge>
                 </CardDescription>
               </CardHeader>
               <CardContent className="pt-6 space-y-5">
