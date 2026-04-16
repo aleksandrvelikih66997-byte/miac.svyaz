@@ -26,10 +26,11 @@ export default function LoginPage() {
       if (result.success) {
         toast({ title: "Успешный вход", description: "Переход в систему..." });
         
-        // Небольшая задержка, чтобы кука успела прописаться в браузере
+        // Гарантированный редирект через перезагрузку страницы
+        // Используем assign для принудительного перехода
         setTimeout(() => {
           window.location.assign('/');
-        }, 100);
+        }, 500);
       } else {
         toast({
           variant: "destructive",

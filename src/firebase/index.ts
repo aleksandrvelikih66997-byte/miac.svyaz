@@ -8,12 +8,19 @@ import { getFirestore } from 'firebase/firestore'
 
 /**
  * Инициализация Firebase.
- * Для локальной работы в МИАЦ всегда используем конфиг из firebaseConfig.
+ * Проверяет валидность ключей перед инициализацией, чтобы не ломать сборку.
  */
 export function initializeFirebase() {
+  const isValidConfig = firebaseConfig.apiKey && firebaseConfig.apiKey !== 'api-key';
+
   if (!getApps().length) {
-    const firebaseApp = initializeApp(firebaseConfig);
-    return getSdks(firebaseApp);
+    // Если конфиг невалидный (заглушка), инициализируем с минимальными данными для предотвращения вылета
+    const app = initializeApp(isValidConfig ? firebaseConfig : {
+      apiKey: "dummy",
+      authDomain: "dummy",
+      projectId: "dummy-project"
+    });
+    return getSdks(app);
   }
 
   return getSdks(getApp());
