@@ -11,7 +11,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "bridge": "node src/scripts/asterisk-bridge.mjs"
+    "bridge": "node src/scripts/asterisk-bridge.mjs",
+    "setup-admin": "node src/scripts/setup-admin.mjs"
   },
   "dependencies": {
     "@genkit-ai/google-genai": "^1.28.0",
