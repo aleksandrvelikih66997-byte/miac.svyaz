@@ -1,61 +1,63 @@
 
-/**
- * @fileOverview Автоматический мост между Firestore и Asterisk PJSIP.
- * Работает на сервере AltLinux, синхронизирует конфиги и статусы.
- */
 import { initializeApp } from 'firebase/app';
 import { getFirestore, collection, onSnapshot, doc, updateDoc } from 'firebase/firestore';
-import { firebaseConfig } from '../firebase/config.js';
-import ami from 'asterisk-manager';
-import { writeFileSync } from 'fs';
+import { firebaseConfig } from '../firebase/config.mjs';
+import AsteriskManager from 'asterisk-manager';
+import fs from 'fs';
 import { exec } from 'child_process';
 
-// Инициализация клиента Firebase
+// Инициализация Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-console.log('[BRIDGE] Инициализация моста МИАЦ.СВЯЗЬ...');
+// Настройки Asterisk
+const AMI_USER = 'miac';
+const AMI_SECRET = 'MiacAMI2026';
+const CONFIG_PATH = '/etc/asterisk/pjsip_miac_users.conf';
 
-// 1. Синхронизация: WEB -> Asterisk (Конфигурация)
+const ami = new AsteriskManager(5038, 'localhost', AMI_USER, AMI_SECRET, true);
+
+console.log('--- МИАЦ.СВЯЗЬ: Запуск моста синхронизации ---');
+
+// 1. Синхронизация: WEB -> Asterisk (Генерация конфига)
 onSnapshot(collection(db, 'extensions'), (snapshot) => {
-  let config = '; АВТОГЕНЕРАЦИЯ МИАЦ.СВЯЗЬ - НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ\n\n';
+  let configContent = '; Генерируемый файл МИАЦ.СВЯЗЬ. Не редактировать вручную.\n\n';
   
-  snapshot.forEach((d) => {
-    const ext = d.data();
-    // Эндпоинт
-    config += `[${ext.id}]\ntype=endpoint\nauth=auth${ext.id}\naors=${ext.id}\ncontext=${ext.context || 'from-internal'}\ndisallow=all\nallow=ulaw,alaw,g722\ntransport=transport-udp\n\n`;
-    // Авторизация
-    config += `[auth${ext.id}]\ntype=auth\nauth_type=userpass\nusername=${ext.id}\npassword=${ext.secret}\n\n`;
-    // AOR (Address of Record)
-    config += `[${ext.id}]\ntype=aor\nmax_contacts=1\n\n`;
+  snapshot.forEach((doc) => {
+    const ext = doc.data();
+    configContent += `[${ext.id}]\ntype=endpoint\ncontext=${ext.context || 'from-internal'}\ndisallow=all\nallow=ulaw,alaw\nauth=auth${ext.id}\naors=${ext.id}\ntransport=transport-udp\n\n`;
+    configContent += `[auth${ext.id}]\ntype=auth\nauth_type=userpass\nusername=${ext.id}\npassword=${ext.secret}\n\n`;
+    configContent += `[${ext.id}]\ntype=aor\nmax_contacts=1\n\n`;
   });
 
   try {
-    writeFileSync('/etc/asterisk/pjsip_miac_users.conf', config);
+    fs.writeFileSync(CONFIG_PATH, configContent);
+    console.log(`[SYNC] Конфигурация обновлена: ${snapshot.size} абонентов.`);
     exec('asterisk -rx "core reload"', (err) => {
-      if (err) console.error('[BRIDGE] Ошибка перезагрузки Asterisk:', err);
-      else console.log('[BRIDGE] Конфигурация PJSIP обновлена и применена');
+      if (err) console.error('[ERROR] Ошибка перезагрузки Asterisk:', err);
+      else console.log('[SYNC] Asterisk перезагружен.');
     });
-  } catch (e) {
-    console.error('[BRIDGE] Ошибка записи файла:', e.message);
+  } catch (err) {
+    console.error('[ERROR] Ошибка записи файла:', err.message);
   }
 });
 
-// 2. Синхронизация: Asterisk -> WEB (Статусы через AMI)
-const manager = new ami(5038, 'localhost', 'miac', 'MiacAMI2026', true);
-manager.keepConnected();
+// 2. Статусы: Asterisk -> WEB (AMI мониторинг)
+ami.on('peerstatus', (evt) => {
+  // Событие приходит в формате PJSIP/101
+  const extId = evt.peer.split('/')[1];
+  if (!extId) return;
 
-manager.on('peerstatus', (evt) => {
-  if (evt.peer.startsWith('PJSIP/')) {
-    const extId = evt.peer.split('/')[1];
-    const status = evt.peerstatus.toLowerCase() === 'registered' ? 'online' : 'offline';
-    console.log(`[AMI] Абонент ${extId}: ${status}`);
-    
-    // Обновляем статус в Firestore
-    updateDoc(doc(db, 'extensions', extId), { status })
-      .catch(e => console.error(`[BRIDGE] Ошибка обновления статуса для ${extId}:`, e.message));
-  }
+  const status = evt.peerstatus.toLowerCase() === 'registered' ? 'online' : 'offline';
+  
+  updateDoc(doc(db, 'extensions', extId), { status })
+    .then(() => console.log(`[STATUS] Абонент ${extId} теперь ${status}`))
+    .catch(() => {}); // Игнорируем если абонента нет в базе
 });
 
-manager.on('connect', () => console.log('[BRIDGE] Подключено к AMI Asterisk'));
-manager.on('error', (err) => console.error('[BRIDGE] Ошибка AMI:', err));
+ami.on('managerevent', (evt) => {
+  // Логирование важных событий в консоль для отладки
+  if (evt.event === 'FullyBooted') console.log('[AMI] Подключение установлено.');
+});
+
+ami.keepConnected();
