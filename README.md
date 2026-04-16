@@ -8,7 +8,7 @@
 Для работы системы необходимо выполнить следующие шаги:
 
 ### 1. Настройка AMI (Manager Interface)
-Отредактируйте `/etc/asterisk/manager.conf`:
+Если файла `/etc/asterisk/manager.conf` нет, создайте его:
 ```ini
 [general]
 enabled = yes
@@ -29,7 +29,10 @@ write = all
 
 ### 3. Права доступа и подготовка
 ```bash
+# Создаем файл для абонентов
 touch /etc/asterisk/pjsip_miac_users.conf
+
+# Назначаем права
 chown asterisk:asterisk /etc/asterisk/pjsip_miac_users.conf
 chmod 666 /etc/asterisk/pjsip_miac_users.conf
 ```
@@ -42,7 +45,7 @@ npm install
 # 2. Создание админа (локально)
 node src/scripts/setup-admin.mjs admin@miac.ru your_password
 
-# 3. Запуск моста синхронизации
+# 3. Запуск моста синхронизации (в фоне или отдельном терминале)
 npm run bridge
 
 # 4. Запуск веб-интерфейса
