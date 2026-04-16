@@ -1,3 +1,4 @@
+
 'use server';
 
 import fs from 'fs';
@@ -25,7 +26,9 @@ export async function loginLocal(email: string, password: string) {
     }
 
     const cookieStore = await cookies();
-    // Убираем secure: true для работы в локальных сетях по HTTP
+    
+    // ВАЖНО: secure: false для работы в локальной сети по HTTP
+    // path: '/' для доступности куки на всех страницах
     cookieStore.set('miac_session', JSON.stringify({ email: admin.email, role: admin.role }), {
       httpOnly: true,
       secure: false, 

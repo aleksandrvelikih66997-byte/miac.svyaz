@@ -1,3 +1,4 @@
+
 "use client"
 
 import { usePathname, useRouter } from 'next/navigation';
@@ -22,13 +23,16 @@ export function AuthLayoutWrapper({ children }: { children: React.ReactNode }) {
       setSession(currentSession);
       
       if (!currentSession && !isLoginPage) {
+        // Если сессии нет и мы не на логине - идем на логин
         router.replace('/login');
       } else if (currentSession && isLoginPage) {
+        // Если сессия есть и мы на логине - идем домой
         router.replace('/');
       }
     } catch (err) {
       console.error("Auth check failed", err);
     } finally {
+      // Даем небольшую задержку, чтобы роутер успел отработать
       setLoading(false);
     }
   }, [isLoginPage, router]);
@@ -56,7 +60,7 @@ export function AuthLayoutWrapper({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Пока идет загрузка, показываем экран ожидания
+  // Пока идет загрузка или проверка редиректа, показываем экран ожидания
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
@@ -66,12 +70,12 @@ export function AuthLayoutWrapper({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Если мы на странице логина, просто рендерим контент
+  // Если мы на странице логина, рендерим только её
   if (isLoginPage) {
     return <>{children}</>;
   }
 
-  // Если сессии нет (и мы не на странице логина), ничего не рендерим (сработает редирект в checkAuth)
+  // Если сессии нет, а страница не логин - рендерим пустой экран (редирект сработает в checkAuth)
   if (!session) {
     return null;
   }
