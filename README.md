@@ -24,6 +24,7 @@ npm run bridge
 ```
 
 ## 🛠 Настройка прав Asterisk (если не работает CLI)
+Для того чтобы Bridge мог управлять Asterisk, убедитесь, что у него есть доступ к сокету и файлам:
 ```bash
 chown -R asterisk:asterisk /var/run/asterisk
 chown -R asterisk:asterisk /etc/asterisk
@@ -31,4 +32,4 @@ chmod 770 /var/run/asterisk/asterisk.ctl
 ```
 
 ## 🛡 Безопасность
-Система работает в закрытом контуре. Все пароли SIP хранятся локально в `/etc/asterisk/pjsip_miac_users.conf`.
+Система работает в закрытом контуре. Все пароли SIP хранятся локально на вашем сервере в `/etc/asterisk/pjsip_miac_users.conf`.

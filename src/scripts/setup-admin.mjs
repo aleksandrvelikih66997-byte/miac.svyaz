@@ -1,9 +1,10 @@
 
 import { initializeApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
+import { firebaseConfig } from '../firebase/config.js'; // Note: adjust path if needed or inline config
 
-// Конфигурация из вашего проекта
-const firebaseConfig = {
+// Manual config inline to ensure it works in standalone script
+const config = {
   apiKey: "api-key",
   authDomain: "project-id.firebaseapp.com",
   projectId: "project-id",
@@ -12,13 +13,14 @@ const firebaseConfig = {
   appId: "app-id"
 };
 
-const app = initializeApp(firebaseConfig);
+const app = initializeApp(config);
 const auth = getAuth(app);
 
-const [,, email, password] = process.argv;
+const email = process.argv[2];
+const password = process.argv[3];
 
 if (!email || !password) {
-  console.log('Использование: node src/scripts/setup-admin.mjs <email> <password>');
+  console.log('Использование: node setup-admin.mjs <email> <password>');
   process.exit(1);
 }
 
