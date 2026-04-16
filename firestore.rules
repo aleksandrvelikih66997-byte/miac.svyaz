@@ -1,0 +1,177 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * ALPHATERNATIV PBX SECURITY RULES
+     * 
+     * CORE PHILOSOPHY:
+     * This ruleset implements a strict Role-Based Access Control (RBAC) model combined with 
+     * User Ownership. It leverages "Authorization Independence" by using a dedicated 
+     * collection for role verification to ensure high performance and lower costs.
+     * 
+     * DATA STRUCTURE:
+     * - /user_profiles/{userId}: Private user data, keyed by Firebase Auth UID.
+     * - /roles_admin/{userId}: Existence of a document here grants system-wide administrative rights.
+     * - /extensions, /trunks, /call_routes, etc.: Top-level configuration entities managed by admins.
+     * 
+     * KEY SECURITY DECISIONS:
+     * 1. Admin Verification: admin status is checked via the /roles_admin collection. This avoids
+     *    repeatedly fetching large UserProfile documents.
+     * 2. Self-Registration: Users are permitted to create their own UserProfile document 
+     *    during sign-up, provided the document ID matches their Auth UID.
+     * 3. Configuration Lockdown: All telephony configuration (extensions, trunks, routes) is 
+     *    restricted to users with the Admin role.
+     * 4. Relational Integrity: On creation and update of user-scoped documents, the rules 
+     *    enforce that internal ID fields match the document path.
+     */
+
+    // --- Helper Functions ---
+
+    /** @description Checks if the user is authenticated with Firebase Auth. */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /** @description Checks if the authenticated user has an entry in the admin roles collection. */
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+    }
+
+    /** @description Checks if the provided userId matches the authenticated user's UID. */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /** @description Combines ownership and existence checks for updates and deletions. */
+    function isExistingOwner(userId) {
+      return resource != null && isOwner(userId);
+    }
+
+    /** @description Combines admin check and existence check for updates and deletions. */
+    function isExistingAdmin() {
+      return resource != null && isAdmin();
+    }
+
+    // --- Collection Rules ---
+
+    /**
+     * @description Rules for managing user profiles. Users own their data; Admins manage all.
+     * @path /user_profiles/{userId}
+     * @allow (create) User with UID 'abc' creating /user_profiles/abc.
+     * @deny (create) User with UID 'abc' creating /user_profiles/xyz.
+     * @principle Enforces path-based ownership and data consistency.
+     */
+    match /user_profiles/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update: if (isExistingOwner(userId) || isExistingAdmin()) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingAdmin();
+    }
+
+    /**
+     * @description Control collection for administrative privileges.
+     * @path /roles_admin/{userId}
+     * @allow (get) User 'abc' checking their own admin status.
+     * @deny (create) Non-admin user trying to grant themselves admin rights.
+     * @principle Authorization Independence via existence checks.
+     */
+    match /roles_admin/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+
+    /**
+     * @description Telephony extensions configuration.
+     * @path /extensions/{extensionId}
+     * @allow (list) An authorized administrator viewing all extensions.
+     * @deny (create) A standard user trying to create an extension.
+     * @principle Admin-only management of system resources.
+     */
+    match /extensions/{extensionId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if isExistingAdmin();
+    }
+
+    /**
+     * @description External telephony trunks configuration.
+     * @path /trunks/{trunkId}
+     * @allow (update) An admin modifying trunk settings.
+     * @deny (get) Unauthenticated request to view trunk details.
+     * @principle Admin-only management of system resources.
+     */
+    match /trunks/{trunkId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if isExistingAdmin();
+    }
+
+    /**
+     * @description Rules for call routing logic.
+     * @path /call_routes/{callRouteId}
+     * @allow (create) Admin adding a new inbound route.
+     * @deny (list) Anonymous user listing routes.
+     * @principle Admin-only management of system resources.
+     */
+    match /call_routes/{callRouteId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if isExistingAdmin();
+    }
+
+    /**
+     * @description Call queue configurations.
+     * @path /queues/{queueId}
+     * @allow (get) Admin viewing queue strategy.
+     * @deny (delete) Attempting to delete a non-existent queue.
+     * @principle Admin-only management of system resources.
+     */
+    match /queues/{queueId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if isExistingAdmin();
+    }
+
+    /**
+     * @description Interactive Voice Response (IVR) menu configurations.
+     * @path /ivrs/{ivrId}
+     * @allow (get) Admin reading IVR configuration.
+     * @deny (update) Non-admin modifying IVR files.
+     * @principle Admin-only management of system resources.
+     */
+    match /ivrs/{ivrId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if isExistingAdmin();
+
+      /**
+       * @description Digit-to-destination mappings for a specific IVR.
+       * @path /ivrs/{ivrId}/digit_mappings/{digitMappingId}
+       * @allow (create) Admin adding a digit mapping to an IVR.
+       * @deny (list) User without admin role listing mappings.
+       * @principle Subcollection access inherited by Admin role status.
+       */
+      match /digit_mappings/{digitMappingId} {
+        allow get, list: if isAdmin();
+        allow create: if isAdmin();
+        allow update, delete: if isExistingAdmin();
+      }
+    }
+
+    /**
+     * @description Time-based rules for call routing.
+     * @path /time_conditions/{timeConditionId}
+     * @allow (list) Admin viewing all time conditions.
+     * @deny (create) Creating a condition without being signed in.
+     * @principle Admin-only management of system resources.
+     */
+    match /time_conditions/{timeConditionId} {
+      allow get, list: if isAdmin();
+      allow create: if isAdmin();
+      allow update, delete: if isExistingAdmin();
+    }
+  }
+}
