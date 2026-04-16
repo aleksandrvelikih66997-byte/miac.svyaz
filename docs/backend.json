@@ -8,11 +8,12 @@
       "properties": {
         "id": { "type": "string", "description": "Extension number (e.g. 101)" },
         "name": { "type": "string", "description": "Display name" },
+        "secret": { "type": "string", "description": "SIP password" },
         "tech": { "type": "string", "enum": ["PJSIP", "SIP"], "description": "Technology" },
         "context": { "type": "string", "description": "Asterisk context" },
         "status": { "type": "string", "enum": ["online", "offline", "busy"], "description": "Realtime status" }
       },
-      "required": ["id", "name", "tech"]
+      "required": ["id", "name", "tech", "secret"]
     },
     "Trunk": {
       "title": "Trunk",
@@ -21,11 +22,15 @@
       "properties": {
         "name": { "type": "string" },
         "host": { "type": "string" },
+        "port": { "type": "number" },
         "user": { "type": "string" },
+        "password": { "type": "string" },
+        "protocol": { "type": "string", "enum": ["udp", "tcp", "tls"] },
+        "phone": { "type": "string", "description": "External DID" },
         "status": { "type": "string" },
         "channels": { "type": "string" }
       },
-      "required": ["name", "host", "user"]
+      "required": ["name", "host", "user", "password"]
     },
     "Route": {
       "title": "Route",

@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState } from "react"
@@ -16,6 +17,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Label } from "@/components/ui/label"
 import { useCollection, useFirestore } from "@/firebase"
 import { collection } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
@@ -53,9 +55,9 @@ aors=${ext.id}
 
 [${ext.id}_auth]
 type=auth
-auth_type=md5
+auth_type=userpass
 username=${ext.id}
-password=${Math.random().toString(36).slice(-8)}
+password=${(ext as any).secret || 'changeme123'}
 
 [${ext.id}]
 type=aor
@@ -157,4 +159,3 @@ max_contacts=1
     </div>
   )
 }
-import { Label } from "@/components/ui/label"

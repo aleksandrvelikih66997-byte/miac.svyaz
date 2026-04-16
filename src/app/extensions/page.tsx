@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState } from "react"
@@ -9,7 +10,8 @@ import {
   Shield, 
   Trash2,
   Edit2,
-  Loader2
+  Loader2,
+  Lock
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -48,7 +50,7 @@ import { FirestorePermissionError } from "@/firebase/errors"
 export default function ExtensionsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddOpen, setIsAddOpen] = useState(false)
-  const [newExt, setNewExt] = useState({ id: "", name: "", tech: "PJSIP", context: "from-internal" })
+  const [newExt, setNewExt] = useState({ id: "", name: "", secret: "", tech: "PJSIP", context: "from-internal" })
   const db = useFirestore()
   const { toast } = useToast()
 
@@ -60,7 +62,10 @@ export default function ExtensionsPage() {
   const { data: extensions, loading } = useCollection(extensionsQuery)
 
   const handleAdd = () => {
-    if (!newExt.id || !newExt.name) return
+    if (!newExt.id || !newExt.name || !newExt.secret) {
+      toast({ title: "Ошибка", description: "Заполните все обязательные поля", variant: "destructive" })
+      return
+    }
     
     const extData = {
       ...newExt,
@@ -70,7 +75,7 @@ export default function ExtensionsPage() {
     setDoc(doc(db, "extensions", newExt.id), extData)
       .then(() => {
         setIsAddOpen(false)
-        setNewExt({ id: "", name: "", tech: "PJSIP", context: "from-internal" })
+        setNewExt({ id: "", name: "", secret: "", tech: "PJSIP", context: "from-internal" })
         toast({ title: "Успех", description: `Абонент ${newExt.id} добавлен` })
       })
       .catch(async (err) => {
@@ -201,12 +206,19 @@ export default function ExtensionsPage() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="num">Внутренний номер</Label>
+              <Label htmlFor="num">Внутренний номер *</Label>
               <Input id="num" value={newExt.id} onChange={(e) => setNewExt({...newExt, id: e.target.value})} placeholder="101" />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="name">ФИО / Отдел</Label>
+              <Label htmlFor="name">ФИО / Отдел *</Label>
               <Input id="name" value={newExt.name} onChange={(e) => setNewExt({...newExt, name: e.target.value})} placeholder="Иван Иванов" />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="secret">Пароль (Secret) *</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input id="secret" type="password" value={newExt.secret} onChange={(e) => setNewExt({...newExt, secret: e.target.value})} className="pl-9" placeholder="••••••••" />
+              </div>
             </div>
             <div className="grid gap-2">
               <Label>Технология</Label>
