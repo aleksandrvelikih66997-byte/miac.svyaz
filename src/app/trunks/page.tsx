@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState } from "react"
@@ -9,41 +8,56 @@ import { Plus, Globe, ShieldCheck, Wifi, MoreVertical, ExternalLink, Trash2, Loa
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useFirestore, useCollection } from "@/firebase"
+import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
 import { collection, doc, setDoc, deleteDoc } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
+import { errorEmitter } from "@/firebase/error-emitter"
+import { FirestorePermissionError } from "@/firebase/errors"
 
 export default function TrunksPage() {
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [newTrunk, setNewTrunk] = useState({ name: "", host: "", user: "" })
   const db = useFirestore()
   const { toast } = useToast()
-  const { data: trunks, loading } = useCollection(collection(db, "trunks"))
 
-  const handleAdd = async () => {
+  const trunksRef = useMemoFirebase(() => collection(db, "trunks"), [db])
+  const { data: trunks, loading } = useCollection(trunksRef)
+
+  const handleAdd = () => {
     if (!newTrunk.name) return
-    try {
-      const id = newTrunk.name.toLowerCase().replace(/\s+/g, '-')
-      await setDoc(doc(db, "trunks", id), {
-        ...newTrunk,
-        status: "Unregistered",
-        channels: "0/0"
-      })
-      setIsAddOpen(false)
-      setNewTrunk({ name: "", host: "", user: "" })
-      toast({ title: "Транк добавлен" })
-    } catch (e) {
-      toast({ title: "Ошибка", variant: "destructive" })
+    const id = newTrunk.name.toLowerCase().replace(/\s+/g, '-')
+    const trunkData = {
+      ...newTrunk,
+      status: "Unregistered",
+      channels: "0/0"
     }
+
+    setDoc(doc(db, "trunks", id), trunkData)
+      .then(() => {
+        setIsAddOpen(false)
+        setNewTrunk({ name: "", host: "", user: "" })
+        toast({ title: "Транк добавлен" })
+      })
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: `trunks/${id}`,
+          operation: 'create',
+          requestResourceData: trunkData
+        }))
+      })
   }
 
-  const handleDelete = async (id: string) => {
-    try {
-      await deleteDoc(doc(db, "trunks", id))
-      toast({ title: "Транк удален" })
-    } catch (e) {
-      toast({ title: "Ошибка", variant: "destructive" })
-    }
+  const handleDelete = (id: string) => {
+    deleteDoc(doc(db, "trunks", id))
+      .then(() => {
+        toast({ title: "Транк удален" })
+      })
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: `trunks/${id}`,
+          operation: 'delete'
+        }))
+      })
   }
 
   return (
@@ -62,7 +76,7 @@ export default function TrunksPage() {
         <div className="flex justify-center py-20"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {trunks?.map((trunk) => (
+          {trunks?.map((trunk: any) => (
             <Card key={trunk.id} className="border-none shadow-sm overflow-hidden group">
               <CardHeader className="bg-muted/30 pb-4">
                 <div className="flex items-center justify-between">
