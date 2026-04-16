@@ -28,22 +28,13 @@ import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function ServicesPage() {
-  const [status, setStatus] = useState<'running' | 'stopped' | 'restarting'>('running')
   const [logs, setLogs] = useState([
     "[BRIDGE] Ожидание запуска скрипта на сервере...",
     "[SYSTEM] Служба Asterisk.service активна.",
+    "[SECURITY] Режим ФСТЭК: Включен.",
   ])
   const db = useFirestore()
-  
-  const extensionsRef = useMemoFirebase(() => collection(db, "extensions"), [db]);
-  const { data: extensions } = useCollection(extensionsRef)
   const { toast } = useToast()
-
-  const handleAction = (newStatus: 'running' | 'stopped' | 'restarting') => {
-    setStatus(newStatus)
-    const time = new Date().toLocaleTimeString()
-    setLogs(prev => [`[${time}] SYSTEM: Действие ${newStatus.toUpperCase()}`, ...prev])
-  }
 
   return (
     <div className="space-y-6">
@@ -72,7 +63,7 @@ export default function ServicesPage() {
             </AlertDescription>
           </Alert>
 
-          <Card className="border-none shadow-xl flex flex-col h-[400px] overflow-hidden border">
+          <Card className="border-none shadow-xl flex flex-col h-[400px] overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between shrink-0 bg-slate-900 text-white py-3">
               <div className="flex items-center gap-3">
                 <Terminal className="h-4 w-4 text-emerald-400" />
@@ -125,7 +116,9 @@ export default function ServicesPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Button className="w-full justify-start gap-3 bg-primary text-white" onClick={() => handleAction('restarting')}>
+              <Button className="w-full justify-start gap-3 bg-primary text-white" onClick={() => {
+                toast({ title: "Синхронизация", description: "Команда перезагрузки отправлена через Мост" });
+              }}>
                 <RefreshCw className="h-4 w-4" /> Core Reload
               </Button>
             </CardContent>

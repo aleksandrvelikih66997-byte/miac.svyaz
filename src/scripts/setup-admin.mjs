@@ -1,39 +1,36 @@
 
-/**
- * @fileOverview Скрипт для создания первого администратора системы через консоль сервера.
- * Использование: node src/scripts/setup-admin.mjs <email> <password>
- */
-
 import { initializeApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
-import { firebaseConfig } from '../firebase/config.js'; // Убедитесь, что расширение .js поддерживается или переименуйте config в .js/mjs
 
-async function setup() {
-  const args = process.argv.slice(2);
-  if (args.length < 2) {
-    console.log('\x1b[31m%s\x1b[0m', 'Ошибка: Укажите email и пароль.');
-    console.log('Использование: node src/scripts/setup-admin.mjs admin@example.com myPassword123');
-    process.exit(1);
-  }
+// Конфигурация должна совпадать с src/firebase/config.ts
+const firebaseConfig = {
+  apiKey: "api-key",
+  authDomain: "project-id.firebaseapp.com",
+  projectId: "project-id",
+  storageBucket: "project-id.appspot.com",
+  messagingSenderId: "sender-id",
+  appId: "app-id"
+};
 
-  const [email, password] = args;
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 
-  // Инициализируем клиентский SDK в Node среде для регистрации
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
+const email = process.argv[2];
+const password = process.argv[3];
 
-  console.log(`Создание пользователя: ${email}...`);
-
-  try {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    console.log('\x1b[32m%s\x1b[0m', '✅ Пользователь успешно создан!');
-    console.log('UID:', userCredential.user.uid);
-    process.exit(0);
-  } catch (error) {
-    console.error('\x1b[31m%s\x1b[0m', '❌ Ошибка при создании пользователя:');
-    console.error(error.message);
-    process.exit(1);
-  }
+if (!email || !password) {
+  console.log('Использование: node src/scripts/setup-admin.mjs <email> <password>');
+  process.exit(1);
 }
 
-setup();
+console.log(`Создание администратора: ${email}...`);
+
+createUserWithEmailAndPassword(auth, email, password)
+  .then((userCredential) => {
+    console.log('Успех! Пользователь создан. Теперь вы можете войти через веб-интерфейс.');
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error('Ошибка создания пользователя:', error.message);
+    process.exit(1);
+  });
