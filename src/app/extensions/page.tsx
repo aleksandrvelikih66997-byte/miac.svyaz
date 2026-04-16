@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Search, MoreHorizontal, User, Trash2, Edit2, Loader2, Lock, BellOff, Bell } from "lucide-react"
+import { Plus, Search, MoreHorizontal, User, Trash2, Edit2, Loader2, Lock, BellOff, Bell, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -23,15 +23,18 @@ export default function ExtensionsPage() {
   const [loading, setLoading] = useState(true)
   const { toast } = useToast()
 
-  const loadData = async () => {
-    setLoading(true)
+  const loadData = async (silent = false) => {
+    if (!silent) setLoading(true)
     const data = await getExtensions()
     setExtensions(data)
-    setLoading(false)
+    if (!silent) setLoading(false)
   }
 
   useEffect(() => {
     loadData()
+    // Автообновление статусов каждые 3 секунды
+    const interval = setInterval(() => loadData(true), 3000)
+    return () => clearInterval(interval)
   }, [])
 
   const handleAdd = async () => {
@@ -61,12 +64,6 @@ export default function ExtensionsPage() {
     loadData()
   }
 
-  const updateStatus = async (ext: any, status: string) => {
-    const updated = { ...ext, status }
-    await saveExtension(updated)
-    loadData()
-  }
-
   const filtered = extensions.filter(e => 
     e.id.includes(searchTerm) || e.name.toLowerCase().includes(searchTerm.toLowerCase())
   )
@@ -76,11 +73,16 @@ export default function ExtensionsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-headline font-bold text-primary">Экстеншены</h2>
-          <p className="text-sm text-muted-foreground">Управление внутренними номерами (Локальное хранилище)</p>
+          <p className="text-sm text-muted-foreground">Управление внутренними номерами (Синхронизация с Asterisk 17)</p>
         </div>
-        <Button className="gap-2 shadow-lg" onClick={() => setIsAddOpen(true)}>
-          <Plus className="h-4 w-4" /> Добавить номер
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm" onClick={() => loadData()} className="gap-2">
+            <RefreshCw className="h-4 w-4" /> Обновить
+          </Button>
+          <Button className="gap-2 shadow-lg" onClick={() => setIsAddOpen(true)}>
+            <Plus className="h-4 w-4" /> Добавить номер
+          </Button>
+        </div>
       </div>
 
       <Card className="border-none shadow-xl bg-card overflow-hidden">
@@ -128,19 +130,12 @@ export default function ExtensionsPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm" className="gap-2 h-7 px-2">
-                            <div className={`h-2 w-2 rounded-full ${ext.status === 'online' ? 'bg-emerald-500' : ext.status === 'busy' ? 'bg-amber-500' : 'bg-slate-300'}`} />
-                            <span className="text-[10px] font-bold uppercase">{ext.status}</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent size="sm">
-                          <DropdownMenuItem onClick={() => updateStatus(ext, 'online')}>Online</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => updateStatus(ext, 'offline')}>Offline</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => updateStatus(ext, 'busy')}>Busy</DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <div className="flex items-center gap-2">
+                        <div className={`h-2.5 w-2.5 rounded-full ${ext.status === 'online' ? 'bg-emerald-500 animate-pulse' : ext.status === 'busy' ? 'bg-amber-500' : 'bg-slate-300'}`} />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          {ext.status === 'online' ? 'В сети' : ext.status === 'busy' ? 'Занят' : 'Оффлайн'}
+                        </span>
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
@@ -158,6 +153,13 @@ export default function ExtensionsPage() {
                     </TableCell>
                   </TableRow>
                 ))}
+                {filtered.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
+                      Абоненты не найдены
+                    </TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           )}
