@@ -63,8 +63,10 @@ export default function IvrPage() {
     try {
       const result = await uploadAudioAction(formData)
       if (result.success) {
-        setNewIvr({ ...newIvr, announcementFile: result.fileName.replace(/\.[^/.]+$/, "") })
-        toast({ title: "Файл загружен", description: `Сохранен как ${result.fileName}` })
+        // Убираем расширение для астериска
+        const nameWithoutExt = result.fileName.replace(/\.[^/.]+$/, "")
+        setNewIvr({ ...newIvr, announcementFile: nameWithoutExt })
+        toast({ title: "Файл загружен", description: `Имя в конфиге: ${nameWithoutExt}` })
       } else {
         throw new Error(result.error)
       }
@@ -160,11 +162,6 @@ export default function IvrPage() {
             </CardContent>
           </Card>
         ))}
-        {ivrs.length === 0 && (
-          <div className="py-20 text-center border-2 border-dashed rounded-2xl text-muted-foreground">
-            Нет настроенных IVR-меню
-          </div>
-        )}
       </div>
 
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
@@ -202,11 +199,11 @@ export default function IvrPage() {
                   {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                 </Button>
               </div>
-              <p className="text-[10px] text-muted-foreground">Введите имя файла или загрузите новый (wav/mp3)</p>
+              <p className="text-[10px] text-muted-foreground">Загрузите файл для автоматической синхронизации</p>
             </div>
             
             <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
-              <p className="text-[10px] font-bold uppercase text-primary">Добавить переход (Нажмите 1, чтобы...)</p>
+              <p className="text-[10px] font-bold uppercase text-primary">Добавить переход</p>
               <div className="flex gap-2">
                 <Input 
                   placeholder="Цифра" 
@@ -231,20 +228,6 @@ export default function IvrPage() {
               <Button variant="secondary" size="sm" className="w-full h-8" onClick={addMapping}>
                 Добавить в список
               </Button>
-              
-              {newIvr.digitMappings.length > 0 && (
-                <div className="pt-2 border-t space-y-1">
-                   {newIvr.digitMappings.map((m, idx) => (
-                     <div key={idx} className="flex items-center justify-between text-[10px] bg-white p-1 px-2 rounded border">
-                       <span>{m}</span>
-                       <button onClick={() => {
-                         const filtered = newIvr.digitMappings.filter((_, i) => i !== idx);
-                         setNewIvr({...newIvr, digitMappings: filtered});
-                       }} className="text-destructive hover:text-rose-700">Удалить</button>
-                     </div>
-                   ))}
-                </div>
-              )}
             </div>
           </div>
           <DialogFooter>

@@ -1,0 +1,25 @@
+[
+  {
+    "name": "тот",
+    "strategy": "ringall",
+    "members": [
+      "123",
+      "124"
+    ],
+    "musicOnHoldClass": "none",
+    "id": "tbucwwzpv",
+    "lastUpdateDate": "2026-04-16T17:39:27.951Z",
+    "creationDate": "2026-04-16T17:39:27.951Z"
+  },
+  {
+    "name": "123",
+    "strategy": "ringall",
+    "members": [
+      "123"
+    ],
+    "musicOnHoldClass": "classic",
+    "id": "p3tu89q3g",
+    "lastUpdateDate": "2026-04-16T17:40:04.237Z",
+    "creationDate": "2026-04-16T17:40:04.237Z"
+  }
+]
