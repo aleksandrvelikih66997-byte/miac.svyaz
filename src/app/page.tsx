@@ -1,3 +1,4 @@
+
 "use client"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -7,11 +8,13 @@ import {
   Clock, 
   ShieldCheck,
   ArrowRight,
-  Activity
+  Activity,
+  Zap
 } from "lucide-react"
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase"
 import { collection, query } from "firebase/firestore"
 import Link from "next/link"
+import { Badge } from "@/components/ui/badge"
 
 export default function Dashboard() {
   const db = useFirestore()
@@ -26,16 +29,24 @@ export default function Dashboard() {
 
   const stats = [
     { title: "АБОНЕНТОВ В БАЗЕ", value: extensions?.length || 0, color: "border-t-primary" },
-    { title: "АКТИВНЫХ ТРАНКОВ", value: trunks?.filter(t => (t as any).status === 'Registered').length || 0, color: "border-t-green-500" },
+    { title: "ОНЛАЙН", value: extensions?.filter(e => (e as any).status === 'online').length || 0, color: "border-t-emerald-500" },
     { title: "ПРАВИЛ МАРШРУТОВ", value: routes?.length || 0, color: "border-t-amber-500" },
-    { title: "AMI СТАТУС", value: "ОНЛАЙН", color: "border-t-primary" },
+    { title: "СИНХРОНИЗАЦИЯ", value: "АКТИВНА", color: "border-t-primary" },
   ]
 
   return (
     <div className="space-y-8">
+      <div className="flex items-center justify-between">
+        <h2 className="text-3xl font-bold tracking-tight">Обзор системы</h2>
+        <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-100">
+           <Zap className="h-3 w-3 fill-emerald-500 animate-pulse" />
+           <span className="text-[10px] font-bold uppercase tracking-widest">Real-time Sync Active</span>
+        </div>
+      </div>
+
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat, i) => (
-          <Card key={i} className={`shadow-sm border-0 border-t-2 ${stat.color} rounded-lg`}>
+          <Card key={i} className={`shadow-sm border-0 border-t-2 ${stat.color} rounded-lg bg-card`}>
             <CardHeader className="pb-2">
               <CardTitle className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.15em]">
                 {stat.title}
@@ -49,8 +60,8 @@ export default function Dashboard() {
       </div>
 
       <div className="grid gap-8 md:grid-cols-2">
-        <Card className="shadow-sm border-0 rounded-lg overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between border-b bg-slate-50/50 py-4 px-6">
+        <Card className="shadow-sm border-0 rounded-lg overflow-hidden border">
+          <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/20 py-4 px-6">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
               <Activity className="h-4 w-4 text-rose-500" /> Состояние Asterisk
             </CardTitle>
@@ -65,8 +76,8 @@ export default function Dashboard() {
                 <span className="font-mono font-medium">Asterisk 20.x (AltLinux SP)</span>
               </div>
               <div className="flex justify-between items-center text-sm">
-                <span className="text-muted-foreground">AMI Port:</span>
-                <span className="font-mono font-medium">5038 (bind: 0.0.0.0)</span>
+                <span className="text-muted-foreground">AMI Статус:</span>
+                <Badge className="bg-emerald-500">CONNECTED</Badge>
               </div>
               <div className="flex justify-between items-center text-sm">
                 <span className="text-muted-foreground">PJSIP Transport:</span>
@@ -76,10 +87,10 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm border-0 rounded-lg overflow-hidden">
-          <CardHeader className="flex flex-row items-center justify-between border-b bg-slate-50/50 py-4 px-6">
+        <Card className="shadow-sm border-0 rounded-lg overflow-hidden border">
+          <CardHeader className="flex flex-row items-center justify-between border-b bg-muted/20 py-4 px-6">
             <CardTitle className="text-sm font-bold flex items-center gap-2">
-              <Users className="h-4 w-4 text-primary" /> Последние абоненты
+              <Users className="h-4 w-4 text-primary" /> Статус абонентов
             </CardTitle>
             <Link href="/extensions" className="text-[10px] font-bold text-primary flex items-center gap-1 uppercase tracking-wider hover:underline">
               Все <ArrowRight className="h-3 w-3" />
@@ -87,17 +98,18 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className="py-6">
             <div className="space-y-3">
-              {extensions?.slice(0, 3).map((ext: any) => (
-                <div key={ext.id} className="flex items-center justify-between p-2 rounded bg-muted/30">
-                  <div className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-emerald-500" />
-                    <span className="text-sm font-medium">{ext.id} - {ext.name}</span>
+              {extensions?.slice(0, 5).map((ext: any) => (
+                <div key={ext.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/10 group hover:bg-muted/20 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className={`h-2.5 w-2.5 rounded-full ${ext.status === 'online' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-300'}`} />
+                    <span className="text-sm font-semibold">{ext.id}</span>
+                    <span className="text-xs text-muted-foreground">{ext.name}</span>
                   </div>
-                  <span className="text-[10px] font-mono text-muted-foreground">{ext.tech}</span>
+                  {ext.dnd && <Badge variant="destructive" className="text-[8px] h-4">DND</Badge>}
                 </div>
               ))}
               {(!extensions || extensions.length === 0) && (
-                <div className="text-center text-muted-foreground text-sm py-4">Нет данных</div>
+                <div className="text-center text-muted-foreground text-sm py-8 italic">Абоненты не добавлены</div>
               )}
             </div>
           </CardContent>
