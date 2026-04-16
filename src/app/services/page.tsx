@@ -1,21 +1,19 @@
 
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { 
-  Play, 
   RotateCcw, 
   Square, 
   Terminal, 
   Trash2,
   RefreshCw,
   FileCode,
-  Download,
+  ClipboardCheck,
   ShieldAlert,
   Server,
-  ClipboardCheck,
   AlertTriangle,
-  HelpCircle
+  Database
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -25,19 +23,14 @@ import { useCollection, useFirestore, useMemoFirebase } from "@/firebase"
 import { collection, query } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import {
-  Tooltip,
-  TooltipProvider,
-  TooltipTrigger,
-  TooltipContent,
-} from "@/components/ui/tooltip"
 
 export default function ServicesPage() {
   const [status, setStatus] = useState<'running' | 'stopped' | 'restarting'>('running')
   const [logs, setLogs] = useState([
     "[SYSTEM] Служба Asterisk.service активна и работает.",
-    "[NOTICE] Обнаружены попытки регистрации неизвестных эндпоинтов (138, 201).",
-    "[CONFIG] Требуется синхронизация pjsip_miac_users.conf для авторизации абонентов."
+    "[NOTICE] Эндпоинт 123 зарегистрирован с 192.168.0.54",
+    "[WARNING] Обнаружен DND статус в AstDB для номера 100",
+    "[CONFIG] Требуется синхронизация pjsip_miac_users.conf"
   ])
   const db = useFirestore()
   
@@ -69,7 +62,6 @@ export default function ServicesPage() {
       return
     }
     
-    // Генерируем конфиг с учетом transport-udp из pjsip.conf пользователя
     const content = extensions.map(ext => `
 ; --- Абонент ${ext.id}: ${ext.name} ---
 [${ext.id}]
@@ -100,10 +92,6 @@ max_contacts=1
   }
 
   const generateExtensionsFile = () => {
-    if (!routes || routes.length === 0) {
-      toast({ title: "Маршруты отсутствуют", description: "Будет создан базовый диалплан", variant: "default" })
-    }
-
     let content = `[from-internal]\n`
     content += `; --- Автоматические правила МИАЦ ---\n\n`
     
@@ -113,8 +101,14 @@ max_contacts=1
       })
     }
     
-    content += `\n; Шаблон для звонков между внутренними\n`
-    content += `exten => _XXX,1,Dial(PJSIP/\${EXTEN},30)\n`
+    content += `\n; Базовая логика с проверкой DND\n`
+    content += `exten => _XXX,1,NoOp(Call to $\{EXTEN\})\n`
+    content += ` same => n,Set(DND_STATUS=$\{DB(DND/$\{EXTEN\})\})\n`
+    content += ` same => n,GotoIf($["$\{DND_STATUS\}" = "YES"]?dnd)\n`
+    content += ` same => n,Dial(PJSIP/$\{EXTEN\},30)\n`
+    content += ` same => n,Hangup()\n`
+    content += ` same => n(dnd),Answer()\n`
+    content += ` same => n,Playback(do-not-disturb)\n`
     content += ` same => n,Hangup()\n`
 
     downloadFile(content, 'extensions_miac_routes.conf')
@@ -136,31 +130,30 @@ max_contacts=1
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-headline font-bold text-primary">Синхронизация с Asterisk</h2>
-          <p className="text-sm text-muted-foreground">Применение настроек из базы данных в конфигурационные файлы сервера</p>
+          <p className="text-sm text-muted-foreground">Применение настроек и решение проблем DND/Статусов</p>
         </div>
         <div className="flex items-center gap-2">
           <Badge variant={status === 'running' ? 'default' : 'destructive'} className={status === 'running' ? 'bg-emerald-500 font-bold px-4 py-1' : ''}>
-            {status === 'running' ? 'ASTERISK: ACTIVE' : status === 'restarting' ? 'RELOADING...' : 'SERVICE STOPPED'}
+            {status === 'running' ? 'ASTERISK: ACTIVE' : 'SERVICE STATUS'}
           </Badge>
         </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-4">
         <div className="md:col-span-3 space-y-6">
-          <Alert className="bg-blue-50 border-blue-200 shadow-sm border-l-4 border-l-blue-500">
-            <Server className="h-5 w-5 text-blue-600" />
-            <AlertTitle className="text-blue-800 font-bold italic">Служба Asterisk запущена</AlertTitle>
-            <AlertDescription className="text-blue-700 text-xs mt-1 leading-relaxed">
-              Система видит работающий процесс. Для того чтобы абоненты (138, 201 и др.) смогли зарегистрироваться, выполните:
-              <ol className="list-decimal ml-4 mt-2 space-y-1 font-medium">
-                <li>Скачайте файл <strong>«PJSIP Абоненты»</strong> кнопкой справа.</li>
-                <li>Скопируйте его в <code>/etc/asterisk/pjsip_miac_users.conf</code>.</li>
-                <li>Примените настройки командой: <code>asterisk -rx "core reload"</code>.</li>
-              </ol>
+          <Alert className="bg-amber-50 border-amber-200 border-l-4 border-l-amber-500">
+            <AlertTriangle className="h-5 w-5 text-amber-600" />
+            <AlertTitle className="text-amber-800 font-bold">Проблема: Номер всегда занят (DND YES)</AlertTitle>
+            <AlertDescription className="text-amber-700 text-xs mt-1 leading-relaxed">
+              Если при звонке на номер (например, 100) вы слышите «Не беспокоить», значит в базе Asterisk (AstDB) установлена метка. 
+              <div className="bg-slate-900 text-slate-100 p-3 rounded mt-2 font-mono text-[10px]">
+                # Чтобы сбросить DND для номера 100 в консоли Asterisk:<br/>
+                asterisk -rx "database del DND 100"
+              </div>
             </AlertDescription>
           </Alert>
 
-          <Card className="border-none shadow-xl flex flex-col h-[450px] overflow-hidden">
+          <Card className="border-none shadow-xl flex flex-col h-[400px] overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between shrink-0 bg-slate-900 text-white py-4">
               <div className="flex items-center gap-3">
                 <Terminal className="h-5 w-5 text-emerald-400" />
@@ -176,19 +169,23 @@ max_contacts=1
                   {logs.map((log, i) => (
                     <div key={i} className="flex gap-3">
                       <span className="text-slate-600 shrink-0">[{new Date().toLocaleTimeString()}]</span>
-                      <span className={log.includes('NOTICE') || log.includes('ERROR') ? 'text-amber-400' : log.includes('SYSTEM') ? 'text-blue-400' : 'text-slate-300'}>
+                      <span className={log.includes('WARNING') ? 'text-amber-400' : log.includes('NOTICE') ? 'text-emerald-400' : 'text-slate-300'}>
                         {log}
                       </span>
                     </div>
                   ))}
-                  <div className="flex items-center gap-2 text-emerald-400 pt-2">
-                    <span className="animate-pulse">_</span>
-                    <span className="font-bold">asterisk -rvvv</span>
-                  </div>
                 </div>
               </ScrollArea>
             </CardContent>
           </Card>
+
+          <Alert className="bg-blue-50 border-blue-200 border-l-4 border-l-blue-500">
+            <Database className="h-5 w-5 text-blue-600" />
+            <AlertTitle className="text-blue-800 font-bold">Как сделать статусы автоматическими?</AlertTitle>
+            <AlertDescription className="text-blue-700 text-xs mt-1 leading-relaxed">
+              Чтобы статусы (Online/Offline) в интерфейсе обновлялись сами, необходимо запустить скрипт-прослойку на сервере AltLinux, который будет пересылать события AMI в Firestore.
+            </AlertDescription>
+          </Alert>
         </div>
 
         <div className="space-y-6">
@@ -202,7 +199,7 @@ max_contacts=1
               <Button className="w-full justify-start gap-3 bg-primary text-white hover:bg-primary/90" onClick={() => handleAction('restarting')}>
                 <RotateCcw className="h-4 w-4" /> Core Reload
               </Button>
-              <Button variant="outline" className="w-full justify-start gap-3 text-destructive hover:bg-destructive/5" onClick={() => handleAction('stopped')}>
+              <Button variant="outline" className="w-full justify-start gap-3 text-destructive" onClick={() => handleAction('stopped')}>
                 <Square className="h-4 w-4" /> Stop Service
               </Button>
             </CardContent>
@@ -211,27 +208,16 @@ max_contacts=1
           <Card className="border-none shadow-lg h-fit">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-bold flex items-center gap-2">
-                <FileCode className="h-4 w-4 text-primary" /> Экспорт (PJSIP)
+                <FileCode className="h-4 w-4 text-primary" /> Экспорт
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Button className="w-full justify-start gap-3 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-none shadow-none" onClick={generatePJSIPFile}>
+              <Button className="w-full justify-start gap-3 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-none" onClick={generatePJSIPFile}>
                 <FileCode className="h-4 w-4" /> PJSIP Абоненты
               </Button>
-              <Button className="w-full justify-start gap-3 bg-slate-100 text-slate-700 hover:bg-slate-200 border-none shadow-none" onClick={generateExtensionsFile}>
-                <ClipboardCheck className="h-4 w-4" /> Dialplan Routes
+              <Button className="w-full justify-start gap-3 bg-slate-100 text-slate-700 hover:bg-slate-200 border-none" onClick={generateExtensionsFile}>
+                <ClipboardCheck className="h-4 w-4" /> Dialplan + DND
               </Button>
-            </CardContent>
-          </Card>
-
-          <Card className="border-none shadow-lg h-fit bg-amber-50">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-[10px] font-bold uppercase text-amber-600 flex items-center gap-2">
-                <ShieldAlert className="h-3 w-3" /> Статус AMI
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="text-[11px] text-amber-800 leading-relaxed">
-              Пользователь <strong>miac</strong> подключен. Система готова к приему команд через порт 5038.
             </CardContent>
           </Card>
         </div>

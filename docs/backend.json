@@ -11,7 +11,8 @@
         "secret": { "type": "string", "description": "SIP password" },
         "tech": { "type": "string", "enum": ["PJSIP", "SIP"], "description": "Technology" },
         "context": { "type": "string", "description": "Asterisk context" },
-        "status": { "type": "string", "enum": ["online", "offline", "busy"], "description": "Realtime status" }
+        "status": { "type": "string", "enum": ["online", "offline", "busy"], "description": "Realtime status" },
+        "dnd": { "type": "boolean", "description": "Do Not Disturb status" }
       },
       "required": ["id", "name", "tech", "secret"]
     },

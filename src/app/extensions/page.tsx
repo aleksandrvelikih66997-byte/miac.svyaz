@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState } from "react"
@@ -6,11 +7,12 @@ import {
   Search, 
   MoreHorizontal, 
   User, 
-  Shield, 
   Trash2,
   Edit2,
   Loader2,
-  Lock
+  Lock,
+  BellOff,
+  Bell
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -40,8 +42,9 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
-import { collection, doc, setDoc, deleteDoc, query, orderBy } from "firebase/firestore"
+import { collection, doc, setDoc, deleteDoc, query, orderBy, updateDoc } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
 import { errorEmitter } from "@/firebase/error-emitter"
 import { FirestorePermissionError } from "@/firebase/errors"
@@ -68,7 +71,8 @@ export default function ExtensionsPage() {
     
     const extData = {
       ...newExt,
-      status: "offline"
+      status: "offline",
+      dnd: false
     };
 
     setDoc(doc(db, "extensions", newExt.id), extData)
@@ -96,6 +100,29 @@ export default function ExtensionsPage() {
     toast({ title: "Удалено", description: `Абонент ${id} удален` })
   }
 
+  const toggleDND = (id: string, current: boolean) => {
+    updateDoc(doc(db, "extensions", id), { dnd: !current })
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: `extensions/${id}`,
+          operation: 'update',
+          requestResourceData: { dnd: !current }
+        }))
+      });
+    toast({ title: !current ? "DND Включен" : "DND Выключен", description: `Статус изменен для ${id}` })
+  }
+
+  const updateStatus = (id: string, status: string) => {
+    updateDoc(doc(db, "extensions", id), { status })
+      .catch(async (err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: `extensions/${id}`,
+          operation: 'update',
+          requestResourceData: { status }
+        }))
+      });
+  }
+
   const filtered = extensions?.filter(e => 
     e.id.includes(searchTerm) || e.name.toLowerCase().includes(searchTerm.toLowerCase())
   ) || []
@@ -105,7 +132,7 @@ export default function ExtensionsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-headline font-bold text-primary">Экстеншены</h2>
-          <p className="text-sm text-muted-foreground">Управление внутренними номерами МИАЦ</p>
+          <p className="text-sm text-muted-foreground">Управление внутренними номерами и статусами МИАЦ</p>
         </div>
         <Button className="gap-2 shadow-lg" onClick={() => setIsAddOpen(true)}>
           <Plus className="h-4 w-4" /> Добавить номер
@@ -133,9 +160,9 @@ export default function ExtensionsPage() {
             <Table>
               <TableHeader className="bg-muted/10">
                 <TableRow>
-                  <TableHead className="w-[120px] font-bold">Номер</TableHead>
+                  <TableHead className="w-[100px] font-bold">Номер</TableHead>
                   <TableHead className="font-bold">Имя / Отдел</TableHead>
-                  <TableHead className="font-bold">Технология</TableHead>
+                  <TableHead className="font-bold">DND</TableHead>
                   <TableHead className="font-bold">Статус</TableHead>
                   <TableHead className="text-right font-bold">Действия</TableHead>
                 </TableRow>
@@ -153,15 +180,28 @@ export default function ExtensionsPage() {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className="font-mono text-[10px] bg-slate-50">
-                        {ext.tech}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Switch 
+                          checked={!!ext.dnd} 
+                          onCheckedChange={() => toggleDND(ext.id, !!ext.dnd)}
+                        />
+                        {ext.dnd ? <BellOff className="h-3 w-3 text-destructive" /> : <Bell className="h-3 w-3 text-muted-foreground" />}
+                      </div>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div className={`h-2 w-2 rounded-full ${ext.status === 'online' ? 'bg-emerald-500' : 'bg-slate-300'}`} />
-                        <span className="text-xs font-medium uppercase">{ext.status}</span>
-                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="gap-2 h-7 px-2">
+                            <div className={`h-2 w-2 rounded-full ${ext.status === 'online' ? 'bg-emerald-500' : ext.status === 'busy' ? 'bg-amber-500' : 'bg-slate-300'}`} />
+                            <span className="text-[10px] font-bold uppercase">{ext.status}</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent size="sm">
+                          <DropdownMenuItem onClick={() => updateStatus(ext.id, 'online')}>Online</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => updateStatus(ext.id, 'offline')}>Offline</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => updateStatus(ext.id, 'busy')}>Busy</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
