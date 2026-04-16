@@ -20,21 +20,38 @@
 - **Backend/Auth**: Firebase (Authentication & Firestore).
 - **AI**: Genkit 1.x, Google Gemini 2.5 Flash.
 
-## 📦 Инструкция по развертыванию
+## 📦 Инструкция по развертыванию на AltLinux SP
 
-1. **Инициализация репозитория**:
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit: МИАЦ.СВЯЗЬ готово к работе"
-   ```
+### 1. Подготовка окружения
+Убедитесь, что на сервере установлен Node.js версии 18 или выше:
+```bash
+node -v
+```
 
-2. **Подключение к GitHub**:
-   ```bash
-   git remote add origin https://github.com/aleksandrvelikih66997-byte/miac.svyaz.git
-   git branch -M main
-   git push -u origin main
-   ```
+### 2. Клонирование и установка
+```bash
+git clone https://github.com/aleksandrvelikih66997-byte/miac.svyaz.git
+cd miac.svyaz
+npm install
+```
+
+### 3. Сборка и запуск
+```bash
+# Сборка оптимизированного приложения
+npm run build
+
+# Запуск в фоновом режиме через PM2
+npm install -g pm2
+pm2 start npm --name "miac-svyaz" -- start
+pm2 save
+```
+
+### 4. Решение проблем с Git (Non-fast-forward)
+Если при `git push` или `git pull` возникает ошибка расхождения веток, выполните:
+```bash
+git pull origin main --rebase
+git push -u origin main
+```
 
 ## 📄 Лицензия
 
