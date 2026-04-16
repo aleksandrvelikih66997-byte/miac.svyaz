@@ -1,3 +1,4 @@
+
 'use server';
 
 import fs from 'fs';
@@ -22,20 +23,14 @@ function readJSON(file: string) {
     const content = fs.readFileSync(file, 'utf8');
     return content ? JSON.parse(content) : [];
   } catch (e) {
-    console.error(`Error reading ${file}:`, e);
     return [];
   }
 }
 
 function writeJSON(file: string, data: any) {
-  try {
-    fs.writeFileSync(file, JSON.stringify(data, null, 2));
-  } catch (e) {
-    console.error(`Error writing ${file}:`, e);
-  }
+  fs.writeFileSync(file, JSON.stringify(data, null, 2));
 }
 
-/** АБОНЕНТЫ (EXTENSIONS) **/
 export async function getExtensions() {
   return readJSON(FILES.extensions);
 }
@@ -64,7 +59,6 @@ export async function deleteExtension(id: string) {
   return { success: true };
 }
 
-/** ТРАНКИ (TRUNKS) **/
 export async function getTrunks() {
   return readJSON(FILES.trunks);
 }
@@ -74,12 +68,7 @@ export async function saveTrunk(trunk: any) {
   const id = trunk.id || trunk.name.toLowerCase().replace(/\s+/g, '-');
   const now = new Date().toISOString();
   
-  const trunkWithId = { 
-    ...trunk, 
-    id,
-    lastUpdateDate: now
-  };
-  
+  const trunkWithId = { ...trunk, id, lastUpdateDate: now };
   const index = data.findIndex((t: any) => t.id === id);
   if (index > -1) {
     data[index] = trunkWithId;
@@ -97,7 +86,6 @@ export async function deleteTrunk(id: string) {
   return { success: true };
 }
 
-/** МАРШРУТЫ (ROUTES) **/
 export async function getRoutes() {
   return readJSON(FILES.routes);
 }
@@ -107,12 +95,7 @@ export async function saveRoute(route: any) {
   const id = route.id || Math.random().toString(36).substr(2, 9);
   const now = new Date().toISOString();
   
-  const routeWithId = { 
-    ...route, 
-    id,
-    lastUpdateDate: now
-  };
-  
+  const routeWithId = { ...route, id, lastUpdateDate: now };
   const index = data.findIndex((r: any) => r.id === id);
   if (index > -1) {
     data[index] = routeWithId;
