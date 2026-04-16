@@ -1,20 +1,31 @@
+
 "use client"
 
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
+import { useEffect } from 'react';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Button } from "@/components/ui/button";
-import { RefreshCcw, LogOut } from "lucide-react";
-import { useAuth } from "@/firebase";
+import { RefreshCcw, LogOut, Loader2 } from "lucide-react";
+import { useAuth, useUser } from "@/firebase";
 import { signOut } from "firebase/auth";
 
 export function AuthLayoutWrapper({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const isLoginPage = pathname === '/login';
   const auth = useAuth();
+  const { user, loading } = useUser();
 
-  const handleLogout = () => {
-    signOut(auth);
+  useEffect(() => {
+    if (!loading && !user && !isLoginPage) {
+      router.push('/login');
+    }
+  }, [user, loading, isLoginPage, router]);
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    router.push('/login');
   };
 
   const getPageTitle = (path: string) => {
@@ -30,9 +41,20 @@ export function AuthLayoutWrapper({ children }: { children: React.ReactNode }) {
     }
   };
 
+  if (loading && !isLoginPage) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <p className="text-sm font-medium text-muted-foreground font-headline uppercase tracking-widest">Проверка доступа...</p>
+      </div>
+    );
+  }
+
   if (isLoginPage) {
     return <>{children}</>;
   }
+
+  if (!user) return null;
 
   return (
     <SidebarProvider>
@@ -46,13 +68,9 @@ export function AuthLayoutWrapper({ children }: { children: React.ReactNode }) {
           
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <div className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
-              <span className="text-xs font-medium text-muted-foreground">Asterisk - загрузка...</span>
+              <div className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-tighter">Asterisk Link OK</span>
             </div>
-            
-            <Button variant="outline" size="sm" className="h-9 gap-2 text-xs font-medium bg-white shadow-sm hover:bg-slate-50">
-              <RefreshCcw className="h-3.5 w-3.5" /> Обновить
-            </Button>
             
             <Button 
               variant="destructive" 
