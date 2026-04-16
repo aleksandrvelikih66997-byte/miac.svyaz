@@ -2,113 +2,127 @@
 import fs from 'fs';
 import path from 'path';
 import asteriskManager from 'asterisk-manager';
-import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+dotenv.config();
 
-// Константы путей
 const DATA_DIR = path.join(process.cwd(), 'src/data');
 const EXTENSIONS_FILE = path.join(DATA_DIR, 'extensions.json');
-const ASTERISK_CONF_FILE = '/etc/asterisk/pjsip_miac_users.conf';
+const TARGET_CONF = '/etc/asterisk/pjsip_miac_users.conf';
 
-// Конфиг AMI (должен совпадать с manager.conf)
-const AMI_CONFIG = {
-  port: 5038,
-  host: '127.0.0.1',
-  username: 'miac',
-  password: 'MiacAMI2026'
-};
+// Конфигурация AMI из manager.conf
+const ami = asteriskManager(
+  5038,
+  '127.0.0.1',
+  'miac',
+  'MiacAMI2026',
+  true
+);
 
-console.log('🚀 [BRIDGE] Мост МИАЦ.СВЯЗЬ запущен...');
-console.log(`📂 [BRIDGE] Директория данных: ${DATA_DIR}`);
+ami.keepConnected();
 
-// Функция синхронизации
-async function sync() {
+function generatePjsipConfig(extensions) {
+  let config = '; --- МИАЦ.СВЯЗЬ: Автоматическая конфигурация ---\n';
+  config += '; Сгенерировано: ' + new Date().toLocaleString() + '\n\n';
+
+  // ВАЖНО для Asterisk 17: Определяем транспорт, если он не определен глобально
+  config += '[transport-udp]\n';
+  config += 'type=transport\n';
+  config += 'protocol=udp\n';
+  config += 'bind=0.0.0.0:5060\n\n';
+
+  extensions.forEach(ext => {
+    const id = ext.id;
+    const secret = ext.secret || 'password';
+    const context = ext.context || 'from-internal';
+
+    // Блок AOR (Адрес ресурса)
+    config += `[${id}]\n`;
+    config += `type=aor\n`;
+    config += `max_contacts=1\n`;
+    config += `remove_existing=yes\n\n`;
+
+    // Блок AUTH (Авторизация)
+    config += `[${id}]\n`;
+    config += `type=auth\n`;
+    config += `auth_type=userpass\n`;
+    config += `username=${id}\n`;
+    config += `password=${secret}\n\n`;
+
+    // Блок ENDPOINT (Точка подключения)
+    config += `[${id}]\n`;
+    config += `type=endpoint\n`;
+    config += `context=${context}\n`;
+    config += `disallow=all\n`;
+    config += `allow=ulaw,alaw\n`;
+    config += `auth=${id}\n`;
+    config += `outbound_auth=${id}\n`;
+    config += `aors=${id}\n`;
+    config += `transport=transport-udp\n`; // Привязка к транспорту
+    config += `direct_media=no\n`;
+    config += `rewrite_contact=yes\n`;
+    config += `force_rport=yes\n`;
+    config += `rtp_symmetric=yes\n\n`;
+  });
+
+  return config;
+}
+
+async function syncToAsterisk() {
   console.log('🔄 [BRIDGE] Начало синхронизации...');
   
   if (!fs.existsSync(EXTENSIONS_FILE)) {
-    console.log('⚠️ [BRIDGE] Файл абонентов не найден. Пропускаю.');
+    console.log('⚠️ [BRIDGE] Файл данных не найден, создаю пустой конфиг.');
+    fs.writeFileSync(TARGET_CONF, '; Нет активных абонентов\n');
     return;
   }
 
   try {
     const extensions = JSON.parse(fs.readFileSync(EXTENSIONS_FILE, 'utf8'));
+    const configContent = generatePjsipConfig(extensions);
     
-    // Генерируем конфиг PJSIP (Asterisk 17/20 совместимый)
-    let config = `; --- Сгенерировано МИАЦ.СВЯЗЬ (${new Date().toLocaleString()}) ---\n\n`;
-    
-    // Добавляем базовый транспорт (обязательно для работы PJSIP)
-    config += `[transport-udp]\ntype=transport\nprotocol=udp\nbind=0.0.0.0:5060\n\n`;
+    fs.writeFileSync(TARGET_CONF, configContent);
+    console.log(`✅ [BRIDGE] Файл ${TARGET_CONF} успешно обновлен. Абонентов: ${extensions.length}`);
 
-    extensions.forEach(ext => {
-      console.log(`📡 [BRIDGE] Обработка абонента: ${ext.id} (${ext.name})`);
-      
-      config += `[${ext.id}]\ntype=endpoint\ncontext=${ext.context || 'from-internal'}\ndisallow=all\nallow=ulaw,alaw,g722\nauth=${ext.id}\naors=${ext.id}\ndirect_media=no\n\n`;
-      config += `[${ext.id}]\ntype=auth\nauth_type=userpass\nusername=${ext.id}\npassword=${ext.secret}\n\n`;
-      config += `[${ext.id}]\ntype=aor\nmax_contacts=1\nremove_existing=yes\n\n`;
-    });
-
-    // Пишем в файл Asterisk
-    fs.writeFileSync(ASTERISK_CONF_FILE, config);
-    console.log(`✅ [BRIDGE] Файл ${ASTERISK_CONF_FILE} успешно обновлен. Абонентов: ${extensions.length}`);
-
-    // Отправляем команду в Asterisk через AMI
-    const ami = new asteriskManager(AMI_CONFIG.port, AMI_CONFIG.host, AMI_CONFIG.username, AMI_CONFIG.password, true);
-    
-    ami.on('managerevent', () => {}); // Игнорируем события
-    
-    // Ждем подключения
-    await new Promise((resolve, reject) => {
-      ami.keepconnected();
-      
-      const timeout = setTimeout(() => reject(new Error('AMI Timeout')), 3000);
-      
-      ami.on('rawevent', (evt) => {
-        if (evt.event === 'FullyAuthenticated' || evt.response === 'Success') {
-          clearTimeout(timeout);
-          resolve();
-        }
-      });
-      
-      ami.on('error', (err) => {
-        clearTimeout(timeout);
-        reject(err);
-      });
-    });
-
-    // Пробуем перезагрузить PJSIP в Asterisk 17
+    // Пробуем перезагрузить PJSIP через AMI
+    // В Asterisk 17 самая надежная команда: module reload res_pjsip.so
     const commands = ['module reload res_pjsip.so', 'pjsip reload', 'core reload'];
     
     for (const cmd of commands) {
       try {
-        const result = await new Promise((res, rej) => {
-          ami.action({ action: 'Command', command: cmd }, (err, msg) => {
-            if (err || msg.response === 'Error') rej(err || msg);
-            else res(msg);
+        const response = await new Promise((resolve, reject) => {
+          ami.action({
+            action: 'Command',
+            command: cmd
+          }, (err, res) => {
+            if (err) reject(err);
+            else resolve(res);
           });
         });
-        console.log(`🔄 [BRIDGE] Asterisk Command (${cmd}): OK`);
-        break; // Если сработало, выходим из цикла
+
+        if (response.response === 'Success' || response.message === 'Command output follows') {
+          console.log(`🔄 [BRIDGE] Asterisk Command (${cmd}): OK`);
+          break; 
+        }
       } catch (e) {
-        // Пробуем следующую команду
+        // Пробуем следующую команду, если текущая не поддерживается
       }
     }
 
-    ami.disconnect();
-
   } catch (error) {
-    console.error('❌ [BRIDGE] Error:', error.message || error);
+    console.error('❌ [BRIDGE] Ошибка при синхронизации:', error.message);
   }
 }
 
-// Первоначальный запуск
-sync();
+// Следим за изменениями в файле данных
+console.log('🚀 [BRIDGE] Мост МИАЦ.СВЯЗЬ запущен...');
+console.log(`📂 [BRIDGE] Директория данных: ${DATA_DIR}`);
 
-// Следим за изменениями в JSON файлах
 fs.watch(DATA_DIR, (eventType, filename) => {
   if (filename === 'extensions.json') {
-    console.log(`📝 [BRIDGE] Замечено изменение в ${filename}...`);
-    sync();
+    syncToAsterisk();
   }
 });
+
+// Первоначальный запуск
+syncToAsterisk();
