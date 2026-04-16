@@ -1,138 +1,82 @@
 
 "use client"
 
-import { useState } from "react"
-import { 
-  Plus, 
-  Search, 
-  MoreHorizontal, 
-  User, 
-  Trash2,
-  Edit2,
-  Loader2,
-  Lock,
-  BellOff,
-  Bell
-} from "lucide-react"
+import { useState, useEffect } from "react"
+import { Plus, Search, MoreHorizontal, User, Trash2, Edit2, Loader2, Lock, BellOff, Bell } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator
-} from "@/components/ui/dropdown-menu"
-import { Badge } from "@/components/ui/badge"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { useFirestore, useCollection, useMemoFirebase } from "@/firebase"
-import { collection, doc, setDoc, deleteDoc, query, orderBy, updateDoc } from "firebase/firestore"
 import { useToast } from "@/hooks/use-toast"
-import { errorEmitter } from "@/firebase/error-emitter"
-import { FirestorePermissionError } from "@/firebase/errors"
+import { getExtensions, saveExtension, deleteExtension } from "@/lib/telephony-store"
 
 export default function ExtensionsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [newExt, setNewExt] = useState({ id: "", name: "", secret: "", tech: "PJSIP", context: "from-internal" })
-  const db = useFirestore()
+  const [extensions, setExtensions] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const { toast } = useToast()
 
-  const extensionsQuery = useMemoFirebase(() => {
-    if (!db) return null;
-    return query(collection(db, "extensions"), orderBy("id", "asc"));
-  }, [db]);
+  const loadData = async () => {
+    setLoading(true)
+    const data = await getExtensions()
+    setExtensions(data)
+    setLoading(false)
+  }
 
-  const { data: extensions, loading } = useCollection(extensionsQuery)
+  useEffect(() => {
+    loadData()
+  }, [])
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
     if (!newExt.id || !newExt.name || !newExt.secret) {
       toast({ title: "Ошибка", description: "Заполните все обязательные поля", variant: "destructive" })
       return
     }
     
-    const extData = {
-      ...newExt,
-      status: "offline",
-      dnd: false
-    };
-
-    setDoc(doc(db, "extensions", newExt.id), extData)
-      .catch(async (err) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: `extensions/${newExt.id}`,
-          operation: 'create',
-          requestResourceData: extData
-        }))
-      });
-    
+    const extData = { ...newExt, status: "offline", dnd: false };
+    await saveExtension(extData)
     setIsAddOpen(false)
     setNewExt({ id: "", name: "", secret: "", tech: "PJSIP", context: "from-internal" })
     toast({ title: "Успех", description: `Абонент ${newExt.id} добавлен` })
+    loadData()
   }
 
-  const handleDelete = (id: string) => {
-    deleteDoc(doc(db, "extensions", id))
-      .catch(async (err) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: `extensions/${id}`,
-          operation: 'delete'
-        }))
-      });
+  const handleDelete = async (id: string) => {
+    await deleteExtension(id)
     toast({ title: "Удалено", description: `Абонент ${id} удален` })
+    loadData()
   }
 
-  const toggleDND = (id: string, current: boolean) => {
-    updateDoc(doc(db, "extensions", id), { dnd: !current })
-      .catch(async (err) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: `extensions/${id}`,
-          operation: 'update',
-          requestResourceData: { dnd: !current }
-        }))
-      });
-    toast({ title: !current ? "DND Включен" : "DND Выключен", description: `Статус изменен для ${id}` })
+  const toggleDND = async (ext: any) => {
+    const updated = { ...ext, dnd: !ext.dnd }
+    await saveExtension(updated)
+    toast({ title: updated.dnd ? "DND Включен" : "DND Выключен", description: `Статус изменен для ${ext.id}` })
+    loadData()
   }
 
-  const updateStatus = (id: string, status: string) => {
-    updateDoc(doc(db, "extensions", id), { status })
-      .catch(async (err) => {
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: `extensions/${id}`,
-          operation: 'update',
-          requestResourceData: { status }
-        }))
-      });
+  const updateStatus = async (ext: any, status: string) => {
+    const updated = { ...ext, status }
+    await saveExtension(updated)
+    loadData()
   }
 
-  const filtered = extensions?.filter(e => 
+  const filtered = extensions.filter(e => 
     e.id.includes(searchTerm) || e.name.toLowerCase().includes(searchTerm.toLowerCase())
-  ) || []
+  )
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-headline font-bold text-primary">Экстеншены</h2>
-          <p className="text-sm text-muted-foreground">Управление внутренними номерами и статусами МИАЦ</p>
+          <p className="text-sm text-muted-foreground">Управление внутренними номерами (Локальное хранилище)</p>
         </div>
         <Button className="gap-2 shadow-lg" onClick={() => setIsAddOpen(true)}>
           <Plus className="h-4 w-4" /> Добавить номер
@@ -141,16 +85,14 @@ export default function ExtensionsPage() {
 
       <Card className="border-none shadow-xl bg-card overflow-hidden">
         <CardHeader className="pb-3 border-b bg-muted/20">
-          <div className="flex items-center gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Поиск по номеру или имени..." 
-                className="pl-9 bg-white" 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input 
+              placeholder="Поиск по номеру или имени..." 
+              className="pl-9 bg-white" 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
         </CardHeader>
         <CardContent className="p-0">
@@ -181,10 +123,7 @@ export default function ExtensionsPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <Switch 
-                          checked={!!ext.dnd} 
-                          onCheckedChange={() => toggleDND(ext.id, !!ext.dnd)}
-                        />
+                        <Switch checked={!!ext.dnd} onCheckedChange={() => toggleDND(ext)} />
                         {ext.dnd ? <BellOff className="h-3 w-3 text-destructive" /> : <Bell className="h-3 w-3 text-muted-foreground" />}
                       </div>
                     </TableCell>
@@ -197,9 +136,9 @@ export default function ExtensionsPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent size="sm">
-                          <DropdownMenuItem onClick={() => updateStatus(ext.id, 'online')}>Online</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => updateStatus(ext.id, 'offline')}>Offline</DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => updateStatus(ext.id, 'busy')}>Busy</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => updateStatus(ext, 'online')}>Online</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => updateStatus(ext, 'offline')}>Offline</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => updateStatus(ext, 'busy')}>Busy</DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -211,10 +150,6 @@ export default function ExtensionsPage() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem className="gap-2">
-                            <Edit2 className="h-4 w-4" /> Редактировать
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
                           <DropdownMenuItem className="gap-2 text-destructive" onClick={() => handleDelete(ext.id)}>
                             <Trash2 className="h-4 w-4" /> Удалить
                           </DropdownMenuItem>
@@ -231,19 +166,15 @@ export default function ExtensionsPage() {
 
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
         <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-primary">
-              <Plus className="h-5 w-5" /> Новый абонент
-            </DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-6 py-4">
+          <DialogHeader><DialogTitle>Новый абонент</DialogTitle></DialogHeader>
+          <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label className="text-xs font-bold uppercase">Номер *</Label>
+                <Label>Номер *</Label>
                 <Input value={newExt.id} onChange={(e) => setNewExt({...newExt, id: e.target.value})} placeholder="101" />
               </div>
               <div className="grid gap-2">
-                <Label className="text-xs font-bold uppercase">Технология</Label>
+                <Label>Технология</Label>
                 <Select value={newExt.tech} onValueChange={(v) => setNewExt({...newExt, tech: v})}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
@@ -254,24 +185,17 @@ export default function ExtensionsPage() {
               </div>
             </div>
             <div className="grid gap-2">
-              <Label className="text-xs font-bold uppercase">ФИО / Отдел *</Label>
-              <Input value={newExt.name} onChange={(e) => setNewExt({...newExt, name: e.target.value})} placeholder="Иван Иванов" />
+              <Label>ФИО / Отдел *</Label>
+              <Input value={newExt.name} onChange={(e) => setNewExt({...newExt, name: e.target.value})} />
             </div>
             <div className="grid gap-2">
-              <Label className="text-xs font-bold uppercase">Пароль (Secret) *</Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input type="password" value={newExt.secret} onChange={(e) => setNewExt({...newExt, secret: e.target.value})} className="pl-9" placeholder="••••••••" />
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <Label className="text-xs font-bold uppercase">Контекст</Label>
-              <Input value={newExt.context} onChange={(e) => setNewExt({...newExt, context: e.target.value})} placeholder="from-internal" />
+              <Label>Пароль (Secret) *</Label>
+              <Input type="password" value={newExt.secret} onChange={(e) => setNewExt({...newExt, secret: e.target.value})} />
             </div>
           </div>
-          <DialogFooter className="bg-muted/10 p-4 -mx-6 -mb-6">
+          <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddOpen(false)}>Отмена</Button>
-            <Button onClick={handleAdd}>Создать номер</Button>
+            <Button onClick={handleAdd}>Создать</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

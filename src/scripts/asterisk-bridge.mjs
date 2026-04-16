@@ -1,82 +1,60 @@
 
-import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, onSnapshot } from 'firebase/firestore';
-import { firebaseConfig } from '../firebase/config.js';
-import fs from 'fs';
-import Ami from 'asterisk-manager';
-
 /**
- * @fileOverview Скрипт синхронизации Firestore -> Asterisk (.conf).
- * Работает в фоновом режиме на сервере AltLinux.
+ * МИАЦ.СВЯЗЬ - МОСТ СИНХРОНИЗАЦИИ (ЛОКАЛЬНЫЙ)
+ * Работает в закрытом контуре. Читает JSON и пишет в Asterisk.
  */
+import fs from 'fs';
+import path from 'path';
+import asteriskManager from 'asterisk-manager';
+import { fileURLToPath } from 'url';
 
-// Инициализация Firebase (Client SDK для Node.js)
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const EXTENSIONS_FILE = path.join(__dirname, '../data/extensions.json');
+const TARGET_CONF = '/etc/asterisk/pjsip_miac_users.conf';
 
-const CONF_FILE = '/etc/asterisk/pjsip_miac_users.conf';
+// Настройки AMI
+const ami = asteriskManager(5038, '127.0.0.1', 'miac', 'MiacAMI2026', true);
 
-// Подключение к AMI
-// Убедитесь, что данные совпадают с /etc/asterisk/manager.conf
-const ami = new Ami(5038, '127.0.0.1', 'miac', 'MiacAMI2026', true);
-ami.keepConnected();
+function syncToAsterisk() {
+  console.log('🔄 [BRIDGE] Синхронизация данных с Asterisk...');
 
-console.log('\x1b[32m%s\x1b[0m', '--- МИАЦ.СВЯЗЬ: МОСТ ЗАПУЩЕН ---');
-console.log('Ожидание изменений в коллекции extensions...');
+  if (!fs.existsSync(EXTENSIONS_FILE)) {
+    console.log('⚠️ [BRIDGE] Файл данных не найден. Пропуск.');
+    return;
+  }
 
-// Слушаем изменения в коллекции абонентов
-onSnapshot(collection(db, 'extensions'), (snapshot) => {
-  console.log(`[${new Date().toLocaleTimeString()}] Обнаружены изменения. Перегенерация конфига...`);
-  
-  let configContent = '; МИАЦ.СВЯЗЬ: АВТОГЕНЕРИРУЕМЫЙ КОНФИГУРАЦИОННЫЙ ФАЙЛ\n';
-  configContent += '; НЕ РЕДАКТИРУЙТЕ ВРУЧНУЮ - ИЗМЕНЕНИЯ БУДУТ ПЕРЕЗАПИСАНЫ\n\n';
-  
-  snapshot.forEach((doc) => {
-    const ext = doc.data();
-    const id = doc.id;
-    
-    // Эндпоинт PJSIP
-    configContent += `[${id}]\n`;
-    configContent += `type=endpoint\n`;
-    configContent += `context=${ext.context || 'from-internal'}\n`;
-    configContent += `disallow=all\n`;
-    configContent += `allow=ulaw,alaw\n`;
-    configContent += `auth=${id}-auth\n`;
-    configContent += `aors=${id}\n`;
-    configContent += `max_contacts=${ext.maxCalls || 1}\n\n`;
-    
-    // Авторизация
-    configContent += `[${id}-auth]\n`;
-    configContent += `type=auth\n`;
-    configContent += `auth_type=userpass\n`;
-    configContent += `username=${id}\n`;
-    configContent += `password=${ext.secret}\n\n`;
-    
-    // AOR
-    configContent += `[${id}]\n`;
-    configContent += `type=aor\n`;
-    configContent += `max_contacts=${ext.maxCalls || 1}\n\n`;
-  });
-  
   try {
-    // Записываем файл
-    fs.writeFileSync(CONF_FILE, configContent);
-    console.log(`[OK] Файл ${CONF_FILE} обновлен.`);
-    
-    // Отправляем команду на перезагрузку PJSIP в Asterisk
+    const extensions = JSON.parse(fs.readFileSync(EXTENSIONS_FILE, 'utf8'));
+    let configContent = '; ГЕНЕРИРУЕМЫЙ ФАЙЛ МИАЦ.СВЯЗЬ. НЕ РЕДАКТИРОВАТЬ ВРУЧНУЮ.\n\n';
+
+    extensions.forEach(ext => {
+      configContent += `[${ext.id}]\ntype=endpoint\nauth=auth${ext.id}\naors=${ext.id}\ncontext=${ext.context || 'from-internal'}\ndisallow=all\nallow=ulaw,alaw\n\n`;
+      configContent += `[auth${ext.id}]\ntype=auth\nauth_type=userpass\nusername=${ext.id}\npassword=${ext.secret}\n\n`;
+      configContent += `[${ext.id}]\ntype=aor\nmax_contacts=1\n\n`;
+    });
+
+    fs.writeFileSync(TARGET_CONF, configContent);
+    console.log(`✅ [BRIDGE] Обновлено: ${extensions.length} абонентов.`);
+
+    // Команда на перезагрузку Asterisk через AMI
     ami.action({
       action: 'Command',
       command: 'pjsip reload'
     }, (err, res) => {
-      if (err) {
-        console.error('\x1b[31m%s\x1b[0m', '[ERROR] AMI не смог перезагрузить конфиг:', err.message);
-      } else {
-        console.log('\x1b[36m%s\x1b[0m', '[AMI] Asterisk PJSIP перезагружен успешно.');
-      }
+      if (err) console.error('❌ [AMI ERROR]', err);
+      else console.log('🔄 [BRIDGE] Asterisk PJSIP Reload: OK');
     });
-    
-  } catch (err) {
-    console.error('\x1b[31m%s\x1b[0m', '[FATAL] Ошибка записи файла:', err.message);
-    console.log('Проверьте права доступа: chmod 666 ' + CONF_FILE);
+
+  } catch (error) {
+    console.error('❌ [BRIDGE ERROR]', error);
   }
+}
+
+// Следим за изменениями в файле JSON
+fs.watchFile(EXTENSIONS_FILE, (curr, prev) => {
+  console.log('📝 [BRIDGE] Обнаружено изменение в базе данных...');
+  syncToAsterisk();
 });
+
+console.log('🚀 [BRIDGE] Локальный мост МИАЦ.СВЯЗЬ запущен...');
+syncToAsterisk(); // Начальная синхронизация
