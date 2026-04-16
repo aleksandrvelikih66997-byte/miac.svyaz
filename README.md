@@ -5,8 +5,8 @@
 
 ## 🚀 Быстрая настройка сервера
 
-### 1. Подготовка Asterisk
-Создайте файл `/etc/asterisk/manager.conf` (если его нет):
+### 1. Подготовка AMI (ОБЯЗАТЕЛЬНО)
+Если файла `/etc/asterisk/manager.conf` нет, создайте его:
 ```ini
 [general]
 enabled = yes
@@ -18,13 +18,15 @@ secret = MiacAMI2026
 read = all
 write = all
 ```
+После создания выполните: `asterisk -rx "manager reload"`
 
+### 2. Подготовка PJSIP
 Добавьте в конец `/etc/asterisk/pjsip.conf`:
 ```ini
 #include pjsip_miac_users.conf
 ```
 
-### 2. Права доступа и файлы
+### 3. Права доступа
 Выполните команды в консоли сервера:
 ```bash
 # Создаем пустой файл абонентов
@@ -32,15 +34,12 @@ touch /etc/asterisk/pjsip_miac_users.conf
 
 # Даем права на запись (666 для работы скрипта от любого пользователя)
 chmod 666 /etc/asterisk/pjsip_miac_users.conf
-
-# Если файл pjsip.conf защищен, дайте права на чтение
-chmod 644 /etc/asterisk/pjsip.conf
 ```
 
-### 3. Запуск системы (в папке проекта)
+### 4. Запуск системы (в папке проекта)
 ```bash
 # 1. Создание администратора
-node src/scripts/setup-admin.mjs velikih@miackuban.ru As134679
+node src/scripts/setup-admin.mjs <ваш_email> <пароль>
 
 # 2. Сборка и запуск веб-интерфейса
 npm run build
