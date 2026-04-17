@@ -152,8 +152,8 @@ export default function ExtensionsPage() {
               <p>Для корректной работы Yealink, MicroSIP или Zoiper:</p>
               <ul className="list-disc pl-4 space-y-2">
                 <li><strong>SIP Server:</strong> IP вашего сервера</li>
-                <li><strong>User ID:</strong> Номер ({filtered[0]?.id || '101'})</li>
-                <li><strong>Auth ID:</strong> ОБЯЗАТЕЛЬНО номер ({filtered[0]?.id || '101'})</li>
+                <li><strong>User ID:</strong> Номер</li>
+                <li><strong>Auth ID:</strong> ОБЯЗАТЕЛЬНО номер</li>
                 <li><strong>Password:</strong> Секрет из настроек</li>
               </ul>
               <p className="font-bold border-t border-amber-200 pt-2 text-rose-700">Внимание Yealink!</p>

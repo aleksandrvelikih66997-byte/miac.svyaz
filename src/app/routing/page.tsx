@@ -79,7 +79,7 @@ export default function RoutingPage() {
                         <span className="font-mono font-bold text-lg text-primary">{route.pattern}</span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-xs text-muted-foreground">НАПРАВИТЬ НА:</span>
+                        <span className="text-xs text-muted-foreground uppercase">Направить на:</span>
                         <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100">{route.destination}</Badge>
                       </div>
                       <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteRoute(route.id).then(loadData)}>
@@ -88,11 +88,6 @@ export default function RoutingPage() {
                     </CardContent>
                   </Card>
                 ))}
-                {routes.filter(r => r.type === 'inbound').length === 0 && (
-                   <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-xl">
-                     Нет входящих правил. Звонки из транков будут отклоняться.
-                   </div>
-                )}
               </TabsContent>
 
               <TabsContent value="outbound" className="space-y-4 m-0">
@@ -104,7 +99,7 @@ export default function RoutingPage() {
                         <span className="font-mono font-bold text-lg text-primary">{route.pattern}</span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-xs text-muted-foreground">ЧЕРЕЗ ЛИНИЮ:</span>
+                        <span className="text-xs text-muted-foreground uppercase">Через линию:</span>
                         <Badge className="bg-primary/5 text-primary border-primary/20">{route.destination}</Badge>
                       </div>
                       <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteRoute(route.id).then(loadData)}>
@@ -113,11 +108,6 @@ export default function RoutingPage() {
                     </CardContent>
                   </Card>
                 ))}
-                {routes.filter(r => r.type === 'outbound').length === 0 && (
-                   <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-xl">
-                     Нет исходящих правил. Звонки на внешние номера недоступны.
-                   </div>
-                )}
               </TabsContent>
             </div>
           </Tabs>
@@ -133,11 +123,7 @@ export default function RoutingPage() {
             <CardContent className="space-y-4 text-xs text-blue-800">
               <div>
                 <p className="font-bold uppercase mb-1">Как это работает?</p>
-                <p>Внутренние звонки (например, 101 {"->"} 102) работают автоматически. Здесь настраивается только связь с внешним миром.</p>
-              </div>
-              <div>
-                <p className="font-bold mb-1">Входящие (DID)</p>
-                <p>Укажите номер, который вам выдал провайдер (например, 74951234567), чтобы направить его на сотрудника.</p>
+                <p>Внутренние звонки работают автоматически. Здесь настраивается только связь с внешним миром.</p>
               </div>
               <div>
                 <p className="font-bold mb-1">Исходящие (Шаблоны)</p>
@@ -158,7 +144,7 @@ export default function RoutingPage() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label className="text-xs font-bold uppercase">{activeTab === 'inbound' ? 'Внешний номер (DID)' : 'Шаблон (Pattern)'}</Label>
+              <Label className="text-xs font-bold uppercase tracking-wider">{activeTab === 'inbound' ? 'Внешний номер (DID)' : 'Шаблон (Pattern)'}</Label>
               <Input 
                 value={newRoute.pattern} 
                 onChange={e => setNewRoute({...newRoute, pattern: e.target.value})} 
@@ -166,7 +152,7 @@ export default function RoutingPage() {
               />
             </div>
             <div className="grid gap-2">
-              <Label className="text-xs font-bold uppercase">Куда направить звонок</Label>
+              <Label className="text-xs font-bold uppercase tracking-wider">Куда направить звонок</Label>
               <Select value={newRoute.destination} onValueChange={v => setNewRoute({...newRoute, destination: v})}>
                 <SelectTrigger><SelectValue placeholder="Выберите цель..." /></SelectTrigger>
                 <SelectContent>
@@ -181,7 +167,7 @@ export default function RoutingPage() {
                     </>
                   ) : (
                     <>
-                      <SelectItem value="hdr-tr" disabled className="font-bold text-primary">Внешние линии (Транки)</SelectItem>
+                      <SelectItem value="hdr-tr" disabled className="font-bold text-primary">Транки</SelectItem>
                       {trunks.map(t => <SelectItem key={t.id} value={`Trunk:${t.id}`}>{t.name}</SelectItem>)}
                     </>
                   )}
