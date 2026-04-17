@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, ArrowDownLeft, ArrowUpRight, Trash2, Info, HelpCircle } from "lucide-react"
+import { Plus, ArrowDownLeft, ArrowUpRight, Trash2, HelpCircle } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -132,19 +132,18 @@ export default function RoutingPage() {
             </CardHeader>
             <CardContent className="space-y-4 text-xs text-blue-800">
               <div>
-                <p className="font-bold mb-1">Внутренние звонки</p>
-                <p>Все номера (100, 101...) звонят друг другу автоматически. Здесь это настраивать не нужно.</p>
+                <p className="font-bold mb-1">Внутренняя связь</p>
+                <p>Звонки между абонентами (101 - 102) работают автоматически. Здесь настраиваются только внешние линии.</p>
               </div>
               <div>
                 <p className="font-bold mb-1">Входящие (DID)</p>
-                <p>Укажите номер, который вам выдал провайдер (например, <code className="bg-white px-1">74951234567</code>), чтобы направить его на сотрудника или в меню.</p>
+                <p>Укажите номер, который вам выдал провайдер (например, 74951234567), чтобы направить его на сотрудника.</p>
               </div>
               <div>
                 <p className="font-bold mb-1">Исходящие (Шаблоны)</p>
                 <ul className="list-disc pl-4 space-y-1">
-                  <li><code className="bg-white px-1">8X.</code> — для звонков по РФ (начинаются на 8)</li>
+                  <li><code className="bg-white px-1">8X.</code> — для звонков по РФ</li>
                   <li><code className="bg-white px-1">.</code> — разрешить звонить на любые номера</li>
-                  <li><code className="bg-white px-1">0[1-9].</code> — звонки через "ноль"</li>
                 </ul>
               </div>
             </CardContent>
@@ -165,9 +164,6 @@ export default function RoutingPage() {
                 onChange={e => setNewRoute({...newRoute, pattern: e.target.value})} 
                 placeholder={activeTab === 'inbound' ? "74950000000" : "8X."} 
               />
-              <p className="text-[10px] text-muted-foreground italic">
-                {activeTab === 'inbound' ? 'Точное совпадение с номером из транка' : 'X — любая цифра, . — любое количество цифр'}
-              </p>
             </div>
             <div className="grid gap-2">
               <Label className="text-xs font-bold uppercase">Куда направить звонок</Label>
