@@ -1,8 +1,7 @@
-
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Mic2, Plus, Trash2, Upload, Loader2, CheckCircle2, Music, Clock, Settings2 } from "lucide-react"
+import { Mic2, Plus, Trash2, Upload, Loader2, CheckCircle2, Music, Clock, Settings2, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
@@ -19,6 +18,7 @@ import { useToast } from "@/hooks/use-toast"
 import { getIvrs, saveIvr, deleteIvr, getExtensions, getQueues } from "@/lib/telephony-store"
 import { uploadAudioAction } from "@/app/actions/audio-actions"
 import { Badge } from "@/components/ui/badge"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function IvrPage() {
   const [ivrs, setIvrs] = useState<any[]>([])
@@ -66,7 +66,8 @@ export default function IvrPage() {
     try {
       const result = await uploadAudioAction(formData)
       if (result.success) {
-        const nameWithoutExt = result.fileName.replace(/\.[^/.]+$/, "")
+        // Убираем расширение для Asterisk, он сам найдет нужный формат
+        const nameWithoutExt = result.fileName!.replace(/\.[^/.]+$/, "")
         setNewIvr(prev => ({ ...prev, announcementFile: nameWithoutExt }))
         toast({ title: "Файл загружен", description: `Имя в системе: ${nameWithoutExt}` })
       } else {
@@ -127,6 +128,15 @@ export default function IvrPage() {
           <Plus className="h-4 w-4" /> Создать IVR
         </Button>
       </div>
+
+      <Alert className="bg-amber-50 border-amber-200 text-amber-900">
+        <AlertCircle className="h-4 w-4 text-amber-600" />
+        <AlertTitle className="font-bold">Совет по аудио</AlertTitle>
+        <AlertDescription className="text-xs">
+          Для лучшей совместимости используйте <b>.wav</b> (Mono, 8000Hz). 
+          Если вы используете .mp3, убедитесь, что в Asterisk установлен модуль <i>format_mp3</i>.
+        </AlertDescription>
+      </Alert>
 
       <div className="grid gap-6">
         {ivrs.map(ivr => (
