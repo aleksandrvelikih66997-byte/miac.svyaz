@@ -26,12 +26,16 @@ export default function RoutingPage() {
   const { toast } = useToast()
 
   const loadData = async () => {
-    const [r, t, e, q, i] = await Promise.all([getRoutes(), getTrunks(), getExtensions(), getQueues(), getIvrs()])
-    setRoutes(r || [])
-    setTrunks(t || [])
-    setExtensions(e || [])
-    setQueues(q || [])
-    setIvrs(i || [])
+    try {
+      const [r, t, e, q, i] = await Promise.all([getRoutes(), getTrunks(), getExtensions(), getQueues(), getIvrs()])
+      setRoutes(r || [])
+      setTrunks(t || [])
+      setExtensions(e || [])
+      setQueues(q || [])
+      setIvrs(i || [])
+    } catch (err) {
+      console.error("Load Error:", err)
+    }
   }
 
   useEffect(() => { loadData() }, [])
@@ -124,13 +128,6 @@ export default function RoutingPage() {
               <div>
                 <p className="font-bold uppercase mb-1">Как это работает?</p>
                 <p>Внутренние звонки работают автоматически. Здесь настраивается только связь с внешним миром.</p>
-              </div>
-              <div>
-                <p className="font-bold mb-1">Исходящие (Шаблоны)</p>
-                <ul className="list-disc pl-4 space-y-1">
-                  <li><code className="bg-white px-1">8X.</code> {"—"} для звонков по РФ</li>
-                  <li><code className="bg-white px-1">.</code> {"—"} разрешить звонить на любые номера</li>
-                </ul>
               </div>
             </CardContent>
           </Card>

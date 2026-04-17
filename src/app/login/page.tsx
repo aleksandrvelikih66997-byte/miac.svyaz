@@ -26,9 +26,7 @@ export default function LoginPage() {
       if (result.success) {
         toast({ title: "Успешный вход", description: "Перенаправление..." });
         // Прямой редирект для облачных сред
-        setTimeout(() => {
-          window.location.assign('/');
-        }, 100);
+        window.location.assign('/');
       } else {
         toast({
           variant: "destructive",
@@ -97,7 +95,7 @@ export default function LoginPage() {
               </Button>
               <div className="flex items-center gap-2 p-3 bg-muted rounded-lg text-[10px] text-muted-foreground w-full">
                 <AlertCircle className="h-3 w-3" />
-                <span>Авторизация МИАЦ.АТС (As134679)</span>
+                <span>Авторизация МИАЦ.АТС</span>
               </div>
             </CardFooter>
           </form>
