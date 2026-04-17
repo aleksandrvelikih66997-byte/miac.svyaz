@@ -75,6 +75,7 @@ export default function IvrPage() {
       toast({ title: "Ошибка загрузки", description: error.message, variant: "destructive" })
     } finally {
       setIsUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ""
     }
   }
 
@@ -139,19 +140,19 @@ export default function IvrPage() {
             <CardContent className="pt-4 grid md:grid-cols-2 gap-8">
               <div className="space-y-4">
                 <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Аудио-файл:</p>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Аудио-файл приветствия:</p>
                   <div className="flex items-center gap-2 bg-primary/5 p-3 rounded-lg border border-primary/10">
                     <Music className="h-4 w-4 text-primary" />
-                    <span className="text-xs font-mono font-bold">{ivr.announcementFile}.wav</span>
+                    <span className="text-xs font-mono font-bold">{ivr.announcementFile}</span>
                   </div>
                 </div>
                 
                 <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Если кнопка не нажата (Timeout):</p>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Действие по таймауту:</p>
                   <div className="flex items-center gap-2 bg-amber-50 p-3 rounded-lg border border-amber-100">
                     <Clock className="h-4 w-4 text-amber-600" />
                     <span className="text-xs font-bold text-amber-900">
-                      {ivr.timeoutDestination ? ivr.timeoutDestination.replace('Extension:', 'Сотрудник ').replace('Queue:', 'Группа ') : "Звонок завершится"}
+                      {ivr.timeoutDestination ? ivr.timeoutDestination.replace('Extension:', 'Сотрудник ').replace('Queue:', 'Группа ') : "Повесить трубку"}
                     </span>
                   </div>
                 </div>
@@ -191,7 +192,7 @@ export default function IvrPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label>Название меню</Label>
-                <Input value={newIvr.name} onChange={e => setNewIvr({...newIvr, name: e.target.value})} placeholder="Main Office" />
+                <Input value={newIvr.name} onChange={e => setNewIvr({...newIvr, name: e.target.value})} placeholder="Например: Секретарь" />
               </div>
               <div className="grid gap-2">
                 <Label>Файл приветствия</Label>
@@ -199,10 +200,10 @@ export default function IvrPage() {
                   <Input 
                     value={newIvr.announcementFile} 
                     readOnly
-                    placeholder="Загрузите WAV"
+                    placeholder="WAV или MP3"
                     className="flex-1 font-mono text-xs bg-muted/30"
                   />
-                  <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".wav" />
+                  <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".wav,.mp3" />
                   <Button variant="outline" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
                     {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                   </Button>
@@ -211,14 +212,14 @@ export default function IvrPage() {
             </div>
 
             <div className="grid gap-2">
-              <Label className="flex items-center gap-2"><Clock className="h-3 w-3" /> Таймаут (если никто не нажал)</Label>
+              <Label className="flex items-center gap-2"><Clock className="h-3 w-3" /> Если звонящий ничего не нажал (Timeout)</Label>
               <Select value={newIvr.timeoutDestination} onValueChange={v => setNewIvr({...newIvr, timeoutDestination: v})}>
-                <SelectTrigger><SelectValue placeholder="Выберите действие по умолчанию..." /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Куда перевести звонок?" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="hangup">Повесить трубку</SelectItem>
-                  {extensions.length > 0 && <SelectItem value="hdr-ext" disabled className="font-bold text-primary mt-2">Перевод на сотрудника</SelectItem>}
+                  {extensions.length > 0 && <SelectItem value="hdr-ext" disabled className="font-bold text-primary mt-2">Абоненты</SelectItem>}
                   {extensions.map(e => <SelectItem key={e.id} value={`Extension:${e.id}`}>{e.id} - {e.name}</SelectItem>)}
-                  {queues.length > 0 && <SelectItem value="hdr-q" disabled className="font-bold text-primary mt-2">Перевод в группу</SelectItem>}
+                  {queues.length > 0 && <SelectItem value="hdr-q" disabled className="font-bold text-primary mt-2">Очереди</SelectItem>}
                   {queues.map(q => <SelectItem key={q.id} value={`Queue:${q.name}`}>{q.name}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -272,7 +273,7 @@ export default function IvrPage() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddOpen(false)}>Отмена</Button>
             <Button onClick={handleSave} className="gap-2 bg-primary">
-              <CheckCircle2 className="h-4 w-4" /> Сохранить меню
+              <CheckCircle2 className="h-4 w-4" /> Сохранить IVR
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -37,7 +37,7 @@ export default function ExtensionsPage() {
 
   useEffect(() => {
     loadData()
-    const interval = setInterval(() => loadData(true), 5000)
+    const interval = setInterval(() => loadData(true), 10000)
     return () => clearInterval(interval)
   }, [])
 
@@ -149,15 +149,13 @@ export default function ExtensionsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="text-xs space-y-3 text-amber-900">
-              <p>Для корректной работы Yealink, MicroSIP или Zoiper:</p>
+              <p>Для корректной работы Yealink или MicroSIP:</p>
               <ul className="list-disc pl-4 space-y-2">
-                <li><strong>SIP Server:</strong> IP вашего сервера</li>
-                <li><strong>User ID:</strong> Номер</li>
-                <li><strong>Auth ID:</strong> ОБЯЗАТЕЛЬНО номер</li>
+                <li><strong>User ID:</strong> Номер (например, 123)</li>
+                <li><strong>Auth ID (Login):</strong> Обязательно номер!</li>
                 <li><strong>Password:</strong> Секрет из настроек</li>
+                <li><strong>SIP Server:</strong> IP вашего сервера</li>
               </ul>
-              <p className="font-bold border-t border-amber-200 pt-2 text-rose-700">Внимание Yealink!</p>
-              <p>Убедитесь, что в поле Label и Display Name указан номер абонента.</p>
             </CardContent>
           </Card>
         </div>
