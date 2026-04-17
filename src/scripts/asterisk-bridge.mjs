@@ -2,24 +2,19 @@
 import fs from 'fs';
 import path from 'path';
 import { exec } from 'child_process';
-import { promisify } from 'util';
-
-const execAsync = promisify(exec);
 
 /**
- * МИАЦ.СВЯЗЬ - Скрипт синхронизации с Asterisk 17/20.
- * Слушает изменения в JSON файлах и генерирует .conf файлы.
+ * МИАЦ.СВЯЗЬ - Asterisk Bridge Script
+ * Этот скрипт следит за JSON-файлами и генерирует конфиги для Asterisk.
  */
 
 const DATA_DIR = path.join(process.cwd(), 'src/data');
 const SOUNDS_DIR = path.join(DATA_DIR, 'sounds');
 const ASTERISK_DIR = '/etc/asterisk';
-const ASTERISK_SOUNDS_DIR = '/var/lib/asterisk/sounds';
+const ASTERISK_SOUNDS_DIR = '/var/lib/asterisk/sounds/ru'; // Или /var/lib/asterisk/sounds/
 
-// Создание папок если их нет
-[DATA_DIR, SOUNDS_DIR].forEach(dir => {
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-});
+// Создание папок если нет
+if (!fs.existsSync(SOUNDS_DIR)) fs.mkdirSync(SOUNDS_DIR, { recursive: true });
 
 const FILES = {
   extensions: path.join(DATA_DIR, 'extensions.json'),
@@ -29,9 +24,9 @@ const FILES = {
   ivrs: path.join(DATA_DIR, 'ivrs.json'),
 };
 
-const OUTPUT = {
-  users: path.join(ASTERISK_DIR, 'pjsip_miac_users.conf'),
-  trunks: path.join(ASTERISK_DIR, 'pjsip_miac_trunks.conf'),
+const TARGETS = {
+  pjsip_users: path.join(ASTERISK_DIR, 'pjsip_miac_users.conf'),
+  pjsip_trunks: path.join(ASTERISK_DIR, 'pjsip_miac_trunks.conf'),
   queues: path.join(ASTERISK_DIR, 'queues_miac.conf'),
   dialplan: path.join(ASTERISK_DIR, 'extensions_miac_dialplan.conf'),
 };
@@ -46,160 +41,209 @@ function readJSON(file) {
 }
 
 /**
- * Генерация PJSIP Абонентов
+ * ГЕНЕРАЦИЯ PJSIP АБОНЕНТОВ
  */
-function generateUsers(exts) {
-  let conf = '; Генерируемый файл пользователей МИАЦ\n\n';
-  exts.forEach(ext => {
-    conf += `[${ext.id}]\ntype=endpoint\ncontext=from-internal\ndisallow=all\nallow=ulaw,alaw,g722\nauth=auth-${ext.id}\naors=${ext.id}\n`;
-    // Важно для Yealink и кривых From заголовков
+function generateUsers() {
+  const users = readJSON(FILES.extensions);
+  let conf = '';
+
+  users.forEach(u => {
+    conf += `[${u.id}]\ntype=endpoint\ncontext=${u.context || 'from-internal'}\ndisallow=all\nallow=ulaw,alaw\nauth=auth-${u.id}\naors=${u.id}\n`;
     conf += `identify_by=auth_username,username\nrtp_symmetric=yes\nrewrite_contact=yes\n\n`;
-    
-    conf += `[auth-${ext.id}]\ntype=auth\nauth_type=userpass\nusername=${ext.id}\npassword=${ext.secret}\n\n`;
-    conf += `[${ext.id}]\ntype=aor\nmax_contacts=2\n\n`;
+    conf += `[auth-${u.id}]\ntype=auth\nauth_type=userpass\nusername=${u.id}\npassword=${u.secret}\n\n`;
+    conf += `[${u.id}]\ntype=aor\nmax_contacts=5\nremove_existing=yes\n\n`;
   });
-  return conf;
+
+  fs.writeFileSync(TARGETS.pjsip_users, conf);
+  console.log('[BRIDGE] Обновлен pjsip_miac_users.conf');
 }
 
 /**
- * Генерация PJSIP Транков
+ * ГЕНЕРАЦИЯ PJSIP ТРАНКОВ
  */
-function generateTrunks(trunks) {
-  let conf = '; Генерируемый файл транков МИАЦ\n\n';
+function generateTrunks() {
+  const trunks = readJSON(FILES.trunks);
+  let conf = '';
+
   trunks.forEach(t => {
-    conf += `[registration-${t.id}]\ntype=registration\nserver_uri=sip:${t.host}:${t.port}\nclient_uri=sip:${t.user}@${t.host}:${t.port}\noutbound_auth=auth-${t.id}\n\n`;
-    
-    conf += `[trunk-${t.id}]\ntype=endpoint\ncontext=from-trunk\ndisallow=all\nallow=ulaw,alaw\noutbound_auth=auth-${t.id}\naors=aor-${t.id}\n\n`;
-    
+    const trunkId = `trunk-${t.id}`;
+    conf += `[registration-${t.id}]\ntype=registration\nserver_uri=sip:${t.host}:${t.port}\n`;
+    conf += `client_uri=sip:${t.user}@${t.host}:${t.port}\noutbound_auth=auth-${t.id}\n\n`;
+
     conf += `[auth-${t.id}]\ntype=auth\nauth_type=userpass\nusername=${t.user}\npassword=${t.password}\n\n`;
-    
+
+    conf += `[${trunkId}]\ntype=endpoint\ncontext=from-trunk\ndisallow=all\nallow=ulaw,alaw\n`;
+    conf += `outbound_auth=auth-${t.id}\naors=aor-${t.id}\nidentify_by=username\n\n`;
+
     conf += `[aor-${t.id}]\ntype=aor\ncontact=sip:${t.host}:${t.port}\n\n`;
-    
-    conf += `[identify-${t.id}]\ntype=identify\nendpoint=trunk-${t.id}\nmatch=${t.host}\n\n`;
+
+    conf += `[identify-${t.id}]\ntype=identify\nendpoint=${trunkId}\nmatch=${t.host}\n\n`;
   });
-  return conf;
+
+  fs.writeFileSync(TARGETS.pjsip_trunks, conf);
+  console.log('[BRIDGE] Обновлен pjsip_miac_trunks.conf');
 }
 
 /**
- * Генерация Очередей
+ * ГЕНЕРАЦИЯ ОЧЕРЕДЕЙ
  */
-function generateQueues(queues) {
-  let conf = '; Генерируемый файл очередей МИАЦ\n\n';
+function generateQueues() {
+  const queues = readJSON(FILES.queues);
+  let conf = '';
+
   queues.forEach(q => {
-    conf += `[${q.name}]\nstrategy=${q.strategy}\nmusicclass=${q.musicOnHoldClass || 'default'}\n`;
+    conf += `[${q.name}]\ntype=queue\nstrategy=${q.strategy}\nmusicclass=${q.musicOnHoldClass || 'default'}\n`;
     (q.members || []).forEach(m => {
       conf += `member => PJSIP/${m}\n`;
     });
     conf += `\n`;
   });
-  return conf;
+
+  fs.writeFileSync(TARGETS.queues, conf);
+  console.log('[BRIDGE] Обновлен queues_miac.conf');
 }
 
 /**
- * Генерация Dialplan (Extensions)
+ * ГЕНЕРАЦИЯ DIALPLAN (Маршруты + IVR)
  */
 function generateDialplan() {
   const routes = readJSON(FILES.routes);
-  const exts = readJSON(FILES.extensions);
   const ivrs = readJSON(FILES.ivrs);
-  const queues = readJSON(FILES.queues);
-
-  let conf = '; Генерируемый файл диалплана МИАЦ\n\n';
-
+  const extensions = readJSON(FILES.extensions);
+  
+  let conf = '[from-internal]\n';
+  
   // Внутренняя связь
-  conf += `[from-internal]\n`;
-  exts.forEach(e => {
-    conf += `exten => ${e.id},1,NoOp(Call to ${e.name})\nsame => n,Dial(PJSIP/${e.id},30)\nsame => n,Hangup()\n`;
+  extensions.forEach(e => {
+    conf += `exten => ${e.id},1,Dial(PJSIP/${e.id},30)\n`;
   });
 
   // Исходящая маршрутизация
   routes.filter(r => r.type === 'outbound').forEach(r => {
     const trunkId = r.destination.split(':')[1];
-    conf += `exten => _${r.pattern},1,NoOp(Outbound via ${trunkId})\nsame => n,Dial(PJSIP/\${EXTEN}@trunk-${trunkId})\nsame => n,Hangup()\n`;
+    conf += `exten => _${r.pattern},1,NoOp(Outbound call via ${trunkId})\n`;
+    conf += `same => n,Dial(PJSIP/\${EXTEN}@trunk-${trunkId})\n`;
   });
 
-  // Входящая маршрутизация
-  conf += `\n[from-trunk]\n`;
+  // Контекст для входящих вызовов
+  conf += '\n[from-trunk]\n';
   
-  // Обработка стандартного экстеншена 's', если провайдер не шлет DID
-  const firstInbound = routes.find(r => r.type === 'inbound');
-  if (firstInbound) {
-    conf += `exten => s,1,NoOp(Standard Inbound Call S)\nsame => n,Goto(from-trunk,${firstInbound.pattern},1)\n`;
+  // Обработка конкретных DID и "s"
+  const inboundRoutes = routes.filter(r => r.type === 'inbound');
+  inboundRoutes.forEach(r => {
+    const [destType, destId] = r.destination.split(':');
+    const asteriskDest = getAsteriskDest(destType, destId);
+    
+    // Если паттерн "." или "s", вешаем на "s" и на заплатку
+    if (r.pattern === '.' || r.pattern === 's') {
+      conf += `exten => s,1,NoOp(Inbound call to s)\n`;
+      conf += `same => n,${asteriskDest}\n`;
+    } else {
+      conf += `exten => ${r.pattern},1,NoOp(Inbound call to ${r.pattern})\n`;
+      conf += `same => n,${asteriskDest}\n`;
+    }
+  });
+  
+  // Если маршрутов нет, звонок на "s" уходит в пустоту - добавим заглушку
+  if (inboundRoutes.length === 0) {
+    conf += `exten => s,1,Hangup()\n`;
   }
 
-  routes.filter(r => r.type === 'inbound').forEach(r => {
-    const [type, target] = r.destination.split(':');
-    conf += `exten => ${r.pattern},1,NoOp(Inbound Call for ${r.pattern})\n`;
-    if (type === 'Extension') conf += `same => n,Dial(PJSIP/${target},30)\n`;
-    if (type === 'Queue') conf += `same => n,Queue(${target})\n`;
-    if (type === 'IVR') conf += `same => n,Goto(ivr-${target},s,1)\n`;
+  // ГЕНЕРАЦИЯ КОНТЕКСТОВ IVR
+  ivrs.forEach(ivr => {
+    conf += `\n[miac-ivr-${ivr.id}]\n`;
+    conf += `exten => s,1,Answer()\n`;
+    conf += `same => n,Set(TIMEOUT(digit)=3)\n`;
+    conf += `same => n,Background(${ivr.announcementFile})\n`;
+    conf += `same => n,WaitExten(5)\n`;
+    conf += `same => n,Playback(vm-goodbye)\n`;
+    conf += `same => n,Hangup()\n`;
+
+    (ivr.digitMappings || []).forEach(m => {
+      const [digit, type, target] = m.split(':');
+      const dest = getAsteriskDest(type === 'ext' ? 'Extension' : type === 'queue' ? 'Queue' : 'IVR', target);
+      conf += `exten => ${digit},1,NoOp(IVR ${ivr.name} press ${digit})\n`;
+      conf += `same => n,${dest}\n`;
+    });
+    
+    // Обработка таймаута и неверного ввода в IVR
+    conf += `exten => i,1,Playback(invalid)\n`;
+    conf += `same => n,Goto(s,1)\n`;
+    conf += `exten => t,1,Playback(vm-goodbye)\n`;
     conf += `same => n,Hangup()\n`;
   });
 
-  // IVR Диалплан
-  ivrs.forEach(ivr => {
-    conf += `\n[ivr-${ivr.id}]\nexten => s,1,Answer()\nsame => n,Wait(1)\nsame => n,Background(${ivr.announcementFile})\nsame => n,WaitExten(5)\n`;
-    (ivr.digitMappings || []).forEach(m => {
-      const [digit, type, target] = m.split(':');
-      if (type === 'ext') conf += `exten => ${digit},1,Dial(PJSIP/${target},30)\n`;
-      if (type === 'queue') conf += `exten => ${digit},1,Queue(${target})\n`;
-      if (type === 'ivr') conf += `exten => ${digit},1,Goto(ivr-${target},s,1)\n`;
-    });
-    conf += `exten => t,1,Hangup()\nexten => i,1,Playback(invalid)\nsame => n,Goto(s,1)\n`;
-  });
+  fs.writeFileSync(TARGETS.dialplan, conf);
+  console.log('[BRIDGE] Обновлен extensions_miac_dialplan.conf');
+}
 
-  return conf;
+function getAsteriskDest(type, id) {
+  if (type === 'Extension') return `Dial(PJSIP/${id},30)`;
+  if (type === 'Queue') return `Queue(${id})`;
+  if (type === 'IVR') return `Goto(miac-ivr-${id},s,1)`;
+  return 'Hangup()';
 }
 
 /**
- * Основной цикл синхронизации
+ * СИНХРОНИЗАЦИЯ ЗВУКОВ
  */
-async function sync() {
-  console.log('🚀 [BRIDGE] Синхронизация данных с Asterisk...');
+function syncSounds() {
+  if (!fs.existsSync(SOUNDS_DIR)) return;
+  const files = fs.readdirSync(SOUNDS_DIR);
   
-  try {
-    const usersConf = generateUsers(readJSON(FILES.extensions));
-    const trunksConf = generateTrunks(readJSON(FILES.trunks));
-    const queuesConf = generateQueues(readJSON(FILES.queues));
-    const dialplanConf = generateDialplan();
-
-    fs.writeFileSync(OUTPUT.users, usersConf);
-    fs.writeFileSync(OUTPUT.trunks, trunksConf);
-    fs.writeFileSync(OUTPUT.queues, queuesConf);
-    fs.writeFileSync(OUTPUT.dialplan, dialplanConf);
-
-    // Применение настроек в Asterisk
-    await execAsync('asterisk -rx "pjsip reload"');
-    await execAsync('asterisk -rx "dialplan reload"');
-    await execAsync('asterisk -rx "queue reload all"');
+  files.forEach(file => {
+    const src = path.join(SOUNDS_DIR, file);
+    const dest = path.join(ASTERISK_SOUNDS_DIR, file);
     
-    console.log('✅ [BRIDGE] Конфигурация успешно обновлена и применена.');
-  } catch (err) {
-    console.error('❌ [BRIDGE] Ошибка при синхронизации:', err.message);
-  }
-}
-
-// Слежение за звуками
-if (fs.existsSync(SOUNDS_DIR)) {
-  fs.watch(SOUNDS_DIR, (event, filename) => {
-    if (filename) {
-       const src = path.join(SOUNDS_DIR, filename);
-       const dest = path.join(ASTERISK_SOUNDS_DIR, filename);
-       if (fs.existsSync(src)) {
-         console.log(`🎵 [BRIDGE] Синхронизация аудио: ${filename}`);
-         fs.copyFileSync(src, dest);
-         fs.chmodSync(dest, 0o666);
-       }
+    try {
+      if (!fs.existsSync(ASTERISK_SOUNDS_DIR)) {
+        fs.mkdirSync(ASTERISK_SOUNDS_DIR, { recursive: true });
+      }
+      fs.copyFileSync(src, dest);
+      fs.chmodSync(dest, 0o666);
+    } catch (e) {
+      console.error(`[BRIDGE] Ошибка копирования звука ${file}:`, e.message);
     }
   });
 }
 
-// Слежение за данными
-fs.watch(DATA_DIR, (event, filename) => {
-  if (filename && filename.endsWith('.json')) {
-    sync();
-  }
-});
+/**
+ * ПЕРЕЗАГРУЗКА ASTERISK
+ */
+function reloadAsterisk() {
+  exec('asterisk -rx "core reload"', (err) => {
+    if (err) console.error('[BRIDGE] Ошибка перезагрузки Asterisk:', err.message);
+    else console.log('[BRIDGE] Asterisk перегружен');
+  });
+}
 
-console.log('🌟 [BRIDGE] Мост МИАЦ.СВЯЗЬ запущен и активен.');
-sync();
+function updateAll() {
+  try {
+    generateUsers();
+    generateTrunks();
+    generateQueues();
+    generateDialplan();
+    syncSounds();
+    reloadAsterisk();
+  } catch (e) {
+    console.error('[BRIDGE] Ошибка обновления:', e.message);
+  }
+}
+
+// Слежение за изменениями
+console.log('🚀 [BRIDGE] Мост МИАЦ.СВЯЗЬ запущен...');
+updateAll();
+
+const watcher = (event, filename) => {
+  if (filename && filename.endsWith('.json')) {
+    console.log(`[BRIDGE] Изменен файл: ${filename}`);
+    updateAll();
+  }
+};
+
+fs.watch(DATA_DIR, watcher);
+fs.watch(SOUNDS_DIR, (event, filename) => {
+  console.log(`[BRIDGE] Изменены звуки: ${filename}`);
+  syncSounds();
+  reloadAsterisk();
+});
