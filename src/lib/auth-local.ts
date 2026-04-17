@@ -26,10 +26,10 @@ export async function loginLocal(email: string, password: string) {
 
     const cookieStore = await cookies();
     
-    // ВАЖНО: secure: false ОБЯЗАТЕЛЕН для работы по локальному IP (HTTP) без SSL
+    // Устанавливаем куку с явным указанием пути
     cookieStore.set('miac_session', JSON.stringify({ email: admin.email, role: admin.role }), {
       httpOnly: true,
-      secure: false, 
+      secure: false, // Обязательно false для локальной сети без HTTPS
       maxAge: 60 * 60 * 24, // 1 день
       path: '/',
       sameSite: 'lax'
