@@ -19,13 +19,16 @@ export async function loginLocal(email: string, password: string) {
     }
 
     const admins = JSON.parse(fs.readFileSync(ADMINS_FILE, 'utf8'));
-    const admin = admins.find((a: any) => a.email.toLowerCase() === email.toLowerCase());
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+    
+    const admin = admins.find((a: any) => a.email.toLowerCase() === cleanEmail);
 
     if (!admin) {
       return { success: false, error: 'Пользователь не найден.' };
     }
 
-    const inputHash = hashPassword(password);
+    const inputHash = hashPassword(cleanPassword);
     
     if (admin.passwordHash !== inputHash) {
       return { success: false, error: 'Неверные данные.' };
