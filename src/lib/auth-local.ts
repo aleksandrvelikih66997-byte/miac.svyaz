@@ -15,24 +15,29 @@ function hashPassword(password: string) {
 export async function loginLocal(email: string, password: string) {
   try {
     if (!fs.existsSync(ADMINS_FILE)) {
-      return { success: false, error: 'Система не настроена.' };
+      return { success: false, error: 'Система нестроена.' };
     }
 
     const admins = JSON.parse(fs.readFileSync(ADMINS_FILE, 'utf8'));
     const admin = admins.find((a: any) => a.email.toLowerCase() === email.toLowerCase());
 
+    if (!admin) {
+      return { success: false, error: 'Пользователь не найден.' };
+    }
+
     const inputHash = hashPassword(password);
     
-    if (!admin || admin.passwordHash !== inputHash) {
+    if (admin.passwordHash !== inputHash) {
+      console.log(`Auth failed for ${email}. Expected: ${admin.passwordHash}, got: ${inputHash}`);
       return { success: false, error: 'Неверный логин или пароль.' };
     }
 
     const cookieStore = await cookies();
     
-    // Настройки для локальной сети без HTTPS
+    // Настройки для локальной сети БЕЗ HTTPS
     cookieStore.set('miac_session', JSON.stringify({ email: admin.email, role: admin.role }), {
       httpOnly: true,
-      secure: false, // Обязательно false для работы по HTTP
+      secure: false, // ВАЖНО: false для работы по HTTP (AltLinux/Локалка)
       maxAge: 60 * 60 * 24, // 1 день
       path: '/',
       sameSite: 'lax'
