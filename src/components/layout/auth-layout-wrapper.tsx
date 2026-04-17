@@ -23,23 +23,20 @@ export function AuthLayoutWrapper({ children }: { children: React.ReactNode }) {
       setSession(currentSession);
       
       if (!currentSession && !isLoginPage) {
-        // Если сессии нет и мы не на логине - идем на логин
         router.replace('/login');
       } else if (currentSession && isLoginPage) {
-        // Если сессия есть и мы на логине - идем домой
         router.replace('/');
       }
     } catch (err) {
       console.error("Auth check failed", err);
     } finally {
-      // Даем небольшую задержку, чтобы роутер успел отработать
       setLoading(false);
     }
   }, [isLoginPage, router]);
 
   useEffect(() => {
     checkAuth();
-  }, [checkAuth, pathname]);
+  }, [pathname]); // Зависим только от пути, чтобы срабатывать при переходах
 
   const handleLogout = async () => {
     await logoutLocal();
@@ -56,26 +53,25 @@ export function AuthLayoutWrapper({ children }: { children: React.ReactNode }) {
       case '/history': return 'История';
       case '/ai-assistant': return 'ИИ Помощник';
       case '/routing': return 'Маршрутизация';
+      case '/ivr': return 'Голосовое меню';
+      case '/queues': return 'Группы';
       default: return 'Панель управления';
     }
   };
 
-  // Пока идет загрузка или проверка редиректа, показываем экран ожидания
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-background gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm font-medium text-muted-foreground font-headline uppercase tracking-widest">Проверка сессии...</p>
+        <p className="text-sm font-medium text-muted-foreground font-headline uppercase tracking-widest">Проверка доступа...</p>
       </div>
     );
   }
 
-  // Если мы на странице логина, рендерим только её
   if (isLoginPage) {
     return <>{children}</>;
   }
 
-  // Если сессии нет, а страница не логин - рендерим пустой экран (редирект сработает в checkAuth)
   if (!session) {
     return null;
   }

@@ -26,11 +26,10 @@ export default function LoginPage() {
       if (result.success) {
         toast({ title: "Успешный вход", description: "Добро пожаловать в систему!" });
         
-        // Принудительный редирект через перезагрузку всей страницы.
-        // Это гарантирует, что браузер применит сессионную куку miac_session.
+        // Используем replace для очистки истории и принудительного обновления сессии
         setTimeout(() => {
-          window.location.href = '/';
-        }, 500);
+          window.location.replace('/');
+        }, 300);
       } else {
         toast({
           variant: "destructive",

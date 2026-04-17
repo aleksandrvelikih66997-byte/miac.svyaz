@@ -66,6 +66,7 @@ export default function IvrPage() {
     try {
       const result = await uploadAudioAction(formData)
       if (result.success) {
+        // Оставляем имя файла без расширения для Asterisk
         const nameWithoutExt = result.fileName.replace(/\.[^/.]+$/, "")
         setNewIvr(prev => ({ ...prev, announcementFile: nameWithoutExt }))
         toast({ title: "Файл загружен", description: `Имя в системе: ${nameWithoutExt}` })
