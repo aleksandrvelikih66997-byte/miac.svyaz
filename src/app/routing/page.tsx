@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect } from "react"
@@ -132,8 +131,8 @@ export default function RoutingPage() {
             </CardHeader>
             <CardContent className="space-y-4 text-xs text-blue-800">
               <div>
-                <p className="font-bold mb-1">Внутренняя связь</p>
-                <p>Звонки между абонентами (101 - 102) работают автоматически. Здесь настраиваются только внешние линии.</p>
+                <p className="font-bold uppercase mb-1">Как это работает?</p>
+                <p>Внутренние звонки (например, 101 {"->"} 102) работают автоматически. Здесь настраивается только связь с внешним миром.</p>
               </div>
               <div>
                 <p className="font-bold mb-1">Входящие (DID)</p>
