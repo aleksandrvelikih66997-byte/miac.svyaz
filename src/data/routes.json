@@ -1,11 +1,11 @@
 [
   {
-    "pattern": ".",
-    "destination": "Extension:124",
+    "pattern": "*",
+    "destination": "IVR:cc6ut24ub",
     "name": "",
     "type": "inbound",
-    "id": "owohdzuso",
-    "lastUpdateDate": "2026-04-17T09:53:31.307Z",
-    "creationDate": "2026-04-17T09:53:31.307Z"
+    "id": "iuv3ikuyu",
+    "lastUpdateDate": "2026-04-17T12:14:13.902Z",
+    "creationDate": "2026-04-17T12:14:13.902Z"
   }
 ]

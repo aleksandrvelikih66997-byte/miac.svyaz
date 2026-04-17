@@ -1,1 +1,11 @@
-[]
+[
+  {
+    "id": "cc6ut24ub",
+    "name": "абоненты",
+    "announcementFile": "toxis1",
+    "digitMappings": [],
+    "timeoutDestination": "Extension:124",
+    "lastUpdateDate": "2026-04-17T12:13:40.469Z",
+    "creationDate": "2026-04-17T12:13:40.469Z"
+  }
+]

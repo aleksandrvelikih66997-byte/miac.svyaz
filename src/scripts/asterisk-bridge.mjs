@@ -1,153 +1,252 @@
 
 import fs from 'fs';
 import path from 'path';
-import { fileURLToPath } from 'url';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const ROOT_DIR = path.join(__dirname, '../../');
-const DATA_DIR = path.join(ROOT_DIR, 'src/data');
-const SOUNDS_DIR = path.join(DATA_DIR, 'sounds');
-const ASTERISK_SOUNDS_DIR = '/var/lib/asterisk/sounds/ru/';
+// Пути к файлам данных приложения
+const DATA_DIR = path.join(process.cwd(), 'src/data');
+const SOUNDS_DIR = path.join(process.cwd(), 'src/data/sounds');
 
-// Пути к файлам Asterisk
-const PJSIP_USERS = '/etc/asterisk/pjsip_miac_users.conf';
-const PJSIP_TRUNKS = '/etc/asterisk/pjsip_miac_trunks.conf';
-const QUEUES_CONF = '/etc/asterisk/queues_miac.conf';
-const DIALPLAN_CONF = '/etc/asterisk/extensions_miac_dialplan.conf';
+// Пути к конфигам Asterisk (должны быть доступны на запись)
+const ASTERISK_CONF_DIR = '/etc/asterisk';
+const CONF_FILES = {
+  users: path.join(ASTERISK_CONF_DIR, 'pjsip_miac_users.conf'),
+  trunks: path.join(ASTERISK_CONF_DIR, 'pjsip_miac_trunks.conf'),
+  queues: path.join(ASTERISK_CONF_DIR, 'queues_miac.conf'),
+  dialplan: path.join(ASTERISK_CONF_DIR, 'extensions_miac_dialplan.conf'),
+};
 
-function log(msg) { console.log(`[${new Date().toLocaleTimeString()}] BRIDGE: ${msg}`); }
-
-async function syncData() {
-  log("Начало синхронизации данных...");
-
-  // 1. АБОНЕНТЫ (PJSIP)
-  const extFile = path.join(DATA_DIR, 'extensions.json');
-  if (fs.existsSync(extFile)) {
-    const extensions = JSON.parse(fs.readFileSync(extFile, 'utf8'));
-    let pjsipContent = "; Сгенерировано МИАЦ.СВЯЗЬ\n\n";
-    
-    extensions.forEach(ext => {
-      pjsipContent += `[${ext.id}]\ntype=endpoint\ncontext=from-internal\ndisallow=all\nallow=ulaw,alaw,g722\nauth=auth-${ext.id}\naors=${ext.id}\nidentify_by=auth_username,username\n\n`;
-      pjsipContent += `[auth-${ext.id}]\ntype=auth\nauth_type=userpass\nusername=${ext.id}\npassword=${ext.secret}\n\n`;
-      pjsipContent += `[${ext.id}]\ntype=aor\nmax_contacts=5\nremove_existing=yes\n\n`;
-    });
-    
-    try { fs.writeFileSync(PJSIP_USERS, pjsipContent); } catch(e) { log("ERR: Ошибка записи PJSIP_USERS"); }
-  }
-
-  // 2. ТРАНКИ (PJSIP)
-  const trunkFile = path.join(DATA_DIR, 'trunks.json');
-  if (fs.existsSync(trunkFile)) {
-    const trunks = JSON.parse(fs.readFileSync(trunkFile, 'utf8'));
-    let trunksContent = "; Сгенерировано МИАЦ.СВЯЗЬ\n\n";
-    
-    trunks.forEach(t => {
-      const tid = t.id || t.name.toLowerCase().replace(/\s+/g, '-');
-      trunksContent += `[trunk-${tid}]\ntype=endpoint\ncontext=from-trunk\ndisallow=all\nallow=ulaw,alaw\noutbound_auth=auth-${tid}\naors=aor-${tid}\n\n`;
-      trunksContent += `[auth-${tid}]\ntype=auth\nauth_type=userpass\nusername=${t.user}\npassword=${t.password}\n\n`;
-      trunksContent += `[aor-${tid}]\ntype=aor\ncontact=sip:${t.host}:${t.port}\n\n`;
-      trunksContent += `[reg-${tid}]\ntype=registration\nendpoint=trunk-${tid}\noutbound_auth=auth-${tid}\nserver_uri=sip:${t.host}:${t.port}\nclient_uri=sip:${t.user}@${t.host}:${t.port}\n\n`;
-      trunksContent += `[identify-${tid}]\ntype=identify\nendpoint=trunk-${tid}\nmatch=${t.host}\n\n`;
-    });
-    
-    try { fs.writeFileSync(PJSIP_TRUNKS, trunksContent); } catch(e) { log("ERR: Ошибка записи PJSIP_TRUNKS"); }
-  }
-
-  // 3. ОЧЕРЕДИ
-  const queueFile = path.join(DATA_DIR, 'queues.json');
-  if (fs.existsSync(queueFile)) {
-    const queues = JSON.parse(fs.readFileSync(queueFile, 'utf8'));
-    let qContent = "; Сгенерировано МИАЦ.СВЯЗЬ\n\n";
-    
-    queues.forEach(q => {
-      qContent += `[${q.name}]\nstrategy=${q.strategy}\nmusiconhold=${q.musicOnHoldClass || 'default'}\ntimeout=15\nretry=5\nwrapuptime=10\n`;
-      (q.members || []).forEach(m => {
-        qContent += `member => PJSIP/${m}\n`;
-      });
-      qContent += "\n";
-    });
-    
-    try { fs.writeFileSync(QUEUES_CONF, qContent); } catch(e) { log("ERR: Ошибка записи QUEUES_CONF"); }
-  }
-
-  // 4. ДИАЛПЛАН (IVR + МАРШРУТЫ)
-  const routeFile = path.join(DATA_DIR, 'routes.json');
-  const ivrFile = path.join(DATA_DIR, 'ivrs.json');
-  
-  let dContent = "[from-internal]\n";
-  dContent += "exten => _XXX,1,Dial(PJSIP/${EXTEN},30)\n";
-  dContent += "exten => _XXX,n,Hangup()\n\n";
-
-  // IVR Контексты
-  if (fs.existsSync(ivrFile)) {
-    const ivrs = JSON.parse(fs.readFileSync(ivrFile, 'utf8'));
-    ivrs.forEach(ivr => {
-      dContent += `[miac-ivr-${ivr.id}]\n`;
-      dContent += `exten => s,1,Answer()\n`;
-      dContent += `exten => s,n,Set(TIMEOUT(digit)=2)\n`;
-      dContent += `exten => s,n,Background(${ivr.announcementFile})\n`;
-      dContent += `exten => s,n,WaitExten(5)\n`;
-      
-      // Обработка кнопок
-      (ivr.digitMappings || []).forEach(m => {
-        const [digit, type, target] = m.split(':');
-        let action = "";
-        if (type === 'ext') action = `Dial(PJSIP/${target},30)`;
-        else if (type === 'queue') action = `Queue(${target})`;
-        else if (type === 'ivr') action = `Goto(miac-ivr-${target},s,1)`;
-        
-        dContent += `exten => ${digit},1,${action}\n`;
-      });
-      
-      // Таймаут
-      if (ivr.timeoutDestination && ivr.timeoutDestination !== 'hangup') {
-        const [tType, tId] = ivr.timeoutDestination.split(':');
-        let tAction = "";
-        if (tType === 'Extension') tAction = `Dial(PJSIP/${tId},30)`;
-        else if (tType === 'Queue') tAction = `Queue(${tId})`;
-        dContent += `exten => t,1,${tAction}\n`;
-      } else {
-        dContent += `exten => t,1,Hangup()\n`;
-      }
-      dContent += `exten => i,1,Playback(invalid)\n`;
-      dContent += `exten => i,n,Goto(s,1)\n\n`;
-    });
-  }
-
-  // Входящие
-  dContent += "[from-trunk]\n";
-  if (fs.existsSync(routeFile)) {
-    const routes = JSON.parse(fs.readFileSync(routeFile, 'utf8'));
-    routes.filter(r => r.type === 'inbound').forEach(r => {
-      let dest = "";
-      if (r.destination.startsWith('Extension:')) dest = `Dial(PJSIP/${r.destination.split(':')[1]},30)`;
-      else if (r.destination.startsWith('Queue:')) dest = `Queue(${r.destination.split(':')[1]})`;
-      else if (r.destination.startsWith('IVR:')) dest = `Goto(miac-ivr-${r.destination.split(':')[1]},s,1)`;
-      
-      dContent += `exten => ${r.pattern},1,${dest}\n`;
-      dContent += `exten => s,1,${dest}\n`; // Fallback для 's'
-    });
-  }
-
-  try { fs.writeFileSync(DIALPLAN_CONF, dContent); } catch(e) { log("ERR: Ошибка записи DIALPLAN_CONF"); }
-
-  // 5. КОПИРОВАНИЕ ЗВУКОВ
-  if (fs.existsSync(SOUNDS_DIR)) {
-    const files = fs.readdirSync(SOUNDS_DIR);
-    files.forEach(f => {
-      const src = path.join(SOUNDS_DIR, f);
-      const dest = path.join(ASTERISK_SOUNDS_DIR, f);
-      if (fs.existsSync(ASTERISK_SOUNDS_DIR)) {
-        try { fs.copyFileSync(src, dest); fs.chmodSync(dest, 0o666); } catch(e) {}
-      }
-    });
-  }
-
-  log("Синхронизация завершена. Применяем конфиг в Asterisk...");
-  // Выполнение команд перезагрузки (требует sudo или прав на asterisk)
-  // exec('asterisk -rx "core reload"');
+function readJSON(filename) {
+  const filePath = path.join(DATA_DIR, filename);
+  if (!fs.existsSync(filePath)) return [];
+  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
 }
 
-// Запуск при старте и слежение за изменениями
-syncData();
-setInterval(syncData, 5000); // Опрашиваем раз в 5 секунд
+async function sync() {
+  console.log(`[${new Date().toLocaleTimeString()}] Синхронизация с Asterisk...`);
+
+  const extensions = readJSON('extensions.json');
+  const trunks = readJSON('trunks.json');
+  const routes = readJSON('routes.json');
+  const queues = readJSON('queues.json');
+  const ivrs = readJSON('ivrs.json');
+
+  // 1. ГЕНЕРАЦИЯ АБОНЕНТОВ (PJSIP)
+  let usersConfig = '';
+  extensions.forEach(ext => {
+    usersConfig += `
+[${ext.id}]
+type=endpoint
+context=from-internal
+disallow=all
+allow=ulaw,alaw
+auth=auth-${ext.id}
+aors=${ext.id}
+identify_by=auth_username,username
+
+[auth-${ext.id}]
+type=auth
+auth_type=userpass
+password=${ext.secret}
+username=${ext.id}
+
+[${ext.id}]
+type=aor
+max_contacts=5
+remove_existing=yes
+`;
+  });
+
+  // 2. ГЕНЕРАЦИЯ ТРАНКОВ (PJSIP)
+  let trunksConfig = '';
+  trunks.forEach(t => {
+    trunksConfig += `
+[registration-${t.id}]
+type=registration
+outbound_auth=auth-${t.id}
+server_uri=sip:${t.host}:${t.port}
+client_uri=sip:${t.user}@${t.host}:${t.port}
+retry_interval=60
+
+[auth-${t.id}]
+type=auth
+auth_type=userpass
+password=${t.password}
+username=${t.user}
+
+[trunk-${t.id}]
+type=aor
+contact=sip:${t.host}:${t.port}
+
+[trunk-${t.id}]
+type=endpoint
+context=from-trunk
+disallow=all
+allow=ulaw,alaw
+outbound_auth=auth-${t.id}
+aors=trunk-${t.id}
+
+[identify-${t.id}]
+type=identify
+endpoint=trunk-${t.id}
+match=${t.host}
+`;
+  });
+
+  // 3. ГЕНЕРАЦИЯ ОЧЕРЕДЕЙ (QUEUES)
+  let queuesConfig = '';
+  queues.forEach(q => {
+    queuesConfig += `
+[${q.name}]
+strategy=${q.strategy || 'ringall'}
+timeout=${q.timeout || 15}
+retry=5
+wrapuptime=0
+musicclass=${q.musicOnHoldClass || 'default'}
+announce-frequency=0
+announce-holdtime=no
+`;
+    (q.members || []).forEach(m => {
+      queuesConfig += `member => PJSIP/${m}\n`;
+    });
+    queuesConfig += '\n';
+  });
+
+  // 4. ГЕНЕРАЦИЯ DIALPLAN (EXTENSIONS)
+  let dialplanConfig = `
+[from-internal]
+exten => _X.,1,NoOp(Internal call from $\{CALLERID(num)\} to $\{EXTEN\})
+`;
+
+  // Внутренние номера
+  extensions.forEach(ext => {
+    dialplanConfig += `exten => ${ext.id},1,Dial(PJSIP/${ext.id},30)\n`;
+    dialplanConfig += `same => n,Hangup()\n`;
+  });
+
+  // Исходящие маршруты
+  routes.filter(r => r.type === 'outbound').forEach(r => {
+    const trunkId = r.destination.replace('Trunk:', '');
+    dialplanConfig += `exten => ${r.pattern},1,NoOp(Outbound call to $\{EXTEN\} via ${trunkId})\n`;
+    dialplanConfig += `same => n,Dial(PJSIP/$\{EXTEN\}@trunk-${trunkId})\n`;
+    dialplanConfig += `same => n,Hangup()\n`;
+  });
+
+  // Входящий контекст (from-trunk) согласно инструкции
+  dialplanConfig += `
+[from-trunk]
+exten => s,1,NoOp(Incoming call to "s" from $\{CALLERID(num)\})
+`;
+
+  // Ищем маршруты для входящих звонков
+  const inboundRoutes = routes.filter(r => r.type === 'inbound');
+  
+  // Если есть маршрут с шаблоном "*" или пустой - это наш "s"
+  const defaultRoute = inboundRoutes.find(r => r.pattern === '*' || !r.pattern);
+  if (defaultRoute) {
+    const dest = defaultRoute.destination;
+    if (dest.startsWith('IVR:')) {
+      dialplanConfig += `same => n,Goto(miac-ivr-${dest.replace('IVR:', '')},s,1)\n`;
+    } else if (dest.startsWith('Extension:')) {
+      dialplanConfig += `same => n,Dial(PJSIP/${dest.replace('Extension:', '')},30)\n`;
+    } else if (dest.startsWith('Queue:')) {
+      dialplanConfig += `same => n,Queue(${dest.replace('Queue:', '')})\n`;
+    }
+  } else {
+    dialplanConfig += `same => n,Hangup()\n`;
+  }
+
+  // Конкретные DID маршруты
+  inboundRoutes.filter(r => r.pattern && r.pattern !== '*').forEach(r => {
+    dialplanConfig += `exten => ${r.pattern},1,NoOp(Inbound call for DID ${r.pattern})\n`;
+    const dest = r.destination;
+    if (dest.startsWith('IVR:')) {
+      dialplanConfig += `same => n,Goto(miac-ivr-${dest.replace('IVR:', '')},s,1)\n`;
+    } else if (dest.startsWith('Extension:')) {
+      dialplanConfig += `same => n,Dial(PJSIP/${dest.replace('Extension:', '')},30)\n`;
+    } else if (dest.startsWith('Queue:')) {
+      dialplanConfig += `same => n,Queue(${dest.replace('Queue:', '')})\n`;
+    }
+    dialplanConfig += `same => n,Hangup()\n`;
+  });
+
+  // Секции IVR
+  ivrs.forEach(ivr => {
+    dialplanConfig += `
+[miac-ivr-${ivr.id}]
+exten => s,1,Answer()
+same => n,Wait(1)
+same => n,NoOp(Entering IVR: ${ivr.name})
+same => n,Background(${ivr.announcementFile})
+same => n,WaitExten(5)
+
+; Timeout handler
+exten => t,1,NoOp(IVR Timeout)
+`;
+    if (ivr.timeoutDestination) {
+      const dest = ivr.timeoutDestination;
+      if (dest.startsWith('Extension:')) {
+        dialplanConfig += `same => n,Dial(PJSIP/${dest.replace('Extension:', '')},30)\n`;
+      } else if (dest.startsWith('Queue:')) {
+        dialplanConfig += `same => n,Queue(${dest.replace('Queue:', '')})\n`;
+      } else {
+        dialplanConfig += `same => n,Hangup()\n`;
+      }
+    } else {
+      dialplanConfig += `same => n,Hangup()\n`;
+    }
+
+    // Обработка кнопок
+    (ivr.digitMappings || []).forEach(mapping => {
+      const [digit, type, target] = mapping.split(':');
+      if (digit && target) {
+        if (type === 'ext') {
+          dialplanConfig += `exten => ${digit},1,Dial(PJSIP/${target},30)\n`;
+        } else if (type === 'queue') {
+          dialplanConfig += `exten => ${digit},1,Queue(${target})\n`;
+        } else if (type === 'ivr') {
+          dialplanConfig += `exten => ${digit},1,Goto(miac-ivr-${target},s,1)\n`;
+        }
+        dialplanConfig += `same => n,Hangup()\n`;
+      }
+    });
+
+    dialplanConfig += `
+; Invalid input handler
+exten => i,1,NoOp(IVR Invalid Input)
+same => n,Playback(pbx-invalid)
+same => n,Goto(s,1)
+`;
+  });
+
+  // Сохранение файлов
+  try {
+    fs.writeFileSync(CONF_FILES.users, usersConfig);
+    fs.writeFileSync(CONF_FILES.trunks, trunksConfig);
+    fs.writeFileSync(CONF_FILES.queues, queuesConfig);
+    fs.writeFileSync(CONF_FILES.dialplan, dialplanConfig);
+
+    // Копирование звуков в системную папку Asterisk (если есть права)
+    if (fs.existsSync(SOUNDS_DIR)) {
+      const files = fs.readdirSync(SOUNDS_DIR);
+      files.forEach(file => {
+        const src = path.join(SOUNDS_DIR, file);
+        const dest = path.join('/var/lib/asterisk/sounds', file);
+        try {
+          fs.copyFileSync(src, dest);
+        } catch (e) {
+          // Игнорируем ошибки прав доступа, если мы не под root
+        }
+      });
+    }
+
+    console.log('[OK] Конфигурация успешно обновлена.');
+    console.log('Для применения выполните: asterisk -rx "core reload"');
+  } catch (err) {
+    console.error('[ERROR] Ошибка записи файлов Asterisk:', err.message);
+  }
+}
+
+// Запуск синхронизации
+sync();
+// Опционально: запуск каждые 30 секунд
+setInterval(sync, 30000);
