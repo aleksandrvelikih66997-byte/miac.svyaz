@@ -31,7 +31,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  // Увеличение лимита для загрузки аудиофайлов IVR
   serverActions: {
     bodySizeLimit: '10mb',
   },
