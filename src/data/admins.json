@@ -1,8 +1,9 @@
+
 [
   {
     "email": "velikih@miackuban.ru",
-    "passwordHash": "8f60f684d204a79a7f3b190aefe202d2e2b2afe38ae2fa3f99c699de7c3ce9e0",
+    "passwordHash": "411e7498c871579607f2a1768853b006a8e8e78f69f21464c0e661005f7787f0",
     "role": "Admin",
-    "createdAt": "2026-04-16T09:32:59.031Z"
+    "createdAt": "2026-04-17T13:19:28.728Z"
   }
 ]

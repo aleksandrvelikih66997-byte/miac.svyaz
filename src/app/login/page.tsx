@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -24,7 +25,7 @@ export default function LoginPage() {
       
       if (result.success) {
         toast({ title: "Успешный вход", description: "Добро пожаловать!" });
-        // Принудительный редирект на главную
+        // Используем прямой переход для надежности сессии в локальной сети
         window.location.href = '/';
       } else {
         toast({
@@ -76,7 +77,7 @@ export default function LoginPage() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="password">Паро_ль</Label>
+                <Label htmlFor="password">Пароль</Label>
                 <Input 
                   id="password" 
                   type="password" 

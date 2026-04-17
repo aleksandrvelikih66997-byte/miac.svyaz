@@ -66,7 +66,6 @@ export default function IvrPage() {
     try {
       const result = await uploadAudioAction(formData)
       if (result.success) {
-        // Оставляем имя файла без расширения для Asterisk
         const nameWithoutExt = result.fileName.replace(/\.[^/.]+$/, "")
         setNewIvr(prev => ({ ...prev, announcementFile: nameWithoutExt }))
         toast({ title: "Файл загружен", description: `Имя в системе: ${nameWithoutExt}` })
@@ -230,9 +229,9 @@ export default function IvrPage() {
                 <SelectTrigger><SelectValue placeholder="Куда перевести звонок?" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="hangup">Повесить трубку</SelectItem>
-                  {extensions.length > 0 && <SelectItem value="hdr-ext" disabled className="font-bold text-primary mt-2">Абоненты</SelectItem>}
+                  <SelectItem value="hdr-ext" disabled className="font-bold text-primary mt-2">Абоненты</SelectItem>
                   {extensions.map(e => <SelectItem key={e.id} value={`Extension:${e.id}`}>{e.id} - {e.name}</SelectItem>)}
-                  {queues.length > 0 && <SelectItem value="hdr-q" disabled className="font-bold text-primary mt-2">Очереди</SelectItem>}
+                  <SelectItem value="hdr-q" disabled className="font-bold text-primary mt-2">Очереди</SelectItem>
                   {queues.map(q => <SelectItem key={q.id} value={`Queue:${q.name}`}>{q.name}</SelectItem>)}
                 </SelectContent>
               </Select>
