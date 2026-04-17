@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Search, MoreHorizontal, User, Trash2, Edit2, Loader2, Lock, BellOff, Bell, RefreshCw, CheckCircle2 } from "lucide-react"
+import { Plus, Search, MoreHorizontal, User, Trash2, Edit2, Loader2, Lock, Info, RefreshCw, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -11,7 +11,6 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Switch } from "@/components/ui/switch"
 import { useToast } from "@/hooks/use-toast"
 import { getExtensions, saveExtension, deleteExtension } from "@/lib/telephony-store"
 
@@ -54,16 +53,9 @@ export default function ExtensionsPage() {
       toast({ title: "Ошибка", description: "Заполните все обязательные поля", variant: "destructive" })
       return
     }
-    
-    await saveExtension({ ...currentExt, status: currentExt.id === '100' ? 'online' : 'offline' })
+    await saveExtension(currentExt)
     setIsDialogOpen(false)
     toast({ title: "Успешно", description: isEditing ? "Данные обновлены" : "Абонент создан" })
-    loadData()
-  }
-
-  const handleDelete = async (id: string) => {
-    await deleteExtension(id)
-    toast({ title: "Удалено", description: `Абонент ${id} удален` })
     loadData()
   }
 
@@ -76,91 +68,95 @@ export default function ExtensionsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-headline font-bold text-primary">Абоненты</h2>
-          <p className="text-sm text-muted-foreground">Управление внутренними номерами (PJSIP)</p>
+          <p className="text-sm text-muted-foreground">Управление внутренними номерами системы</p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" onClick={() => loadData()} className="gap-2">
-            <RefreshCw className="h-4 w-4" />
-          </Button>
           <Button className="gap-2 shadow-lg" onClick={handleOpenAdd}>
             <Plus className="h-4 w-4" /> Добавить номер
           </Button>
         </div>
       </div>
 
-      <Card className="border-none shadow-xl bg-card overflow-hidden">
-        <CardHeader className="pb-3 border-b bg-muted/20">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Поиск по номеру или имени..." 
-              className="pl-9 bg-white" 
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          {loading ? (
-            <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-          ) : (
-            <Table>
-              <TableHeader className="bg-muted/10">
-                <TableRow>
-                  <TableHead className="w-[100px] font-bold">Номер</TableHead>
-                  <TableHead className="font-bold">Имя / Отдел</TableHead>
-                  <TableHead className="font-bold">Контекст</TableHead>
-                  <TableHead className="font-bold">Статус</TableHead>
-                  <TableHead className="text-right font-bold">Действия</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((ext) => (
-                  <TableRow key={ext.id} className="hover:bg-muted/5 transition-colors">
-                    <TableCell className="font-mono font-bold text-primary">{ext.id}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                           <User className="h-4 w-4" />
-                        </div>
-                        <span className="font-medium">{ext.name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-xs font-mono">{ext.context}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div className={`h-2.5 w-2.5 rounded-full ${ext.id === '100' || ext.id === '123' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-300'}`} />
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                          {ext.id === '100' || ext.id === '123' ? 'В сети' : 'Оффлайн'}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => handleOpenEdit(ext)}>
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8">
-                              <MoreHorizontal className="h-4 w-4" />
+      <div className="grid gap-6 md:grid-cols-4">
+        <div className="md:col-span-3">
+          <Card className="border-none shadow-xl bg-card overflow-hidden">
+            <CardHeader className="pb-3 border-b bg-muted/20">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input 
+                  placeholder="Поиск по номеру или имени..." 
+                  className="pl-9 bg-white" 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {loading ? (
+                <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+              ) : (
+                <Table>
+                  <TableHeader className="bg-muted/10">
+                    <TableRow>
+                      <TableHead className="w-[100px] font-bold">Номер</TableHead>
+                      <TableHead className="font-bold">Имя / Отдел</TableHead>
+                      <TableHead className="font-bold">Технология</TableHead>
+                      <TableHead className="text-right font-bold">Действия</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filtered.map((ext) => (
+                      <TableRow key={ext.id} className="hover:bg-muted/5 transition-colors">
+                        <TableCell className="font-mono font-bold text-primary">{ext.id}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                               <User className="h-4 w-4" />
+                            </div>
+                            <span className="font-medium">{ext.name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell><Badge variant="outline">{ext.tech}</Badge></TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex justify-end gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => handleOpenEdit(ext)}>
+                              <Edit2 className="h-4 w-4" />
                             </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem className="gap-2 text-destructive" onClick={() => handleDelete(ext.id)}>
-                              <Trash2 className="h-4 w-4" /> Удалить
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteExtension(ext.id).then(loadData)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-6">
+          <Card className="bg-amber-50 border-amber-100">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-bold flex items-center gap-2 text-amber-700">
+                <Info className="h-4 w-4" /> Настройка телефона
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-xs space-y-3 text-amber-900">
+              <p>Для корректной работы MicroSIP или Zoiper:</p>
+              <ul className="list-disc pl-4 space-y-2">
+                <li><strong>SIP Server:</strong> IP вашего сервера</li>
+                <li><strong>Username:</strong> Номер (например, {filtered[0]?.id || '101'})</li>
+                <li><strong>Auth ID:</strong> ТОЖЕ номер (обязательно!)</li>
+                <li><strong>Password:</strong> Секрет из настроек</li>
+              </ul>
+              <p className="font-bold border-t border-amber-200 pt-2">Важно!</p>
+              <p>Если номер не регистрируется, проверьте, что Auth ID совпадает с номером.</p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
@@ -183,7 +179,7 @@ export default function ExtensionsPage() {
                 <Select value={currentExt.tech} onValueChange={(v) => setCurrentExt({...currentExt, tech: v})}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="PJSIP">PJSIP</SelectItem>
+                    <SelectItem value="PJSIP">PJSIP (Рекомендуется)</SelectItem>
                     <SelectItem value="SIP">Legacy SIP</SelectItem>
                   </SelectContent>
                 </Select>
@@ -197,17 +193,11 @@ export default function ExtensionsPage() {
               <Label>Пароль (Secret) *</Label>
               <div className="relative">
                 <Input 
-                  type="text" 
                   value={currentExt.secret} 
                   onChange={(e) => setCurrentExt({...currentExt, secret: e.target.value})} 
-                  className="pr-10"
                 />
                 <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               </div>
-            </div>
-            <div className="grid gap-2">
-              <Label>Контекст</Label>
-              <Input value={currentExt.context} onChange={(e) => setCurrentExt({...currentExt, context: e.target.value})} />
             </div>
           </div>
           <DialogFooter>

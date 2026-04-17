@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -5,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, ArrowDownLeft, ArrowUpRight, Trash2, PhoneForwarded, Globe, Info } from "lucide-react"
+import { Plus, ArrowDownLeft, ArrowUpRight, Trash2, Info, HelpCircle } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -25,16 +26,12 @@ export default function RoutingPage() {
   const { toast } = useToast()
 
   const loadData = async () => {
-    try {
-      const [r, t, e, q, i] = await Promise.all([getRoutes(), getTrunks(), getExtensions(), getQueues(), getIvrs()])
-      setRoutes(r || [])
-      setTrunks(t || [])
-      setExtensions(e || [])
-      setQueues(q || [])
-      setIvrs(i || [])
-    } catch (err) {
-      console.error("Failed to load routing data", err)
-    }
+    const [r, t, e, q, i] = await Promise.all([getRoutes(), getTrunks(), getExtensions(), getQueues(), getIvrs()])
+    setRoutes(r || [])
+    setTrunks(t || [])
+    setExtensions(e || [])
+    setQueues(q || [])
+    setIvrs(i || [])
   }
 
   useEffect(() => { loadData() }, [])
@@ -51,93 +48,109 @@ export default function RoutingPage() {
     loadData()
   }
 
-  const handleDelete = async (id: string) => {
-    await deleteRoute(id)
-    toast({ title: "Удалено", description: "Маршрут удален" })
-    loadData()
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-2xl font-bold text-primary">Маршрутизация</h2>
-        <Button onClick={() => setIsAddOpen(true)} className="gap-2">
+        <Button onClick={() => setIsAddOpen(true)} className="gap-2 shadow-lg">
           <Plus className="h-4 w-4" /> Создать маршрут
         </Button>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="bg-muted p-1 h-12">
-          <TabsTrigger value="inbound" className="gap-2 px-6">
-            <ArrowDownLeft className="h-4 w-4" /> Входящие (DID)
-          </TabsTrigger>
-          <TabsTrigger value="outbound" className="gap-2 px-6">
-            <ArrowUpRight className="h-4 w-4" /> Исходящие (Транки)
-          </TabsTrigger>
-        </TabsList>
+      <div className="grid gap-6 md:grid-cols-4">
+        <div className="md:col-span-3 space-y-6">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="bg-muted p-1 h-12">
+              <TabsTrigger value="inbound" className="gap-2 px-6">
+                <ArrowDownLeft className="h-4 w-4" /> Входящие (DID)
+              </TabsTrigger>
+              <TabsTrigger value="outbound" className="gap-2 px-6">
+                <ArrowUpRight className="h-4 w-4" /> Исходящие (Транки)
+              </TabsTrigger>
+            </TabsList>
 
-        <div className="mt-6">
-          <Card className="bg-blue-50/50 border-blue-100 mb-6">
-            <CardContent className="p-4 flex gap-4 text-xs text-blue-800">
-              <div className="shrink-0"><Info className="h-5 w-5" /></div>
+            <div className="mt-6 space-y-4">
+              <TabsContent value="inbound" className="space-y-4 m-0">
+                {routes.filter(r => r.type === 'inbound').map((route) => (
+                  <Card key={route.id} className="border-none shadow-sm overflow-hidden group">
+                    <CardContent className="flex items-center p-4 gap-6">
+                      <div className="flex-1">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">DID Номер</p>
+                        <span className="font-mono font-bold text-lg text-primary">{route.pattern}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-muted-foreground">НАПРАВИТЬ НА:</span>
+                        <Badge className="bg-emerald-50 text-emerald-700 border-emerald-100">{route.destination}</Badge>
+                      </div>
+                      <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteRoute(route.id).then(loadData)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+                {routes.filter(r => r.type === 'inbound').length === 0 && (
+                   <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-xl">
+                     Нет входящих правил. Звонки из транков будут отклоняться.
+                   </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="outbound" className="space-y-4 m-0">
+                {routes.filter(r => r.type === 'outbound').map((route) => (
+                  <Card key={route.id} className="border-none shadow-sm group">
+                    <CardContent className="flex items-center p-4 gap-6">
+                      <div className="flex-1">
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1">Шаблон набора</p>
+                        <span className="font-mono font-bold text-lg text-primary">{route.pattern}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-muted-foreground">ЧЕРЕЗ ЛИНИЮ:</span>
+                        <Badge className="bg-primary/5 text-primary border-primary/20">{route.destination}</Badge>
+                      </div>
+                      <Button variant="ghost" size="icon" className="text-destructive" onClick={() => deleteRoute(route.id).then(loadData)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+                {routes.filter(r => r.type === 'outbound').length === 0 && (
+                   <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-xl">
+                     Нет исходящих правил. Звонки на внешние номера недоступны.
+                   </div>
+                )}
+              </TabsContent>
+            </div>
+          </Tabs>
+        </div>
+
+        <div className="space-y-6">
+          <Card className="bg-blue-50 border-blue-100 shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-bold flex items-center gap-2 text-blue-700">
+                <HelpCircle className="h-4 w-4" /> Справка по правилам
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4 text-xs text-blue-800">
               <div>
-                <p className="font-bold uppercase mb-1">Как это работает?</p>
-                <p>Внутренние звонки (100 {"->"} 123) работают автоматически. Здесь настраивается только связь с внешним миром.</p>
+                <p className="font-bold mb-1">Внутренние звонки</p>
+                <p>Все номера (100, 101...) звонят друг другу автоматически. Здесь это настраивать не нужно.</p>
+              </div>
+              <div>
+                <p className="font-bold mb-1">Входящие (DID)</p>
+                <p>Укажите номер, который вам выдал провайдер (например, <code className="bg-white px-1">74951234567</code>), чтобы направить его на сотрудника или в меню.</p>
+              </div>
+              <div>
+                <p className="font-bold mb-1">Исходящие (Шаблоны)</p>
+                <ul className="list-disc pl-4 space-y-1">
+                  <li><code className="bg-white px-1">8X.</code> — для звонков по РФ (начинаются на 8)</li>
+                  <li><code className="bg-white px-1">.</code> — разрешить звонить на любые номера</li>
+                  <li><code className="bg-white px-1">0[1-9].</code> — звонки через "ноль"</li>
+                </ul>
               </div>
             </CardContent>
           </Card>
-
-          <TabsContent value="inbound" className="space-y-4">
-            {routes.filter(r => r.type === 'inbound').map((route) => (
-              <Card key={route.id} className="border-none shadow-sm group">
-                <CardContent className="flex items-center p-4 gap-6">
-                  <div className="flex-1">
-                    <span className="text-xs font-bold text-muted-foreground mr-2">DID:</span>
-                    <span className="font-mono font-bold text-lg">{route.pattern}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-muted-foreground">НАПРАВИТЬ НА:</span>
-                    <Badge variant="outline" className="bg-primary/5">{route.destination}</Badge>
-                  </div>
-                  <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(route.id)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-            {routes.filter(r => r.type === 'inbound').length === 0 && (
-               <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-xl">
-                 Нет настроенных входящих маршрутов
-               </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="outbound" className="space-y-4">
-            {routes.filter(r => r.type === 'outbound').map((route) => (
-              <Card key={route.id} className="border-none shadow-sm group">
-                <CardContent className="flex items-center p-4 gap-6">
-                  <div className="flex-1">
-                    <span className="text-xs font-bold text-muted-foreground mr-2">ШАБЛОН:</span>
-                    <span className="font-mono font-bold text-lg">{route.pattern}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-muted-foreground">ЧЕРЕЗ ТРАНК:</span>
-                    <Badge variant="outline" className="bg-emerald-50 text-emerald-700">{route.destination}</Badge>
-                  </div>
-                  <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleDelete(route.id)}>
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-            {routes.filter(r => r.type === 'outbound').length === 0 && (
-               <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-xl">
-                 Нет настроенных исходящих маршрутов
-               </div>
-            )}
-          </TabsContent>
         </div>
-      </Tabs>
+      </div>
 
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
         <DialogContent>
@@ -146,26 +159,33 @@ export default function RoutingPage() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label>{activeTab === 'inbound' ? 'Внешний DID (например 7495...)' : 'Шаблон набора (например 8X.)'}</Label>
-              <Input value={newRoute.pattern} onChange={e => setNewRoute({...newRoute, pattern: e.target.value})} placeholder={activeTab === 'inbound' ? "DID" : "8X."} />
+              <Label className="text-xs font-bold uppercase">{activeTab === 'inbound' ? 'Внешний номер (DID)' : 'Шаблон (Pattern)'}</Label>
+              <Input 
+                value={newRoute.pattern} 
+                onChange={e => setNewRoute({...newRoute, pattern: e.target.value})} 
+                placeholder={activeTab === 'inbound' ? "74950000000" : "8X."} 
+              />
+              <p className="text-[10px] text-muted-foreground italic">
+                {activeTab === 'inbound' ? 'Точное совпадение с номером из транка' : 'X — любая цифра, . — любое количество цифр'}
+              </p>
             </div>
             <div className="grid gap-2">
-              <Label>Назначение (Куда направить звонок)</Label>
+              <Label className="text-xs font-bold uppercase">Куда направить звонок</Label>
               <Select value={newRoute.destination} onValueChange={v => setNewRoute({...newRoute, destination: v})}>
                 <SelectTrigger><SelectValue placeholder="Выберите цель..." /></SelectTrigger>
                 <SelectContent>
                   {activeTab === 'inbound' ? (
                     <>
-                      <SelectItem value="header-ext" disabled className="font-bold text-primary">Абоненты</SelectItem>
+                      <SelectItem value="hdr-ext" disabled className="font-bold text-primary">Абоненты</SelectItem>
                       {extensions.map(e => <SelectItem key={e.id} value={`Extension:${e.id}`}>{e.id} - {e.name}</SelectItem>)}
-                      <SelectItem value="header-q" disabled className="font-bold text-primary">Группы (Очереди)</SelectItem>
+                      <SelectItem value="hdr-q" disabled className="font-bold text-primary">Очереди</SelectItem>
                       {queues.map(q => <SelectItem key={q.id} value={`Queue:${q.name}`}>{q.name}</SelectItem>)}
-                      <SelectItem value="header-ivr" disabled className="font-bold text-primary">Голосовое меню (IVR)</SelectItem>
-                      {ivrs.map(i => <SelectItem key={i.id} value={`IVR:${i.id}`}>Меню: {i.name}</SelectItem>)}
+                      <SelectItem value="hdr-ivr" disabled className="font-bold text-primary">Голосовое меню</SelectItem>
+                      {ivrs.map(i => <SelectItem key={i.id} value={`IVR:${i.id}`}>{i.name}</SelectItem>)}
                     </>
                   ) : (
                     <>
-                      <SelectItem value="header-trunks" disabled className="font-bold text-primary">Внешние линии (Транки)</SelectItem>
+                      <SelectItem value="hdr-tr" disabled className="font-bold text-primary">Внешние линии (Транки)</SelectItem>
                       {trunks.map(t => <SelectItem key={t.id} value={`Trunk:${t.id}`}>{t.name}</SelectItem>)}
                     </>
                   )}
@@ -175,7 +195,7 @@ export default function RoutingPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddOpen(false)}>Отмена</Button>
-            <Button onClick={handleAdd}>Создать маршрут</Button>
+            <Button onClick={handleAdd}>Сохранить</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
