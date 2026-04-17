@@ -33,9 +33,14 @@ export default function TrunksPage() {
 
   const loadTrunks = async () => {
     setLoading(true)
-    const data = await getTrunks()
-    setTrunks(data)
-    setLoading(false)
+    try {
+      const data = await getTrunks()
+      setTrunks(data || [])
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -52,7 +57,7 @@ export default function TrunksPage() {
 
   const handleOpenEdit = (trunk: any) => {
     setIsEditing(true)
-    setNewTrunk(trunk)
+    setNewTrunk({ ...trunk })
     setIsAddOpen(true)
   }
 

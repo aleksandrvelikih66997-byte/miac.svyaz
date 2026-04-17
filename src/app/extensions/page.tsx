@@ -25,9 +25,14 @@ export default function ExtensionsPage() {
 
   const loadData = async (silent = false) => {
     if (!silent) setLoading(true)
-    const data = await getExtensions()
-    setExtensions(data)
-    if (!silent) setLoading(false)
+    try {
+      const data = await getExtensions()
+      setExtensions(data || [])
+    } catch (e) {
+      console.error(e)
+    } finally {
+      if (!silent) setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -44,7 +49,7 @@ export default function ExtensionsPage() {
 
   const handleOpenEdit = (ext: any) => {
     setIsEditing(true)
-    setCurrentExt(ext)
+    setCurrentExt({ ...ext })
     setIsDialogOpen(true)
   }
 
@@ -122,7 +127,7 @@ export default function ExtensionsPage() {
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => handleOpenEdit(ext)}>
                               <Edit2 className="h-4 w-4" />
                             </Button>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteExtension(ext.id).then(loadData)}>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => deleteExtension(ext.id).then(() => loadData())}>
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
@@ -152,7 +157,7 @@ export default function ExtensionsPage() {
                 <li><strong>Password:</strong> Секрет из настроек</li>
               </ul>
               <p className="font-bold border-t border-amber-200 pt-2 text-rose-700">Внимание Yealink!</p>
-              <p>Если в поле From отправляется IP вместо номера, проверьте настройку "Account Name" и "Label" — они должны быть числовыми.</p>
+              <p>Убедитесь, что в поле Label и Display Name указан номер абонента.</p>
             </CardContent>
           </Card>
         </div>
