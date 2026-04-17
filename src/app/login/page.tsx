@@ -24,9 +24,9 @@ export default function LoginPage() {
       const result = await loginLocal(email, password);
       
       if (result.success) {
-        toast({ title: "Успешный вход", description: "Добро пожаловать!" });
-        // Используем принудительный переход с очисткой кэша для надежности редиректа
-        window.location.replace('/');
+        toast({ title: "Успешный вход", description: "Перенаправление..." });
+        // Используем жесткую перезагрузку страницы, чтобы браузер гарантированно подхватил куку
+        window.location.href = '/';
       } else {
         toast({
           variant: "destructive",
@@ -74,6 +74,7 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="admin@miac.ru"
+                  className="bg-white"
                 />
               </div>
               <div className="grid gap-2">
@@ -84,6 +85,7 @@ export default function LoginPage() {
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  className="bg-white"
                 />
               </div>
             </CardContent>

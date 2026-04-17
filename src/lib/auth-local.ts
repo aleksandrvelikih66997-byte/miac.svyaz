@@ -21,16 +21,21 @@ export async function loginLocal(email: string, password: string) {
     const admins = JSON.parse(fs.readFileSync(ADMINS_FILE, 'utf8'));
     const admin = admins.find((a: any) => a.email === email);
 
-    if (!admin || admin.passwordHash !== hashPassword(password)) {
+    // Лог для отладки (в консоли сервера)
+    const inputHash = hashPassword(password);
+    
+    if (!admin || admin.passwordHash !== inputHash) {
       return { success: false, error: 'Неверный логин или пароль.' };
     }
 
     const cookieStore = await cookies();
     
-    // Устанавливаем куку с явным указанием пути и отключенным secure для локальной сети
+    // КРИТИЧЕСКИ ВАЖНО для AltLinux/Локальной сети:
+    // secure: false позволяет куке работать по HTTP
+    // sameSite: 'lax' и path: '/' обеспечивают видимость куки во всем приложении
     cookieStore.set('miac_session', JSON.stringify({ email: admin.email, role: admin.role }), {
       httpOnly: true,
-      secure: false, // Обязательно false для локальной сети без HTTPS (AltLinux SP 10)
+      secure: false, 
       maxAge: 60 * 60 * 24 * 7, // 7 дней
       path: '/',
       sameSite: 'lax'
@@ -38,6 +43,7 @@ export async function loginLocal(email: string, password: string) {
 
     return { success: true };
   } catch (error: any) {
+    console.error('Login Error:', error);
     return { success: false, error: error.message };
   }
 }
