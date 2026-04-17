@@ -24,14 +24,14 @@ export default function LoginPage() {
       const result = await loginLocal(email, password);
       
       if (result.success) {
-        toast({ title: "Успешный вход", description: "Перенаправление..." });
-        // Прямой редирект для облачных сред
+        toast({ title: "Успешный вход", description: "Перенаправление в панель управления..." });
+        // Прямой редирект для облачных сред и фреймов
         window.location.assign('/');
       } else {
         toast({
           variant: "destructive",
           title: "Ошибка",
-          description: result.error || "Неверные данные",
+          description: result.error || "Неверные данные для входа.",
         });
         setLoading(false);
       }
@@ -39,7 +39,7 @@ export default function LoginPage() {
       toast({
         variant: "destructive",
         title: "Ошибка",
-        description: "Проблема связи с сервером.",
+        description: "Ошибка связи с сервером авторизации.",
       });
       setLoading(false);
     }
@@ -52,29 +52,30 @@ export default function LoginPage() {
           <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center text-primary-foreground shadow-lg">
             <PhoneCall className="h-6 w-6" />
           </div>
-          <h1 className="text-2xl font-bold text-primary">МИАЦ.СВЯЗЬ</h1>
-          <p className="text-sm text-muted-foreground">AltLinux SP 10 Administration</p>
+          <h1 className="text-2xl font-bold text-primary tracking-tight">МИАЦ.СВЯЗЬ</h1>
+          <p className="text-sm text-muted-foreground">AltLinux SP 10 Administration Panel</p>
         </div>
 
-        <Card className="border-none shadow-2xl">
-          <CardHeader className="pb-4">
+        <Card className="border-none shadow-2xl overflow-hidden rounded-2xl">
+          <CardHeader className="pb-4 bg-white">
             <CardTitle className="text-xl flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5 text-primary" /> Вход
+              <ShieldCheck className="h-5 w-5 text-primary" /> Вход в систему
             </CardTitle>
-            <CardDescription>Введите данные администратора</CardDescription>
+            <CardDescription>Используйте учетные данные администратора</CardDescription>
           </CardHeader>
           <form onSubmit={handleLogin}>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 pt-6 bg-white">
               <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">Email / Логин</Label>
                 <Input 
                   id="email" 
                   type="email" 
                   required
+                  autoComplete="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="velikih@miackuban.ru"
-                  className="bg-white"
+                  className="bg-slate-50 border-none focus-visible:ring-primary"
                 />
               </div>
               <div className="grid gap-2">
@@ -83,19 +84,22 @@ export default function LoginPage() {
                   id="password" 
                   type="password" 
                   required
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="bg-white"
+                  placeholder="••••••••"
+                  className="bg-slate-50 border-none focus-visible:ring-primary"
                 />
               </div>
             </CardContent>
-            <CardFooter className="flex flex-col gap-4">
-              <Button className="w-full" disabled={loading}>
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Войти"}
+            <CardFooter className="flex flex-col gap-4 bg-white pb-8">
+              <Button className="w-full h-11 bg-primary hover:bg-primary/90 shadow-md" disabled={loading}>
+                {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                {loading ? "Авторизация..." : "Войти в панель"}
               </Button>
-              <div className="flex items-center gap-2 p-3 bg-muted rounded-lg text-[10px] text-muted-foreground w-full">
-                <AlertCircle className="h-3 w-3" />
-                <span>Авторизация МИАЦ.АТС</span>
+              <div className="flex items-center gap-2 p-3 bg-slate-50 rounded-lg text-[10px] text-slate-500 w-full border border-slate-100">
+                <AlertCircle className="h-3 w-3 text-primary" />
+                <span>Защищенный доступ МИАЦ.АТС</span>
               </div>
             </CardFooter>
           </form>

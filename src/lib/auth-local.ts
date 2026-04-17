@@ -31,7 +31,7 @@ export async function loginLocal(email: string, password: string) {
     const inputHash = hashPassword(cleanPassword);
     
     if (admin.passwordHash !== inputHash) {
-      return { success: false, error: 'Неверные данные.' };
+      return { success: false, error: 'Неверный логин или пароль.' };
     }
 
     const cookieStore = await cookies();
