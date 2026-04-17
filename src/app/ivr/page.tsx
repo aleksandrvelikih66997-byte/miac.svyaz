@@ -2,7 +2,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Mic2, Plus, Trash2, Keyboard, Upload, Loader2, CheckCircle2, Music } from "lucide-react"
+import { Mic2, Plus, Trash2, Keyboard, Upload, Loader2, CheckCircle2, Music, UserCheck, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
@@ -25,7 +25,13 @@ export default function IvrPage() {
   const [queues, setQueues] = useState<any[]>([])
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
-  const [newIvr, setNewIvr] = useState({ name: "", announcementFile: "demo-congrats", digitMappings: [] as string[] })
+  
+  const [newIvr, setNewIvr] = useState({ 
+    name: "", 
+    announcementFile: "demo-congrats", 
+    digitMappings: [] as string[],
+    timeoutDestination: "" 
+  })
   
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [tempDigit, setTempDigit] = useState("")
@@ -51,11 +57,6 @@ export default function IvrPage() {
     const file = e.target.files?.[0]
     if (!file) return
 
-    if (!file.name.endsWith('.wav') && !file.name.endsWith('.mp3')) {
-      toast({ title: "Ошибка", description: "Допускаются только .wav или .mp3", variant: "destructive" })
-      return
-    }
-
     setIsUploading(true)
     const formData = new FormData()
     formData.append('audio', file)
@@ -65,7 +66,7 @@ export default function IvrPage() {
       if (result.success) {
         const nameWithoutExt = result.fileName.replace(/\.[^/.]+$/, "")
         setNewIvr({ ...newIvr, announcementFile: nameWithoutExt })
-        toast({ title: "Файл загружен", description: `Имя в конфиге: ${nameWithoutExt}` })
+        toast({ title: "Файл загружен", description: `Имя в системе: ${nameWithoutExt}` })
       } else {
         throw new Error(result.error)
       }
@@ -83,7 +84,7 @@ export default function IvrPage() {
     }
     await saveIvr(newIvr)
     setIsAddOpen(false)
-    setNewIvr({ name: "", announcementFile: "demo-congrats", digitMappings: [] })
+    setNewIvr({ name: "", announcementFile: "demo-congrats", digitMappings: [], timeoutDestination: "" })
     setTempDigit("")
     setTempTarget("")
     load()
@@ -92,16 +93,23 @@ export default function IvrPage() {
 
   const addMapping = () => {
     if (!tempDigit || !tempTarget) {
-      toast({ title: "Ошибка", description: "Заполните кнопку и ID", variant: "destructive" })
+      toast({ title: "Ошибка", description: "Заполните кнопку и цель", variant: "destructive" })
       return
     }
     const mapping = `${tempDigit}:${tempType}:${tempTarget}`
-    setNewIvr({
-      ...newIvr,
-      digitMappings: [...newIvr.digitMappings, mapping]
-    })
+    setNewIvr(prev => ({
+      ...prev,
+      digitMappings: [...prev.digitMappings, mapping]
+    }))
     setTempDigit("")
     setTempTarget("")
+  }
+
+  const removeMapping = (index: number) => {
+    setNewIvr(prev => ({
+      ...prev,
+      digitMappings: prev.digitMappings.filter((_, i) => i !== index)
+    }))
   }
 
   return (
@@ -109,52 +117,66 @@ export default function IvrPage() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-primary">Голосовое меню (IVR)</h2>
-          <p className="text-sm text-muted-foreground">Настройка приветствий и переходов по кнопкам</p>
+          <p className="text-sm text-muted-foreground">Настройка приветствий и интерактивных переходов</p>
         </div>
         <Button onClick={() => setIsAddOpen(true)} className="gap-2 shadow-lg">
-          <Plus className="h-4 w-4" /> Добавить меню
+          <Plus className="h-4 w-4" /> Добавить IVR
         </Button>
       </div>
 
       <div className="grid gap-6">
         {ivrs.map(ivr => (
-          <Card key={ivr.id} className="border-none shadow-lg group">
-            <CardHeader className="bg-primary/5 border-b flex flex-row items-center justify-between py-4">
+          <Card key={ivr.id} className="border-none shadow-lg overflow-hidden">
+            <CardHeader className="bg-muted/30 border-b flex flex-row items-center justify-between py-4">
               <CardTitle className="text-lg flex items-center gap-3">
                 <Mic2 className="h-5 w-5 text-primary" /> {ivr.name}
               </CardTitle>
-              <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" onClick={() => deleteIvr(ivr.id).then(load)}>
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" onClick={() => deleteIvr(ivr.id).then(load)}>
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
             </CardHeader>
-            <CardContent className="pt-4 grid md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Файл приветствия:</p>
-                <div className="flex items-center gap-2">
-                   <Music className="h-4 w-4 text-primary/40" />
-                   <code className="bg-muted px-2 py-1 rounded text-xs font-mono border block w-fit">
-                    {ivr.announcementFile}.wav
-                  </code>
+            <CardContent className="pt-4 grid md:grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Аудио-файл:</p>
+                  <div className="flex items-center gap-2 bg-primary/5 p-3 rounded-lg border border-primary/10">
+                    <Music className="h-4 w-4 text-primary" />
+                    <span className="text-xs font-mono font-bold">{ivr.announcementFile}.wav</span>
+                  </div>
+                </div>
+                
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Если кнопка не нажата (Timeout):</p>
+                  <div className="flex items-center gap-2 bg-amber-50 p-3 rounded-lg border border-amber-100">
+                    <Clock className="h-4 w-4 text-amber-600" />
+                    <span className="text-xs font-bold text-amber-900">
+                      {ivr.timeoutDestination || "Звонок завершится"}
+                    </span>
+                  </div>
                 </div>
               </div>
+
               <div className="space-y-2">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Назначения кнопок:</p>
-                <div className="space-y-1">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">Назначения кнопок:</p>
+                <div className="grid gap-2">
                   {(ivr.digitMappings || []).map((m: string) => {
                     const [d, type, id] = m.split(':');
                     return (
-                      <div key={m} className="flex items-center gap-2 text-xs bg-muted/30 p-2 rounded border border-transparent hover:border-muted-foreground/20 transition-colors">
-                        <Keyboard className="h-3 w-3 text-primary" /> 
-                        <span className="font-bold">Кнопка {d}:</span>
+                      <div key={m} className="flex items-center gap-3 text-xs bg-muted/40 p-2.5 rounded border">
+                        <div className="h-6 w-6 rounded bg-primary text-white flex items-center justify-center font-bold">
+                          {d}
+                        </div>
                         <span className="text-muted-foreground">
                           {type === 'ext' ? 'Абонент' : type === 'queue' ? 'Группа' : 'IVR'}
                         </span>
-                        <span className="font-mono bg-white px-1 rounded border ml-auto">{id}</span>
+                        <span className="font-mono font-bold ml-auto">{id}</span>
                       </div>
                     )
                   })}
                   {(!ivr.digitMappings || ivr.digitMappings.length === 0) && (
-                    <p className="text-xs text-muted-foreground italic">Кнопки не настроены</p>
+                    <p className="text-xs text-muted-foreground italic text-center py-4 bg-muted/20 rounded">Кнопки не настроены</p>
                   )}
                 </div>
               </div>
@@ -164,75 +186,91 @@ export default function IvrPage() {
       </div>
 
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Настройка IVR</DialogTitle></DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label>Название меню</Label>
-              <Input value={newIvr.name} onChange={e => setNewIvr({...newIvr, name: e.target.value})} placeholder="Main Menu" />
-            </div>
-            
-            <div className="grid gap-2">
-              <Label>Приветствие (Audio)</Label>
-              <div className="flex gap-2 items-center">
-                <Input 
-                  value={newIvr.announcementFile} 
-                  onChange={e => setNewIvr({...newIvr, announcementFile: e.target.value})} 
-                  placeholder="miac-welcome" 
-                  className="flex-1"
-                />
-                <input 
-                  type="file" 
-                  ref={fileInputRef} 
-                  onChange={handleFileUpload} 
-                  className="hidden" 
-                  accept=".wav,.mp3"
-                />
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  size="icon" 
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isUploading}
-                >
-                  {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                </Button>
+        <DialogContent className="max-w-xl">
+          <DialogHeader><DialogTitle>Конфигурация IVR</DialogTitle></DialogHeader>
+          <div className="grid gap-6 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label>Название меню</Label>
+                <Input value={newIvr.name} onChange={e => setNewIvr({...newIvr, name: e.target.value})} placeholder="Main Office" />
               </div>
-              <p className="text-[10px] text-muted-foreground">Загрузите файл для автоматической синхронизации</p>
+              <div className="grid gap-2">
+                <Label>Файл приветствия</Label>
+                <div className="flex gap-2">
+                  <Input 
+                    value={newIvr.announcementFile} 
+                    onChange={e => setNewIvr({...newIvr, announcementFile: e.target.value})} 
+                    className="flex-1 font-mono text-xs"
+                  />
+                  <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".wav,.mp3" />
+                  <Button variant="outline" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                    {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label className="flex items-center gap-2"><Clock className="h-3 w-3" /> Таймаут (если никто не нажал)</Label>
+              <Select value={newIvr.timeoutDestination} onValueChange={v => setNewIvr({...newIvr, timeoutDestination: v})}>
+                <SelectTrigger><SelectValue placeholder="Выберите действие по умолчанию..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="hangup">Повесить трубку</SelectItem>
+                  <SelectItem value="hdr-ext" disabled className="font-bold text-primary mt-2">Перевод на сотрудника</SelectItem>
+                  {extensions.map(e => <SelectItem key={e.id} value={`Extension:${e.id}`}>{e.id} - {e.name}</SelectItem>)}
+                  <SelectItem value="hdr-q" disabled className="font-bold text-primary mt-2">Перевод в группу</SelectItem>
+                  {queues.map(q => <SelectItem key={q.id} value={`Queue:${q.name}`}>{q.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
             
-            <div className="p-4 border rounded-lg bg-muted/20 space-y-3">
-              <p className="text-[10px] font-bold uppercase text-primary">Добавить переход</p>
+            <div className="space-y-4 border rounded-xl p-4 bg-muted/20">
+              <Label className="text-[10px] font-bold uppercase text-primary">Переходы по кнопкам</Label>
+              
+              <div className="grid gap-2 max-h-[150px] overflow-y-auto mb-4">
+                {newIvr.digitMappings.map((m, idx) => {
+                  const [d, t, target] = m.split(':')
+                  return (
+                    <div key={idx} className="flex items-center justify-between bg-white p-2 rounded border text-xs">
+                      <div className="flex items-center gap-2">
+                        <Badge>{d}</Badge>
+                        <span className="font-bold">{t === 'ext' ? 'Абонент' : t === 'queue' ? 'Группа' : 'IVR'}</span>
+                        <span className="font-mono text-muted-foreground">{target}</span>
+                      </div>
+                      <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => removeMapping(idx)}>
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  )
+                })}
+              </div>
+
               <div className="flex gap-2">
-                <Input 
-                  placeholder="Кнопка" 
-                  className="w-20" 
-                  value={tempDigit} 
-                  onChange={e => setTempDigit(e.target.value)} 
-                />
+                <Input placeholder="Кн." className="w-16" value={tempDigit} onChange={e => setTempDigit(e.target.value)} />
                 <Select value={tempType} onValueChange={setTempType}>
-                  <SelectTrigger className="w-[120px]"><SelectValue placeholder="Тип" /></SelectTrigger>
+                  <SelectTrigger className="w-[110px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ext">Абонент</SelectItem>
                     <SelectItem value="queue">Группа</SelectItem>
-                    <SelectItem value="ivr">Другой IVR</SelectItem>
+                    <SelectItem value="ivr">IVR</SelectItem>
                   </SelectContent>
                 </Select>
-                <Input 
-                  placeholder="ID / Номер" 
-                  value={tempTarget} 
-                  onChange={e => setTempTarget(e.target.value)} 
-                />
+                <Select value={tempTarget} onValueChange={setTempTarget}>
+                  <SelectTrigger className="flex-1"><SelectValue placeholder="Цель" /></SelectTrigger>
+                  <SelectContent>
+                    {tempType === 'ext' && extensions.map(e => <SelectItem key={e.id} value={e.id}>{e.id} ({e.name})</SelectItem>)}
+                    {tempType === 'queue' && queues.map(q => <SelectItem key={q.id} value={q.name}>{q.name}</SelectItem>)}
+                    {tempType === 'ivr' && ivrs.map(i => <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Button variant="secondary" onClick={addMapping}><Plus className="h-4 w-4" /></Button>
               </div>
-              <Button variant="secondary" size="sm" className="w-full h-8" onClick={addMapping}>
-                Добавить в список
-              </Button>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddOpen(false)}>Отмена</Button>
             <Button onClick={handleSave} className="gap-2">
-              <CheckCircle2 className="h-4 w-4" /> Сохранить меню
+              <CheckCircle2 className="h-4 w-4" /> Сохранить IVR
             </Button>
           </DialogFooter>
         </DialogContent>
