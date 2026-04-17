@@ -28,6 +28,7 @@ export default function IvrPage() {
   const [isUploading, setIsUploading] = useState(false)
   
   const [newIvr, setNewIvr] = useState({ 
+    id: "",
     name: "", 
     announcementFile: "", 
     digitMappings: [] as string[],
@@ -86,7 +87,7 @@ export default function IvrPage() {
     }
     await saveIvr(newIvr)
     setIsAddOpen(false)
-    setNewIvr({ name: "", announcementFile: "", digitMappings: [], timeoutDestination: "" })
+    setNewIvr({ id: "", name: "", announcementFile: "", digitMappings: [], timeoutDestination: "" })
     load()
     toast({ title: "Голосовое меню сохранено" })
   }
@@ -99,7 +100,7 @@ export default function IvrPage() {
     const mapping = `${tempDigit}:${tempType}:${tempTarget}`
     setNewIvr(prev => ({
       ...prev,
-      digitMappings: [...prev.digitMappings, mapping]
+      digitMappings: [...(prev.digitMappings || []), mapping]
     }))
     setTempDigit("")
     setTempTarget("")
@@ -108,7 +109,7 @@ export default function IvrPage() {
   const removeMapping = (index: number) => {
     setNewIvr(prev => ({
       ...prev,
-      digitMappings: prev.digitMappings.filter((_, i) => i !== index)
+      digitMappings: (prev.digitMappings || []).filter((_, i) => i !== index)
     }))
   }
 
@@ -119,7 +120,10 @@ export default function IvrPage() {
           <h2 className="text-2xl font-bold text-primary">Голосовое меню (IVR)</h2>
           <p className="text-sm text-muted-foreground">Настройка приветствий и интерактивных переходов</p>
         </div>
-        <Button onClick={() => setIsAddOpen(true)} className="gap-2 shadow-lg">
+        <Button onClick={() => {
+          setNewIvr({ id: "", name: "", announcementFile: "", digitMappings: [], timeoutDestination: "" })
+          setIsAddOpen(true)
+        }} className="gap-2 shadow-lg">
           <Plus className="h-4 w-4" /> Создать IVR
         </Button>
       </div>
@@ -132,6 +136,12 @@ export default function IvrPage() {
                 <Mic2 className="h-5 w-5 text-primary" /> {ivr.name}
               </CardTitle>
               <div className="flex items-center gap-2">
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => {
+                  setNewIvr(ivr)
+                  setIsAddOpen(true)
+                }}>
+                  <Settings2 className="h-4 w-4" />
+                </Button>
                 <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" onClick={() => deleteIvr(ivr.id).then(load)}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -159,7 +169,7 @@ export default function IvrPage() {
               </div>
 
               <div className="space-y-2">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">Назначения кнопок:</p>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase mb-2">Назначения кнопок:</p>
                 <div className="grid gap-2">
                   {(ivr.digitMappings || []).map((m: string) => {
                     const [d, type, id] = m.split(':');
@@ -231,7 +241,7 @@ export default function IvrPage() {
               </Label>
               
               <div className="grid gap-2 max-h-[150px] overflow-y-auto mb-4 scrollbar-none">
-                {newIvr.digitMappings.map((m, idx) => {
+                {(newIvr.digitMappings || []).map((m, idx) => {
                   const [d, t, target] = m.split(':')
                   return (
                     <div key={idx} className="flex items-center justify-between bg-white p-2 rounded border text-xs shadow-sm">
@@ -263,7 +273,7 @@ export default function IvrPage() {
                   <SelectContent>
                     {tempType === 'ext' && extensions.map(e => <SelectItem key={e.id} value={e.id}>{e.id} ({e.name})</SelectItem>)}
                     {tempType === 'queue' && queues.map(q => <SelectItem key={q.id} value={q.name}>{q.name}</SelectItem>)}
-                    {tempType === 'ivr' && ivrs.map(i => <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>)}
+                    {tempType === 'ivr' && ivrs.filter(i => i.id !== newIvr.id).map(i => <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
                 <Button variant="secondary" onClick={addMapping}><Plus className="h-4 w-4" /></Button>
