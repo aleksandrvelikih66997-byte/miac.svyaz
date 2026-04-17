@@ -25,8 +25,10 @@ export default function LoginPage() {
       
       if (result.success) {
         toast({ title: "Успешный вход", description: "Перенаправление..." });
-        // Принудительная перезагрузка для обновления сессии в браузере
-        window.location.href = '/';
+        // Принудительная перезагрузка для Cloud Workstations
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 500);
       } else {
         toast({
           variant: "destructive",
@@ -95,7 +97,7 @@ export default function LoginPage() {
               </Button>
               <div className="flex items-center gap-2 p-3 bg-muted rounded-lg text-[10px] text-muted-foreground w-full">
                 <AlertCircle className="h-3 w-3" />
-                <span>Авторизация по локальной базе src/data/admins.json</span>
+                <span>Авторизация для Cloud Workstations (As134679)</span>
               </div>
             </CardFooter>
           </form>

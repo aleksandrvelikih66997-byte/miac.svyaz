@@ -15,7 +15,7 @@ function hashPassword(password: string) {
 export async function loginLocal(email: string, password: string) {
   try {
     if (!fs.existsSync(ADMINS_FILE)) {
-      return { success: false, error: 'Система нестроена.' };
+      return { success: false, error: 'Система не настроена.' };
     }
 
     const admins = JSON.parse(fs.readFileSync(ADMINS_FILE, 'utf8'));
@@ -28,16 +28,15 @@ export async function loginLocal(email: string, password: string) {
     const inputHash = hashPassword(password);
     
     if (admin.passwordHash !== inputHash) {
-      console.log(`Auth failed for ${email}. Expected: ${admin.passwordHash}, got: ${inputHash}`);
       return { success: false, error: 'Неверный логин или пароль.' };
     }
 
     const cookieStore = await cookies();
     
-    // Настройки для локальной сети БЕЗ HTTPS
+    // Настройки для Cloud Workstations (HTTPS)
     cookieStore.set('miac_session', JSON.stringify({ email: admin.email, role: admin.role }), {
       httpOnly: true,
-      secure: false, // ВАЖНО: false для работы по HTTP (AltLinux/Локалка)
+      secure: true, // ОБЯЗАТЕЛЬНО для HTTPS Cloud Workstations
       maxAge: 60 * 60 * 24, // 1 день
       path: '/',
       sameSite: 'lax'
