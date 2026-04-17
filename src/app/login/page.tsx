@@ -25,8 +25,8 @@ export default function LoginPage() {
       
       if (result.success) {
         toast({ title: "Успешный вход", description: "Добро пожаловать!" });
-        // Используем прямой переход для надежности сессии в локальной сети
-        window.location.href = '/';
+        // Используем принудительный переход с очисткой кэша для надежности редиректа
+        window.location.replace('/');
       } else {
         toast({
           variant: "destructive",

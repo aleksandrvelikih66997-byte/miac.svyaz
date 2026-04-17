@@ -1,3 +1,4 @@
+
 'use server';
 
 import fs from 'fs';
@@ -26,11 +27,11 @@ export async function loginLocal(email: string, password: string) {
 
     const cookieStore = await cookies();
     
-    // Устанавливаем куку с явным указанием пути
+    // Устанавливаем куку с явным указанием пути и отключенным secure для локальной сети
     cookieStore.set('miac_session', JSON.stringify({ email: admin.email, role: admin.role }), {
       httpOnly: true,
-      secure: false, // Обязательно false для локальной сети без HTTPS
-      maxAge: 60 * 60 * 24, // 1 день
+      secure: false, // Обязательно false для локальной сети без HTTPS (AltLinux SP 10)
+      maxAge: 60 * 60 * 24 * 7, // 7 дней
       path: '/',
       sameSite: 'lax'
     });
