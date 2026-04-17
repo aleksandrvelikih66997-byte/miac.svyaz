@@ -25,17 +25,25 @@ export default function RoutingPage() {
   const { toast } = useToast()
 
   const loadData = async () => {
-    const [r, t, e, q, i] = await Promise.all([getRoutes(), getTrunks(), getExtensions(), getQueues(), getIvrs()])
-    setRoutes(r)
-    setTrunks(t)
-    setExtensions(e)
-    setQueues(q)
-    setIvrs(i)
+    try {
+      const [r, t, e, q, i] = await Promise.all([getRoutes(), getTrunks(), getExtensions(), getQueues(), getIvrs()])
+      setRoutes(r || [])
+      setTrunks(t || [])
+      setExtensions(e || [])
+      setQueues(q || [])
+      setIvrs(i || [])
+    } catch (err) {
+      console.error("Failed to load routing data", err)
+    }
   }
 
   useEffect(() => { loadData() }, [])
 
   const handleAdd = async () => {
+    if (!newRoute.pattern || !newRoute.destination) {
+      toast({ title: "Ошибка", description: "Заполните шаблон и назначение", variant: "destructive" })
+      return
+    }
     await saveRoute({ ...newRoute, type: activeTab })
     setIsAddOpen(false)
     setNewRoute({ pattern: "", destination: "", name: "" })
@@ -45,6 +53,7 @@ export default function RoutingPage() {
 
   const handleDelete = async (id: string) => {
     await deleteRoute(id)
+    toast({ title: "Удалено", description: "Маршрут удален" })
     loadData()
   }
 
@@ -73,7 +82,7 @@ export default function RoutingPage() {
               <Info className="h-5 w-5 shrink-0" />
               <div>
                 <p className="font-bold uppercase mb-1">Как это работает?</p>
-                <p>Внутренние звонки (100 {"->"} 123) работают автоматически. Здесь настраивается только связь с внешним миром.</p>
+                <p>Внутренние звонки (100 {'->'} 123) работают автоматически. Здесь настраивается только связь с внешним миром.</p>
               </div>
             </CardContent>
           </Card>
@@ -147,16 +156,16 @@ export default function RoutingPage() {
                 <SelectContent>
                   {activeTab === 'inbound' ? (
                     <>
-                      <SelectItem value="" disabled className="font-bold text-primary">Абоненты</SelectItem>
+                      <SelectItem value="header-ext" disabled className="font-bold text-primary">Абоненты</SelectItem>
                       {extensions.map(e => <SelectItem key={e.id} value={`Extension:${e.id}`}>{e.id} - {e.name}</SelectItem>)}
-                      <SelectItem value="" disabled className="font-bold text-primary">Группы (Очереди)</SelectItem>
+                      <SelectItem value="header-q" disabled className="font-bold text-primary">Группы (Очереди)</SelectItem>
                       {queues.map(q => <SelectItem key={q.id} value={`Queue:${q.name}`}>{q.name}</SelectItem>)}
-                      <SelectItem value="" disabled className="font-bold text-primary">Голосовое меню (IVR)</SelectItem>
+                      <SelectItem value="header-ivr" disabled className="font-bold text-primary">Голосовое меню (IVR)</SelectItem>
                       {ivrs.map(i => <SelectItem key={i.id} value={`IVR:${i.id}`}>Меню: {i.name}</SelectItem>)}
                     </>
                   ) : (
                     <>
-                      <SelectItem value="" disabled className="font-bold text-primary">Внешние линии (Транки)</SelectItem>
+                      <SelectItem value="header-trunks" disabled className="font-bold text-primary">Внешние линии (Транки)</SelectItem>
                       {trunks.map(t => <SelectItem key={t.id} value={`Trunk:${t.id}`}>{t.name}</SelectItem>)}
                     </>
                   )}

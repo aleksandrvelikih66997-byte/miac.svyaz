@@ -1,4 +1,3 @@
-
 'use server';
 
 import fs from 'fs';
@@ -23,6 +22,7 @@ export async function uploadAudioAction(formData: FormData) {
       fs.mkdirSync(soundsDir, { recursive: true });
     }
 
+    // Очистка имени файла
     const fileName = file.name.replace(/\s+/g, '_').toLowerCase();
     const filePath = path.join(soundsDir, fileName);
     

@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect, useRef } from "react"
@@ -63,7 +62,6 @@ export default function IvrPage() {
     try {
       const result = await uploadAudioAction(formData)
       if (result.success) {
-        // Убираем расширение для астериска
         const nameWithoutExt = result.fileName.replace(/\.[^/.]+$/, "")
         setNewIvr({ ...newIvr, announcementFile: nameWithoutExt })
         toast({ title: "Файл загружен", description: `Имя в конфиге: ${nameWithoutExt}` })
@@ -206,13 +204,13 @@ export default function IvrPage() {
               <p className="text-[10px] font-bold uppercase text-primary">Добавить переход</p>
               <div className="flex gap-2">
                 <Input 
-                  placeholder="Цифра" 
+                  placeholder="Кнопка" 
                   className="w-20" 
                   value={tempDigit} 
                   onChange={e => setTempDigit(e.target.value)} 
                 />
                 <Select value={tempType} onValueChange={setTempType}>
-                  <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-[120px]"><SelectValue placeholder="Тип" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="ext">Абонент</SelectItem>
                     <SelectItem value="queue">Группа</SelectItem>
