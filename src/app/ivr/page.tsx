@@ -66,7 +66,6 @@ export default function IvrPage() {
     try {
       const result = await uploadAudioAction(formData)
       if (result.success) {
-        // Убираем расширение для астериска
         const nameWithoutExt = result.fileName.replace(/\.[^/.]+$/, "")
         setNewIvr(prev => ({ ...prev, announcementFile: nameWithoutExt }))
         toast({ title: "Файл загружен", description: `Имя в системе: ${nameWithoutExt}` })
@@ -172,12 +171,12 @@ export default function IvrPage() {
               <div className="space-y-2">
                 <p className="text-[10px] font-bold text-muted-foreground uppercase mb-2">Назначения кнопок:</p>
                 <div className="grid gap-2">
-                  {(ivr.digitMappings || []).map((m: string) => {
+                  {(ivr.digitMappings || []).map((m: string, idx: number) => {
                     const parts = m.split(':');
                     if (parts.length < 3) return null;
                     const [d, type, id] = parts;
                     return (
-                      <div key={m} className="flex items-center gap-3 text-xs bg-muted/40 p-2.5 rounded border">
+                      <div key={idx} className="flex items-center gap-3 text-xs bg-muted/40 p-2.5 rounded border">
                         <div className="h-6 w-6 rounded bg-primary text-white flex items-center justify-center font-bold">
                           {d}
                         </div>

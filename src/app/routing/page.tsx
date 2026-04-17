@@ -128,8 +128,8 @@ export default function RoutingPage() {
               <div>
                 <p className="font-bold mb-1">Исходящие (Шаблоны)</p>
                 <ul className="list-disc pl-4 space-y-1">
-                  <li><code className="bg-white px-1">8X.</code> — для звонков по РФ</li>
-                  <li><code className="bg-white px-1">.</code> — разрешить звонить на любые номера</li>
+                  <li><code className="bg-white px-1">8X.</code> {"—"} для звонков по РФ</li>
+                  <li><code className="bg-white px-1">.</code> {"—"} разрешить звонить на любые номера</li>
                 </ul>
               </div>
             </CardContent>
