@@ -1,3 +1,4 @@
+
 'use server';
 
 import fs from 'fs';
@@ -35,17 +36,13 @@ export async function loginLocal(email: string, password: string) {
 
     const cookieStore = await cookies();
     
-    /**
-     * В облачной среде Cloud Workstations (HTTPS) обязательны:
-     * secure: true - так как работаем по HTTPS
-     * sameSite: 'none' - так как приложение в iframe/через прокси
-     */
+    // В Cloud Workstations (HTTPS/Proxy) SameSite=None и Secure=true обязательны
     cookieStore.set('miac_session', JSON.stringify({ email: admin.email, role: admin.role }), {
       httpOnly: true,
       secure: true, 
       maxAge: 60 * 60 * 24, 
       path: '/',
-      sameSite: 'none'
+      sameSite: 'none' 
     });
 
     return { success: true };
