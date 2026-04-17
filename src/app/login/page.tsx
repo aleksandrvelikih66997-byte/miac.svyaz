@@ -25,7 +25,7 @@ export default function LoginPage() {
       
       if (result.success) {
         toast({ title: "Успешный вход", description: "Перенаправление..." });
-        // Используем жесткую перезагрузку страницы, чтобы браузер гарантированно подхватил куку
+        // Принудительная перезагрузка для обновления сессии в браузере
         window.location.href = '/';
       } else {
         toast({
@@ -39,17 +39,17 @@ export default function LoginPage() {
       toast({
         variant: "destructive",
         title: "Ошибка системы",
-        description: "Не удалось связаться с сервером.",
+        description: "Ошибка связи с сервером.",
       });
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4 bg-[radial-gradient(circle_at_top_right,_var(--tw-gradient-stops))] from-primary/5 via-transparent to-transparent">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4 bg-slate-50">
       <div className="w-full max-w-[400px] space-y-8">
         <div className="flex flex-col items-center text-center space-y-2">
-          <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/20">
+          <div className="h-12 w-12 rounded-xl bg-primary flex items-center justify-center text-primary-foreground shadow-lg">
             <PhoneCall className="h-6 w-6" />
           </div>
           <h1 className="text-2xl font-bold text-primary">МИАЦ.СВЯЗЬ</h1>
@@ -59,7 +59,7 @@ export default function LoginPage() {
         <Card className="border-none shadow-2xl">
           <CardHeader className="pb-4">
             <CardTitle className="text-xl flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5 text-accent" /> Вход
+              <ShieldCheck className="h-5 w-5 text-primary" /> Вход
             </CardTitle>
             <CardDescription>Введите данные администратора</CardDescription>
           </CardHeader>
@@ -69,11 +69,11 @@ export default function LoginPage() {
                 <Label htmlFor="email">Email</Label>
                 <Input 
                   id="email" 
-                  type="text" 
+                  type="email" 
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="admin@miac.ru"
+                  placeholder="velikih@miackuban.ru"
                   className="bg-white"
                 />
               </div>
@@ -93,7 +93,7 @@ export default function LoginPage() {
               <Button className="w-full" disabled={loading}>
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Войти"}
               </Button>
-              <div className="flex items-center gap-2 p-3 bg-muted rounded-lg text-[10px] text-muted-foreground">
+              <div className="flex items-center gap-2 p-3 bg-muted rounded-lg text-[10px] text-muted-foreground w-full">
                 <AlertCircle className="h-3 w-3" />
                 <span>Авторизация по локальной базе src/data/admins.json</span>
               </div>

@@ -15,13 +15,12 @@ function hashPassword(password: string) {
 export async function loginLocal(email: string, password: string) {
   try {
     if (!fs.existsSync(ADMINS_FILE)) {
-      return { success: false, error: 'Система не настроена. Создайте админа через консоль сервера.' };
+      return { success: false, error: 'Система не настроена.' };
     }
 
     const admins = JSON.parse(fs.readFileSync(ADMINS_FILE, 'utf8'));
-    const admin = admins.find((a: any) => a.email === email);
+    const admin = admins.find((a: any) => a.email.toLowerCase() === email.toLowerCase());
 
-    // Лог для отладки (в консоли сервера)
     const inputHash = hashPassword(password);
     
     if (!admin || admin.passwordHash !== inputHash) {
@@ -30,13 +29,11 @@ export async function loginLocal(email: string, password: string) {
 
     const cookieStore = await cookies();
     
-    // КРИТИЧЕСКИ ВАЖНО для AltLinux/Локальной сети:
-    // secure: false позволяет куке работать по HTTP
-    // sameSite: 'lax' и path: '/' обеспечивают видимость куки во всем приложении
+    // Настройки для локальной сети без HTTPS
     cookieStore.set('miac_session', JSON.stringify({ email: admin.email, role: admin.role }), {
       httpOnly: true,
-      secure: false, 
-      maxAge: 60 * 60 * 24 * 7, // 7 дней
+      secure: false, // Обязательно false для работы по HTTP
+      maxAge: 60 * 60 * 24, // 1 день
       path: '/',
       sameSite: 'lax'
     });
@@ -54,10 +51,10 @@ export async function logoutLocal() {
 }
 
 export async function getLocalSession() {
-  const cookieStore = await cookies();
-  const session = cookieStore.get('miac_session');
-  if (!session) return null;
   try {
+    const cookieStore = await cookies();
+    const session = cookieStore.get('miac_session');
+    if (!session) return null;
     return JSON.parse(session.value);
   } catch {
     return null;
