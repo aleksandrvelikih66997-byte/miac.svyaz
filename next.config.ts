@@ -1,3 +1,4 @@
+
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
@@ -29,6 +30,10 @@ const nextConfig: NextConfig = {
         pathname: '/**',
       },
     ],
+  },
+  // Увеличение лимита для загрузки аудиофайлов IVR
+  serverActions: {
+    bodySizeLimit: '10mb',
   },
 };
 

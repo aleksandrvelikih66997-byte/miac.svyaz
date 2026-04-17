@@ -1,1 +1,11 @@
-[]
+[
+  {
+    "pattern": ".",
+    "destination": "Extension:124",
+    "name": "",
+    "type": "inbound",
+    "id": "owohdzuso",
+    "lastUpdateDate": "2026-04-17T09:53:31.307Z",
+    "creationDate": "2026-04-17T09:53:31.307Z"
+  }
+]
