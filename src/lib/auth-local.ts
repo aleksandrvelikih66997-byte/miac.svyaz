@@ -36,8 +36,7 @@ export async function loginLocal(email: string, password: string) {
 
     const cookieStore = await cookies();
     
-    // Настройки для Cloud Workstations (HTTPS + Iframe)
-    // sameSite: 'none' и secure: true критически важны в этой среде
+    // В среде Cloud Workstations (HTTPS) обязательны secure: true и sameSite: 'none'
     cookieStore.set('miac_session', JSON.stringify({ email: admin.email, role: admin.role }), {
       httpOnly: true,
       secure: true, 
