@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -143,15 +144,15 @@ export default function ExtensionsPage() {
               </CardTitle>
             </CardHeader>
             <CardContent className="text-xs space-y-3 text-amber-900">
-              <p>Для корректной работы MicroSIP или Zoiper:</p>
+              <p>Для корректной работы Yealink, MicroSIP или Zoiper:</p>
               <ul className="list-disc pl-4 space-y-2">
                 <li><strong>SIP Server:</strong> IP вашего сервера</li>
-                <li><strong>Username:</strong> Номер (например, {filtered[0]?.id || '101'})</li>
-                <li><strong>Auth ID:</strong> ТОЖЕ номер (обязательно!)</li>
+                <li><strong>User ID:</strong> Номер ({filtered[0]?.id || '101'})</li>
+                <li><strong>Auth ID:</strong> ОБЯЗАТЕЛЬНО номер ({filtered[0]?.id || '101'})</li>
                 <li><strong>Password:</strong> Секрет из настроек</li>
               </ul>
-              <p className="font-bold border-t border-amber-200 pt-2">Важно!</p>
-              <p>Если номер не регистрируется, проверьте, что Auth ID совпадает с номером.</p>
+              <p className="font-bold border-t border-amber-200 pt-2 text-rose-700">Внимание Yealink!</p>
+              <p>Если в поле From отправляется IP вместо номера, проверьте настройку "Account Name" и "Label" — они должны быть числовыми.</p>
             </CardContent>
           </Card>
         </div>
@@ -166,13 +167,11 @@ export default function ExtensionsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label>Номер *</Label>
-                <input 
-                  type="text"
+                <Input 
                   value={currentExt.id} 
                   disabled={isEditing}
                   onChange={(e) => setCurrentExt({...currentExt, id: e.target.value})} 
                   placeholder="101" 
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 />
               </div>
               <div className="grid gap-2">
