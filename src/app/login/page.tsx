@@ -25,10 +25,10 @@ export default function LoginPage() {
       
       if (result.success) {
         toast({ title: "Успешный вход", description: "Перенаправление..." });
-        // Принудительная перезагрузка для Cloud Workstations
+        // Прямой редирект для облачных сред
         setTimeout(() => {
-          window.location.href = '/';
-        }, 500);
+          window.location.assign('/');
+        }, 100);
       } else {
         toast({
           variant: "destructive",
@@ -40,8 +40,8 @@ export default function LoginPage() {
     } catch (err) {
       toast({
         variant: "destructive",
-        title: "Ошибка системы",
-        description: "Ошибка связи с сервером.",
+        title: "Ошибка",
+        description: "Проблема связи с сервером.",
       });
       setLoading(false);
     }
@@ -55,7 +55,7 @@ export default function LoginPage() {
             <PhoneCall className="h-6 w-6" />
           </div>
           <h1 className="text-2xl font-bold text-primary">МИАЦ.СВЯЗЬ</h1>
-          <p className="text-sm text-muted-foreground">Панель управления телефонией</p>
+          <p className="text-sm text-muted-foreground">AltLinux SP 10 Administration</p>
         </div>
 
         <Card className="border-none shadow-2xl">

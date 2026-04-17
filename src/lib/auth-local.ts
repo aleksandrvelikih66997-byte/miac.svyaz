@@ -28,18 +28,18 @@ export async function loginLocal(email: string, password: string) {
     const inputHash = hashPassword(password);
     
     if (admin.passwordHash !== inputHash) {
-      return { success: false, error: 'Неверный логин или пароль.' };
+      return { success: false, error: 'Неверные данные.' };
     }
 
     const cookieStore = await cookies();
     
-    // Настройки для Cloud Workstations (HTTPS)
+    // Настройки для Cloud Workstations (HTTPS + Iframe)
     cookieStore.set('miac_session', JSON.stringify({ email: admin.email, role: admin.role }), {
       httpOnly: true,
-      secure: true, // ОБЯЗАТЕЛЬНО для HTTPS Cloud Workstations
-      maxAge: 60 * 60 * 24, // 1 день
+      secure: true, 
+      maxAge: 60 * 60 * 24, 
       path: '/',
-      sameSite: 'lax'
+      sameSite: 'none' // Критично для Cloud Workstations
     });
 
     return { success: true };
