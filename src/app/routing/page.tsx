@@ -79,7 +79,7 @@ export default function RoutingPage() {
         <div className="mt-6">
           <Card className="bg-blue-50/50 border-blue-100 mb-6">
             <CardContent className="p-4 flex gap-4 text-xs text-blue-800">
-              <Info className="h-5 w-5 shrink-0" />
+              <div className="shrink-0"><Info className="h-5 w-5" /></div>
               <div>
                 <p className="font-bold uppercase mb-1">Как это работает?</p>
                 <p>Внутренние звонки (100 {"->"} 123) работают автоматически. Здесь настраивается только связь с внешним миром.</p>
