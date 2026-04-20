@@ -58,14 +58,14 @@ export function AppSidebar() {
   const pathname = usePathname()
 
   return (
-    <Sidebar collapsible="none" className="bg-sidebar border-r h-screen sticky top-0 flex flex-col shrink-0 overflow-hidden">
+    <Sidebar collapsible="none" className="bg-sidebar border-r h-screen sticky top-0 flex flex-col shrink-0 overflow-hidden z-20">
       <SidebarHeader className="px-6 py-6 border-b border-sidebar-border/50 shrink-0">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-white shadow-lg">
             <Phone className="h-6 w-6" />
           </div>
           <div className="flex flex-col">
-            <span className="font-bold text-lg text-sidebar-foreground">МИАЦ.СВЯЗЬ</span>
+            <span className="font-bold text-lg text-sidebar-foreground leading-tight">МИАЦ.СВЯЗЬ</span>
             <span className="text-[10px] text-sidebar-foreground/50 uppercase tracking-tighter font-bold">v1.0 • Asterisk 17 free</span>
           </div>
         </div>
@@ -99,7 +99,7 @@ export function AppSidebar() {
       <SidebarFooter className="p-4 border-t border-sidebar-border bg-sidebar-accent/20 shrink-0">
          <div className="flex flex-col gap-1">
            <span className="text-[10px] text-sidebar-foreground/40 font-bold uppercase tracking-widest">Платформа</span>
-           <span className="text-[11px] text-sidebar-foreground/60 font-medium font-bold uppercase">AltLinux SP 10 (ФСТЭК)</span>
+           <span className="text-[11px] text-sidebar-foreground/60 font-black uppercase">AltLinux SP 10 (ФСТЭК)</span>
          </div>
       </SidebarFooter>
     </Sidebar>

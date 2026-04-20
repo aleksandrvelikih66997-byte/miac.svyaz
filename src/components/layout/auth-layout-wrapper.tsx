@@ -49,18 +49,18 @@ export function AuthLayoutWrapper({ children, initialSession }: AuthLayoutWrappe
 
   return (
     <SidebarProvider defaultOpen={true} className="h-screen overflow-hidden">
-      <div className="flex h-screen w-full overflow-hidden">
+      <div className="flex h-screen w-full overflow-hidden bg-slate-50">
         <AppSidebar />
-        <SidebarInset className="flex-1 flex flex-col h-screen overflow-hidden bg-slate-50">
-          <header className="flex h-16 items-center justify-between border-b px-8 shrink-0 bg-background shadow-sm z-10">
+        <SidebarInset className="flex-1 flex flex-col h-screen overflow-hidden bg-transparent">
+          <header className="flex h-16 items-center justify-between border-b px-8 shrink-0 bg-background shadow-sm z-30">
             <div className="flex items-center gap-3">
               <Shield className="h-5 w-5 text-primary" />
-              <span className="font-bold uppercase tracking-tight text-primary text-sm">Панель управления МИАЦ.СВЯЗЬ</span>
+              <span className="font-bold uppercase tracking-tight text-primary text-sm">МИАЦ.СВЯЗЬ — Панель управления</span>
             </div>
             <div className="flex items-center gap-6">
                <div className="flex flex-col items-end">
                  <span className="text-xs font-bold text-slate-700">{initialSession.email}</span>
-                 <span className="text-[10px] text-muted-foreground uppercase tracking-tighter font-bold">Администратор системы</span>
+                 <span className="text-[10px] text-muted-foreground uppercase tracking-tighter font-bold">Администратор</span>
                </div>
                <div className="h-8 w-px bg-border mx-2" />
                <Button variant="ghost" size="sm" onClick={handleLogout} className="text-destructive hover:bg-destructive/5 gap-2 font-bold h-9">
@@ -68,8 +68,8 @@ export function AuthLayoutWrapper({ children, initialSession }: AuthLayoutWrappe
                </Button>
             </div>
           </header>
-          <main className="flex-1 p-8 overflow-y-auto w-full scrollbar-none">
-            <div className="max-w-[1400px] mx-auto pb-12">
+          <main className="flex-1 p-8 overflow-y-auto w-full scrollbar-none relative">
+            <div className="max-w-[1400px] mx-auto pb-24">
               {children}
             </div>
           </main>

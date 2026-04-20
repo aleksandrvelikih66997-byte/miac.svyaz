@@ -24,13 +24,14 @@ export function rebuildAsteriskConfig() {
   const queues = readJSON('queues.json');
   const routes = readJSON('routes.json');
 
-  let dialplanConfig = '; Генерируемый диалплан МИАЦ.СВЯЗЬ (v1.0)\n\n';
+  let dialplanConfig = '; Генерируемый диалплан МИАЦ.СВЯЗЬ (v1.0)\n';
+  dialplanConfig += '[general]\nstatic=yes\nwriteprotect=yes\nclearglobalvars=no\n\n';
 
-  // 1. IVR Contexts (Должны быть объявлены ДО использования в маршрутах)
+  // 1. IVR Contexts
   ivrs.forEach((ivr: any) => {
     dialplanConfig += `[miac-ivr-${ivr.id}]\n`;
-    dialplanConfig += `exten => s,1,NoOp(IVR START: ${ivr.name})\n`;
-    dialplanConfig += `exten => s,2,Answer()\n`;
+    dialplanConfig += `exten => s,1,Answer()\n`;
+    dialplanConfig += `exten => s,2,NoOp(IVR START: ${ivr.name})\n`;
     dialplanConfig += `exten => s,3,Background(/var/lib/asterisk/sounds/miac/${ivr.announcementFile})\n`;
     dialplanConfig += `exten => s,4,WaitExten(10)\n`;
 
@@ -44,41 +45,36 @@ export function rebuildAsteriskConfig() {
       else if (type === 'ivr') dialplanConfig += `exten => ${digit},1,Goto(miac-ivr-${target},s,1)\n`;
     });
 
-    // Прямой донабор внутреннего номера или очереди
-    dialplanConfig += `exten => _X.,1,Goto(miac-internal,\${EXTEN},1)\n`;
-
-    // Таймаут
+    // Обработка таймаута
     dialplanConfig += `exten => t,1,NoOp(IVR Timeout)\n`;
     if (ivr.timeoutDestination) {
       const parts = ivr.timeoutDestination.split(':');
-      const target = parts[1];
-      dialplanConfig += `exten => t,2,Goto(miac-internal,${target},1)\n`;
+      dialplanConfig += `exten => t,2,Goto(miac-internal,${parts[1]},1)\n`;
     } else {
       dialplanConfig += `exten => t,2,Hangup()\n`;
     }
 
-    // Ошибка набора
-    dialplanConfig += `exten => i,1,NoOp(IVR Invalid Input)\n`;
+    // Обработка неверного ввода
+    dialplanConfig += `exten => i,1,NoOp(IVR Invalid)\n`;
     dialplanConfig += `exten => i,2,Goto(s,1)\n\n`;
   });
 
-  // 2. Internal Context (Универсальный: Абоненты + Группы)
+  // 2. Internal Context
   dialplanConfig += `[miac-internal]\n`;
-  dialplanConfig += `exten => _X.,1,NoOp(MIAC CALL: \${EXTEN})\n`;
+  dialplanConfig += `exten => _X.,1,NoOp(INTERNAL CALL: \${EXTEN})\n`;
   dialplanConfig += `exten => _X.,2,Set(D_STATE=\${DEVICE_STATE(PJSIP/\${EXTEN})})\n`;
-  // Если PJSIP эндпоинт не существует (INVALID), пробуем вызвать как очередь
   dialplanConfig += `exten => _X.,3,GotoIf($["\${D_STATE}" = "INVALID"]?dial-q:dial-ext)\n`;
   
   // Вызов абонента
   dialplanConfig += `exten => _X.,4(dial-ext),Dial(PJSIP/\${EXTEN},30)\n`;
   dialplanConfig += `exten => _X.,5,Hangup()\n`;
   
-  // Вызов очереди
+  // Вызов очереди (с проверкой на наличие приложения Queue)
   dialplanConfig += `exten => _X.,6(dial-q),NoOp(Dialing Queue: \${EXTEN})\n`;
   dialplanConfig += `exten => _X.,7,Queue(\${EXTEN},,,,30)\n`;
   dialplanConfig += `exten => _X.,8,Hangup()\n\n`;
 
-  // 3. Trunk Context (Входящие)
+  // 3. Inbound Context
   dialplanConfig += `[from-trunk]\n`;
   const inboundRoutes = routes.filter((r: any) => r.type === 'inbound');
   
@@ -92,12 +88,7 @@ export function rebuildAsteriskConfig() {
       let type = destParts[0];
       let id = destParts[1];
 
-      let astTarget = '';
-      if (type === 'IVR') {
-        astTarget = `miac-ivr-${id},s,1`;
-      } else {
-        astTarget = `miac-internal,${id},1`;
-      }
+      let astTarget = (type === 'IVR') ? `miac-ivr-${id},s,1` : `miac-internal,${id},1`;
 
       dialplanConfig += `exten => ${pattern},1,NoOp(Incoming to ${pattern})\n`;
       dialplanConfig += `exten => ${pattern},2,Goto(${astTarget})\n`;

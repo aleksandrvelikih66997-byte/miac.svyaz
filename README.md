@@ -1,3 +1,4 @@
+
 # МИАЦ.СВЯЗЬ (МИАЦ.АТС)
 
 Профессиональный веб-интерфейс управления IP-АТС Asterisk для **AltLinux SP 10** и **Asterisk 17/20**.
@@ -7,7 +8,16 @@
 
 ## 🚀 Настройка Asterisk (ОБЯЗАТЕЛЬНО)
 
-Для корректной работы системы необходимо связать основные конфигурационные файлы Asterisk с нашими генерируемыми файлами.
+### 0. Установка необходимых модулей (AltLinux)
+Если в логах появляется ошибка `No application 'Queue'`, установите и загрузите модули:
+```bash
+# Установка (если пакеты разделены)
+apt-get install asterisk-queue asterisk-pjsip
+
+# Проверка загрузки в консоли Asterisk
+asterisk -rx "module load app_queue.so"
+asterisk -rx "module load res_pjsip.so"
+```
 
 ### 1. Настройка PJSIP (Абоненты и Транки)
 Отредактируйте `/etc/asterisk/pjsip.conf`. В самом конце файла добавьте строки:
@@ -62,5 +72,5 @@ npm run bridge
 ## 🛠 Команды отладки
 - `pjsip show endpoints` — список всех номеров и транков.
 - `queue show` — проверка статуса очередей (групп).
-- `dialplan show miac-internal` — проверка внутренней маршрутизации.
-- `pjsip show registrations` — проверка статуса регистрации транков у провайдера.
+- `dialplan show from-trunk` — проверка входящей маршрутизации.
+- `module show like queue` — проверка загрузки модуля очередей.
