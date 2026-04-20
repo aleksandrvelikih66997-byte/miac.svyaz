@@ -14,7 +14,13 @@ import {
   Copy,
   History,
   ShieldCheck,
-  Search
+  Search,
+  Trash2,
+  User,
+  Plus,
+  CheckCircle2,
+  Lock,
+  Mail
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -25,6 +31,9 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { getAuditLogs } from "@/lib/audit-logger"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
+import { getAdmins, createAdmin, deleteAdmin } from "@/lib/auth-local"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
 
 export default function ServicesPage() {
   const [logs] = useState([
@@ -33,23 +42,53 @@ export default function ServicesPage() {
     "[БЕЗОПАСНОСТЬ] Режим ФСТЭК: Включен.",
   ])
   const [auditLogs, setAuditLogs] = useState<any[]>([])
+  const [admins, setAdmins] = useState<any[]>([])
   const [searchLog, setSearchLog] = useState("")
+  const [isAddUserOpen, setIsAddUserOpen] = useState(false)
+  const [newUser, setNewUser] = useState({ email: "", password: "" })
   const { toast } = useToast()
 
-  const loadAudit = async () => {
-    const data = await getAuditLogs()
-    setAuditLogs(data)
+  const loadData = async () => {
+    const [auditData, adminData] = await Promise.all([getAuditLogs(), getAdmins()])
+    setAuditLogs(auditData)
+    setAdmins(adminData)
   }
 
   useEffect(() => {
-    loadAudit()
-    const interval = setInterval(loadAudit, 10000)
+    loadData()
+    const interval = setInterval(loadData, 10000)
     return () => clearInterval(interval)
   }, [])
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text)
-    toast({ title: "Скопировано в буфер" })
+  const handleCreateAdmin = async () => {
+    if (!newUser.email || !newUser.password) {
+      toast({ title: "Ошибка", description: "Заполните все поля", variant: "destructive" })
+      return
+    }
+    if (newUser.password.length < 8) {
+      toast({ title: "Слабый пароль", description: "Пароль должен быть не менее 8 знаков", variant: "destructive" })
+      return
+    }
+
+    const res = await createAdmin(newUser.email, newUser.password)
+    if (res.success) {
+      toast({ title: "Успешно", description: "Администратор добавлен" })
+      setIsAddUserOpen(false)
+      setNewUser({ email: "", password: "" })
+      loadData()
+    } else {
+      toast({ title: "Ошибка", description: res.error, variant: "destructive" })
+    }
+  }
+
+  const handleDeleteAdmin = async (email: string) => {
+    const res = await deleteAdmin(email)
+    if (res.success) {
+      toast({ title: "Удалено", description: `Пользователь ${email} удален` })
+      loadData()
+    } else {
+      toast({ title: "Ошибка", description: res.error, variant: "destructive" })
+    }
   }
 
   const filteredAudit = auditLogs.filter(log => 
@@ -91,7 +130,7 @@ export default function ServicesPage() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <ScrollArea className="h-[400px]">
+              <ScrollArea className="h-[300px]">
                 <Table>
                   <TableHeader className="bg-muted/30">
                     <TableRow>
@@ -129,21 +168,51 @@ export default function ServicesPage() {
             </CardContent>
           </Card>
 
-          <Alert className="bg-amber-50 border-amber-200 shadow-sm">
-            <Volume2 className="h-5 w-5 text-amber-600" />
-            <AlertTitle className="font-bold text-amber-900">Установка русской озвучки в AltLinux</AlertTitle>
-            <AlertDescription className="text-[11px] mt-2 space-y-3 text-amber-800">
-              <p>Для вашего сервера AltLinux SP 10 правильный пакет называется <b>asterisk-sounds-ru-base</b>. Выполните команду:</p>
-              <div className="bg-slate-900 text-slate-100 p-3 rounded flex items-center justify-between font-mono">
-                <span>apt-get install asterisk-sounds-ru-base</span>
-                <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400" onClick={() => copyToClipboard('apt-get install asterisk-sounds-ru-base')}>
-                  <Copy className="h-3 w-3" />
+          <Card className="border-none shadow-xl overflow-hidden">
+            <CardHeader className="bg-slate-50 border-b py-4">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-sm font-bold flex items-center gap-2 text-primary">
+                  <User className="h-4 w-4" /> Администраторы веб-интерфейса
+                </CardTitle>
+                <Button size="sm" className="h-8 gap-2" onClick={() => setIsAddUserOpen(true)}>
+                  <Plus className="h-3 w-3" /> Добавить
                 </Button>
               </div>
-            </AlertDescription>
-          </Alert>
+            </CardHeader>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="text-[10px] uppercase font-bold">Email / Логин</TableHead>
+                    <TableHead className="text-[10px] uppercase font-bold">Дата создания</TableHead>
+                    <TableHead className="text-[10px] uppercase font-bold text-right">Действия</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {admins.map((admin) => (
+                    <TableRow key={admin.email}>
+                      <TableCell className="text-xs font-medium">{admin.email}</TableCell>
+                      <TableCell className="text-[10px] text-muted-foreground">
+                        {new Date(admin.createdAt).toLocaleDateString('ru-RU')}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 text-destructive"
+                          onClick={() => handleDeleteAdmin(admin.email)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
 
-          <Card className="border-none shadow-xl flex flex-col h-[200px] overflow-hidden">
+          <Card className="border-none shadow-xl flex flex-col h-[180px] overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between shrink-0 bg-slate-900 text-white py-3">
               <div className="flex items-center gap-3">
                 <Terminal className="h-4 w-4 text-emerald-400" />
@@ -191,6 +260,14 @@ export default function ServicesPage() {
                   Куки сессии защищены (HttpOnly) и имеют ограниченное время жизни.
                 </p>
               </div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-[10px] font-bold text-emerald-700 uppercase">
+                   <Badge variant="outline" className="h-4 border-emerald-300">ВКЛ</Badge> Аудит событий
+                </div>
+                <p className="text-[10px] text-emerald-800 leading-relaxed">
+                  Каждое действие администратора фиксируется в журнале с привязкой к аккаунту.
+                </p>
+              </div>
             </CardContent>
           </Card>
 
@@ -210,6 +287,47 @@ export default function ServicesPage() {
           </Card>
         </div>
       </div>
+
+      <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Новый администратор</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label>Email / Логин</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input 
+                  value={newUser.email} 
+                  onChange={e => setNewUser({...newUser, email: e.target.value})} 
+                  placeholder="admin@miackuban.ru" 
+                  className="pl-9"
+                />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label>Пароль (минимум 8 знаков)</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input 
+                  type="password"
+                  value={newUser.password} 
+                  onChange={e => setNewUser({...newUser, password: e.target.value})} 
+                  placeholder="••••••••" 
+                  className="pl-9"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAddUserOpen(false)}>Отмена</Button>
+            <Button onClick={handleCreateAdmin} className="gap-2">
+              <CheckCircle2 className="h-4 w-4" /> Создать
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

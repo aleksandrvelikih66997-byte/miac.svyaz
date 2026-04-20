@@ -21,6 +21,8 @@ export type AuditAction =
   | 'DELETE_QUEUE'
   | 'SAVE_IVR'
   | 'DELETE_IVR'
+  | 'CREATE_ADMIN'
+  | 'DELETE_ADMIN'
   | 'SYSTEM_RELOAD';
 
 export async function logAuditAction(action: AuditAction, details: string) {
@@ -46,7 +48,6 @@ export async function logAuditAction(action: AuditAction, details: string) {
 
     logs.unshift(newLog); // Новые сверху
     
-    // Ограничиваем лог последними 500 записями
     const limitedLogs = logs.slice(0, 500);
     
     fs.writeFileSync(LOGS_FILE, JSON.stringify(limitedLogs, null, 2));
