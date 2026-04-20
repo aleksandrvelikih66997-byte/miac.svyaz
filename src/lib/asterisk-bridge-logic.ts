@@ -3,10 +3,6 @@ import fs from 'fs';
 import path from 'path';
 import { exec } from 'child_process';
 
-/**
- * Логика генерации конфигурационных файлов Asterisk.
- * Вызывается автоматически при любом изменении данных в веб-интерфейсе.
- */
 export function rebuildAsteriskConfig() {
   const DATA_DIR = path.resolve(process.cwd(), 'src/data');
   const AST_DIR = '/etc/asterisk';
@@ -30,7 +26,7 @@ export function rebuildAsteriskConfig() {
   const queues = readJSON('queues.json');
   const routes = readJSON('routes.json');
 
-  // 1. PJSIP Users (Абоненты)
+  // 1. PJSIP Users
   let usersConfig = '; Генерируемые абоненты МИАЦ\n\n';
   extensions.forEach((ext: any) => {
     usersConfig += `[${ext.id}]\ntype=endpoint\ncontext=miac-internal\ndisallow=all\nallow=ulaw,alaw\nauth=auth-${ext.id}\naors=${ext.id}\n\n`;
@@ -38,7 +34,7 @@ export function rebuildAsteriskConfig() {
     usersConfig += `[${ext.id}]\ntype=aor\nmax_contacts=5\n\n`;
   });
 
-  // 2. PJSIP Trunks (Внешние линии)
+  // 2. PJSIP Trunks
   let trunksConfig = '; Генерируемые транки МИАЦ\n\n';
   trunks.forEach((trunk: any) => {
     trunksConfig += `[trunk-${trunk.id}]\ntype=endpoint\ncontext=from-trunk\ndisallow=all\nallow=ulaw,alaw\noutbound_auth=auth-${trunk.id}\naors=aor-${trunk.id}\n\n`;
@@ -48,7 +44,7 @@ export function rebuildAsteriskConfig() {
     trunksConfig += `[identify-${trunk.id}]\ntype=identify\nendpoint=trunk-${trunk.id}\nmatch=${trunk.host}\n\n`;
   });
 
-  // 3. Queues (Очереди)
+  // 3. Queues
   let queuesConfig = '; Генерируемые очереди МИАЦ\n\n';
   queues.forEach((q: any) => {
     queuesConfig += `[${q.name}]\nstrategy=${q.strategy || 'ringall'}\nmusicclass=${q.musicOnHoldClass || 'default'}\n`;
@@ -60,25 +56,39 @@ export function rebuildAsteriskConfig() {
 
   // 4. Dialplan
   let dialplanConfig = '; Генерируемый диалплан МИАЦ\n\n';
-  
   dialplanConfig += `[from-trunk]\n`;
+  
   const inboundRoutes = routes.filter((r: any) => r.type === 'inbound');
   
   if (inboundRoutes.length > 0) {
     inboundRoutes.forEach((route: any) => {
       const pattern = route.pattern === '*' ? 's' : route.pattern;
-      let target = '';
-      if (route.destination.startsWith('IVR:')) {
-        target = `miac-ivr-${route.destination.split(':')[1]},s,1`;
-      } else if (route.destination.startsWith('Queue:')) {
-        target = `miac-queues,${route.destination.split(':')[1]},1`;
-      } else if (route.destination.startsWith('Extension:')) {
-        target = `miac-internal,${route.destination.split(':')[1]},1`;
+      let destParts = route.destination.split(':');
+      let type = destParts[0];
+      let id = destParts[1];
+
+      // Проверка на существование цели (защита от инвалидных переходов)
+      let targetExists = false;
+      if (type === 'IVR') targetExists = ivrs.some((i: any) => i.id === id);
+      else if (type === 'Queue') targetExists = queues.some((q: any) => q.name === id);
+      else if (type === 'Extension') targetExists = extensions.some((e: any) => e.id === id);
+
+      // Если цель не найдена, но есть IVR, перенаправляем на первый попавшийся
+      if (!targetExists && ivrs.length > 0) {
+        id = ivrs[0].id;
+        type = 'IVR';
       }
-      
-      if (target) {
-        dialplanConfig += `exten => ${pattern},1,Goto(${target})\n`;
-        if (pattern === 's') dialplanConfig += `exten => _.,1,Goto(${target})\n`;
+
+      let astTarget = '';
+      if (type === 'IVR') astTarget = `miac-ivr-${id},s,1`;
+      else if (type === 'Queue') astTarget = `miac-queues,${id},1`;
+      else if (type === 'Extension') astTarget = `miac-internal,${id},1`;
+
+      if (astTarget) {
+        dialplanConfig += `exten => ${pattern},1,Goto(${astTarget})\n`;
+        if (pattern === 's' || pattern === '*') {
+          dialplanConfig += `exten => _.,1,Goto(${astTarget})\n`;
+        }
       }
     });
   } else if (ivrs.length > 0) {
@@ -121,6 +131,7 @@ export function rebuildAsteriskConfig() {
   dialplanConfig += `exten => _XXX,1,Dial(PJSIP/\${EXTEN},30)\n`;
   dialplanConfig += `exten => _XXX,n,Hangup()\n\n`;
 
+  // Запись файлов
   try {
     if (fs.existsSync(AST_DIR)) {
       fs.writeFileSync(path.join(AST_DIR, 'pjsip_miac_users.conf'), usersConfig);
@@ -128,14 +139,10 @@ export function rebuildAsteriskConfig() {
       fs.writeFileSync(path.join(AST_DIR, 'queues_miac.conf'), queuesConfig);
       fs.writeFileSync(path.join(AST_DIR, 'extensions_miac_dialplan.conf'), dialplanConfig);
       exec('asterisk -rx "core reload"');
-      console.log('[BRIDGE] Files updated and Asterisk reloaded.');
-    } else {
-      console.log('[BRIDGE] /etc/asterisk not found. Generation skipped.');
     }
-  } catch (e) {
-    console.error('[BRIDGE] Write Error:', e);
-  }
+  } catch (e) {}
 
+  // Синхронизация звуков
   try {
     if (fs.existsSync(SOUNDS_SRC)) {
       if (!fs.existsSync(SOUNDS_DEST)) fs.mkdirSync(SOUNDS_DEST, { recursive: true });
@@ -143,7 +150,7 @@ export function rebuildAsteriskConfig() {
         const src = path.join(SOUNDS_SRC, f);
         const dest = path.join(SOUNDS_DEST, f);
         fs.copyFileSync(src, dest);
-        fs.chmodSync(dest, 0o666);
+        try { fs.chmodSync(dest, 0o666); } catch(e) {}
       });
     }
   } catch (e) {}
