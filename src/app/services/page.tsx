@@ -25,7 +25,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { useFirestore } from "@/firebase"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
@@ -62,19 +61,18 @@ export default function ServicesPage() {
             <Volume2 className="h-5 w-5 text-amber-600" />
             <AlertTitle className="font-bold text-amber-900">Установка русской озвучки в AltLinux</AlertTitle>
             <AlertDescription className="text-[11px] mt-2 space-y-3 text-amber-800">
-              <p>Если пакет <i>asterisk-sounds-ru</i> не найден, попробуйте найти правильное название в вашем репозитории:</p>
+              <p>Для вашего сервера AltLinux SP 10 правильный пакет называется <b>asterisk-sounds-ru-base</b>. Выполните команду:</p>
               <div className="bg-slate-900 text-slate-100 p-3 rounded flex items-center justify-between font-mono">
-                <span>apt-cache search asterisk-sounds</span>
-                <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400" onClick={() => copyToClipboard('apt-cache search asterisk-sounds')}>
-                  <Search className="h-3 w-3" />
+                <span>apt-get install asterisk-sounds-ru-base</span>
+                <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400" onClick={() => copyToClipboard('apt-get install asterisk-sounds-ru-base')}>
+                  <Copy className="h-3 w-3" />
                 </Button>
               </div>
-              <p className="font-bold">Ручная установка (рекомендуется):</p>
-              <p>Вы можете загрузить озвучку напрямую в папку системы:</p>
+              <p className="font-bold">Если функции CHANNEL/LANGUAGE не работают:</p>
+              <p>Проверьте, загружен ли модуль функций канала:</p>
               <div className="bg-slate-900 text-slate-100 p-3 rounded text-[10px] font-mono whitespace-pre overflow-x-auto">
-                cd /var/lib/asterisk/sounds/ru && \<br/>
-                wget http://asterisk.ru/files/sounds-ru.tar.gz && \<br/>
-                tar xvf sounds-ru.tar.gz
+                asterisk -rx "module load func_channel.so"<br/>
+                asterisk -rx "module load func_language.so"
               </div>
             </AlertDescription>
           </Alert>

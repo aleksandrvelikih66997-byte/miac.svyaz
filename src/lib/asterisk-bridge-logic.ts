@@ -57,15 +57,23 @@ export function rebuildAsteriskConfig() {
   // 4. Dialplan
   let dialplanConfig = '; Генерируемый диалплан МИАЦ\n\n';
   
-  // Внутренний контекст с проверкой существования через DEVICE_STATE
+  // Внутренний контекст
   dialplanConfig += `[miac-internal]\n`;
-  dialplanConfig += `exten => _X.,1,NoOp(Internal Call to \${EXTEN})\n`;
+  dialplanConfig += `exten => _X.,1,NoOp(Calling Extension \${EXTEN})\n`;
   dialplanConfig += `same => n,Set(D_STATE=\${DEVICE_STATE(PJSIP/\${EXTEN})})\n`;
   dialplanConfig += `same => n,GotoIf($["\${D_STATE}" = "INVALID"]?fail:dial)\n`;
   dialplanConfig += `same => n(dial),Dial(PJSIP/\${EXTEN},30)\n`;
-  dialplanConfig += `same => n,Hangup()\n`;
+  dialplanConfig += `same => n,Goto(s-\${DIALSTATUS},1)\n`;
   dialplanConfig += `same => n(fail),Answer()\n`;
   dialplanConfig += `same => n,Wait(1)\n`;
+  dialplanConfig += `same => n,Hangup()\n\n`;
+
+  // Обработка статусов дозвона
+  dialplanConfig += `exten => s-BUSY,1,NoOp(Status Busy)\n`;
+  dialplanConfig += `same => n,Hangup()\n`;
+  dialplanConfig += `exten => s-NOANSWER,1,NoOp(No Answer)\n`;
+  dialplanConfig += `same => n,Hangup()\n`;
+  dialplanConfig += `exten => s-CHANUNAVAIL,1,NoOp(Channel Unavailable)\n`;
   dialplanConfig += `same => n,Hangup()\n\n`;
 
   // Входящие из транков
@@ -74,7 +82,6 @@ export function rebuildAsteriskConfig() {
   
   if (inboundRoutes.length === 0) {
     dialplanConfig += `exten => s,1,Hangup()\n`;
-    dialplanConfig += `exten => _X.,1,Hangup()\n`;
   } else {
     inboundRoutes.forEach((route: any) => {
       const pattern = route.pattern === '*' ? 's' : route.pattern;
@@ -105,12 +112,12 @@ export function rebuildAsteriskConfig() {
   ivrs.forEach((ivr: any) => {
     dialplanConfig += `\n[miac-ivr-${ivr.id}]\n`;
     dialplanConfig += `exten => s,1,Answer()\n`;
-    dialplanConfig += `same => n,Set(CHANNEL(language)=ru)\n`;
+    dialplanConfig += `same => n,Set(LANGUAGE()=ru)\n`;
     dialplanConfig += `same => n,Background(/var/lib/asterisk/sounds/miac/${ivr.announcementFile})\n`;
     dialplanConfig += `same => n,WaitExten(10)\n\n`;
 
     // Донабор номера (3 или более знаков)
-    dialplanConfig += `exten => _X.,1,NoOp(IVR Extension Dialing \${EXTEN})\n`;
+    dialplanConfig += `exten => _XXX,1,NoOp(IVR Dialing \${EXTEN})\n`;
     dialplanConfig += `same => n,Set(D_STATE=\${DEVICE_STATE(PJSIP/\${EXTEN})})\n`;
     dialplanConfig += `same => n,GotoIf($["\${D_STATE}" = "INVALID"]?dial-err:dial-ok)\n`;
     dialplanConfig += `same => n(dial-ok),Goto(miac-internal,\${EXTEN},1)\n`;
