@@ -6,7 +6,7 @@ import path from 'path';
 import crypto from 'crypto';
 import { cookies } from 'next/headers';
 
-const ADMINS_FILE = path.join(process.cwd(), 'src/data/admins.json');
+const ADMINS_FILE = path.resolve(process.cwd(), 'src/data/admins.json');
 
 function hashPassword(password: string) {
   return crypto.createHash('sha256').update(password).digest('hex');
@@ -15,6 +15,7 @@ function hashPassword(password: string) {
 export async function loginLocal(email: string, password: string) {
   try {
     if (!fs.existsSync(ADMINS_FILE)) {
+      console.error('Admin file not found at:', ADMINS_FILE);
       return { success: false, error: 'Система не настроена.' };
     }
 
@@ -31,12 +32,13 @@ export async function loginLocal(email: string, password: string) {
     const inputHash = hashPassword(cleanPassword);
     
     if (admin.passwordHash !== inputHash) {
+      console.log('Hash mismatch. Expected:', admin.passwordHash, 'Got:', inputHash);
       return { success: false, error: 'Неверный логин или пароль.' };
     }
 
     const cookieStore = await cookies();
     
-    // В Cloud Workstations SameSite=None и Secure=true ОБЯЗАТЕЛЬНЫ
+    // В Cloud Workstations SameSite=None и Secure=true ОБЯЗАТЕЛЬНЫ для работы во фреймах
     cookieStore.set('miac_session', JSON.stringify({ email: admin.email, role: admin.role }), {
       httpOnly: true,
       secure: true, 

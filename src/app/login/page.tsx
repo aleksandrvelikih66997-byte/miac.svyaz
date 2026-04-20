@@ -25,7 +25,7 @@ export default function LoginPage() {
       
       if (result.success) {
         toast({ title: "Успешный вход", description: "Перенаправление в панель управления..." });
-        // Прямой редирект для облачных сред и фреймов
+        // Используем assign для гарантированного редиректа в облачной среде
         window.location.assign('/');
       } else {
         toast({

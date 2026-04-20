@@ -3,8 +3,9 @@
 
 import fs from 'fs';
 import path from 'path';
+import { rebuildAsteriskConfig } from './asterisk-bridge-logic';
 
-const DATA_DIR = path.join(process.cwd(), 'src/data');
+const DATA_DIR = path.resolve(process.cwd(), 'src/data');
 
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -30,6 +31,12 @@ function readJSON(file: string) {
 
 function writeJSON(file: string, data: any) {
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
+  // Автоматическая пересборка конфигов при сохранении данных
+  try {
+    rebuildAsteriskConfig();
+  } catch (e) {
+    console.error('Bridge auto-rebuild failed:', e);
+  }
 }
 
 // Extensions
