@@ -56,19 +56,15 @@ export function rebuildAsteriskConfig() {
 
   // 4. Dialplan
   let dialplanConfig = '; Генерируемый диалплан МИАЦ.СВЯЗЬ\n\n';
-  dialplanConfig += `[from-internal-custom]\n\n`;
 
   dialplanConfig += `[miac-internal]\n`;
-  dialplanConfig += `exten => _X.,1,NoOp(Calling Extension \${EXTEN})\n`;
+  dialplanConfig += `exten => _X.,1,NoOp(Calling: \${EXTEN})\n`;
   dialplanConfig += `same => n,Set(D_STATE=\${DEVICE_STATE(PJSIP/\${EXTEN})})\n`;
-  dialplanConfig += `same => n,GotoIf($["\${D_STATE}" = "INVALID"]?check-q:dial)\n`;
-  dialplanConfig += `same => n(dial),Dial(PJSIP/\${EXTEN},30)\n`;
+  dialplanConfig += `same => n,GotoIf($["\${D_STATE}" = "INVALID"]?try-queue:dial-ext)\n`;
+  dialplanConfig += `same => n(dial-ext),Dial(PJSIP/\${EXTEN},30)\n`;
   dialplanConfig += `same => n,Hangup()\n`;
-  dialplanConfig += `same => n(check-q),GotoIf($["\${QUEUE_EXISTS(\${EXTEN})}" = "1"]?dial-q:fail)\n`;
-  dialplanConfig += `same => n(dial-q),Queue(\${EXTEN})\n`;
-  dialplanConfig += `same => n,Hangup()\n`;
-  dialplanConfig += `same => n(fail),Answer()\n`;
-  dialplanConfig += `same => n,Wait(1)\n`;
+  dialplanConfig += `same => n(try-queue),NoOp(Checking for Queue: \${EXTEN})\n`;
+  dialplanConfig += `same => n,Queue(\${EXTEN})\n`;
   dialplanConfig += `same => n,Hangup()\n\n`;
 
   dialplanConfig += `[from-trunk]\n`;
@@ -87,43 +83,28 @@ export function rebuildAsteriskConfig() {
       let astTarget = '';
       if (type === 'IVR') {
         astTarget = `miac-ivr-${id},s,1`;
-      } else if (type === 'Queue') {
-        astTarget = `miac-internal,${id},1`;
-      } else if (type === 'Extension') {
+      } else {
         astTarget = `miac-internal,${id},1`;
       }
 
-      if (astTarget) {
-        dialplanConfig += `exten => ${pattern},1,NoOp(Incoming to ${pattern})\n`;
-        dialplanConfig += `same => n,Set(CHANNEL(language)=ru)\n`;
-        dialplanConfig += `same => n,Goto(${astTarget})\n`;
-        if (pattern === 's') {
-          dialplanConfig += `exten => _X.,1,Goto(s,1)\n`;
-        }
+      dialplanConfig += `exten => ${pattern},1,NoOp(Incoming to ${pattern})\n`;
+      dialplanConfig += `same => n,Goto(${astTarget})\n`;
+      if (pattern === 's') {
+        dialplanConfig += `exten => _X.,1,Goto(s,1)\n`;
       }
     });
   }
 
   ivrs.forEach((ivr: any) => {
     dialplanConfig += `\n[miac-ivr-${ivr.id}]\n`;
-    // Используем жесткие приоритеты 1, 2, 3 для гарантированного старта в Asterisk 17
-    dialplanConfig += `exten => s,1,NoOp(Starting IVR: ${ivr.name})\n`;
+    dialplanConfig += `exten => s,1,NoOp(IVR: ${ivr.name})\n`;
     dialplanConfig += `exten => s,2,Answer()\n`;
-    dialplanConfig += `exten => s,3,Set(CHANNEL(language)=ru)\n`;
-    dialplanConfig += `exten => s,4,Background(/var/lib/asterisk/sounds/miac/${ivr.announcementFile})\n`;
-    dialplanConfig += `exten => s,5,WaitExten(10)\n\n`;
+    dialplanConfig += `exten => s,3,Background(/var/lib/asterisk/sounds/miac/${ivr.announcementFile})\n`;
+    dialplanConfig += `exten => s,4,WaitExten(10)\n\n`;
 
-    // Обработка донабора
+    // Донабор
     dialplanConfig += `exten => _X.,1,NoOp(IVR Dialing \${EXTEN})\n`;
-    dialplanConfig += `same => n,Set(D_STATE=\${DEVICE_STATE(PJSIP/\${EXTEN})})\n`;
-    dialplanConfig += `same => n,GotoIf($["\${D_STATE}" != "INVALID"]?dial-ok)\n`;
-    dialplanConfig += `same => n,GotoIf($["\${QUEUE_EXISTS(\${EXTEN})}" = "1"]?dial-ok:dial-err)\n`;
-    dialplanConfig += `same => n(dial-ok),Goto(miac-internal,\${EXTEN},1)\n`;
-    dialplanConfig += `same => n(dial-err),NoOp(Invalid Extension \${EXTEN} from IVR)\n`;
-    if (ivr.invalidAnnouncementFile) {
-        dialplanConfig += `same => n,Playback(/var/lib/asterisk/sounds/miac/${ivr.invalidAnnouncementFile})\n`;
-    }
-    dialplanConfig += `same => n,Goto(s,1)\n\n`;
+    dialplanConfig += `same => n,Goto(miac-internal,\${EXTEN},1)\n\n`;
 
     // Кнопки
     (ivr.digitMappings || []).forEach((mapping: string) => {
@@ -140,9 +121,7 @@ export function rebuildAsteriskConfig() {
     if (ivr.timeoutDestination) {
       const parts = ivr.timeoutDestination.split(':');
       const [type, target] = parts;
-      if (type === 'Extension') dialplanConfig += `same => n,Goto(miac-internal,${target},1)\n`;
-      else if (type === 'Queue') dialplanConfig += `same => n,Goto(miac-internal,${target},1)\n`;
-      else dialplanConfig += `same => n,Hangup()\n`;
+      dialplanConfig += `same => n,Goto(miac-internal,${target},1)\n`;
     } else {
       dialplanConfig += `same => n,Hangup()\n`;
     }
@@ -160,25 +139,10 @@ export function rebuildAsteriskConfig() {
       exec('asterisk -rx "pjsip reload"');
       exec('asterisk -rx "dialplan reload"');
       exec('asterisk -rx "queue reload all"');
-      console.log('[BRIDGE] Asterisk configs reloaded.');
     }
   } catch (e) {
-    console.error('[BRIDGE] Error writing to /etc/asterisk:', e);
+    console.error('[BRIDGE] Sync Error:', e);
   }
-
-  try {
-    if (fs.existsSync(SOUNDS_SRC)) {
-      if (!fs.existsSync(SOUNDS_DEST)) fs.mkdirSync(SOUNDS_DEST, { recursive: true });
-      fs.readdirSync(SOUNDS_SRC).forEach(f => {
-        const src = path.join(SOUNDS_SRC, f);
-        const dest = path.join(SOUNDS_DEST, f);
-        if (fs.statSync(src).isFile()) {
-          fs.copyFileSync(src, dest);
-          try { fs.chmodSync(dest, 0o666); } catch(e) {}
-        }
-      });
-    }
-  } catch (e) {}
 
   return true;
 }
