@@ -42,10 +42,10 @@ export async function loginLocal(email: string, password: string) {
 
     const cookieStore = await cookies();
     
-    // ВАЖНО: для работы по HTTP (10.0.2.82) secure должно быть false
+    // secure: false для работы по HTTP в локальной сети
     cookieStore.set('miac_session', JSON.stringify({ email: admin.email, role: admin.role }), {
       httpOnly: true,
-      secure: false, // Отключаем secure для HTTP-доступа в локальной сети
+      secure: false, 
       maxAge: 60 * 60 * 24, 
       path: '/',
       sameSite: 'lax'

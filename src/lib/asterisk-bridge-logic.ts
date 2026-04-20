@@ -70,8 +70,10 @@ export function rebuildAsteriskConfig() {
     else if (type === 'Queue') targetExists = queues.some((q: any) => q.name === id);
     else if (type === 'Extension') targetExists = extensions.some((e: any) => e.id === id);
 
+    // Fallback logic if target deleted
     if (!targetExists) {
-      if (type === 'IVR' && ivrs.length > 0) {
+      if (ivrs.length > 0) {
+        type = 'IVR';
         id = ivrs[0].id;
       } else {
         dialplanConfig += `exten => ${pattern},1,Hangup()\n`;
@@ -104,7 +106,11 @@ export function rebuildAsteriskConfig() {
     dialplanConfig += `exten => s,n,Progress()\n`;
     dialplanConfig += `exten => s,n,Wait(1)\n`;
     dialplanConfig += `exten => s,n,Background(/var/lib/asterisk/sounds/miac/${ivr.announcementFile})\n`;
-    dialplanConfig += `exten => s,n,WaitExten(5)\n`;
+    dialplanConfig += `exten => s,n,WaitExten(10)\n\n`;
+
+    dialplanConfig += `; Прямой донабор внутреннего номера во время приветствия\n`;
+    dialplanConfig += `exten => _XXX,1,Dial(PJSIP/\${EXTEN},30)\n`;
+    dialplanConfig += `exten => _XXX,n,Hangup()\n\n`;
 
     (ivr.digitMappings || []).forEach((mapping: string) => {
       const parts = mapping.split(':');
@@ -125,6 +131,9 @@ export function rebuildAsteriskConfig() {
     } else {
       dialplanConfig += `exten => t,1,Hangup()\n`;
     }
+
+    dialplanConfig += `exten => i,1,Playback(invalid)\n`;
+    dialplanConfig += `exten => i,n,Goto(s,1)\n`;
     dialplanConfig += `\n`;
   });
 
