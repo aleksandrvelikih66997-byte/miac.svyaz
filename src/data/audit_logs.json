@@ -1,5 +1,11 @@
 [
   {
+    "timestamp": "2026-04-20T16:56:50.550Z",
+    "user": "velikih@miackuban.ru",
+    "action": "LOGIN",
+    "details": "Вход в систему: velikih@miackuban.ru"
+  },
+  {
     "timestamp": "2026-04-20T16:39:32.334Z",
     "user": "velikih@miackuban.ru",
     "action": "LOGIN",

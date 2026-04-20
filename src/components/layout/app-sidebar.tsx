@@ -58,7 +58,7 @@ export function AppSidebar() {
   const pathname = usePathname()
 
   return (
-    <Sidebar collapsible="none" className="bg-sidebar border-r h-screen sticky top-0 flex flex-col shrink-0 overflow-hidden z-20">
+    <Sidebar collapsible="none" className="bg-sidebar border-r h-screen sticky top-0 flex flex-col shrink-0 overflow-hidden z-20 w-64">
       <SidebarHeader className="px-6 py-6 border-b border-sidebar-border/50 shrink-0">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-white shadow-lg">

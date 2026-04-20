@@ -27,13 +27,14 @@ asterisk -rx "module load res_pjsip.so"
 ```
 
 ### 2. Настройка Очередей (Группы)
-Отредактируйте `/etc/asterisk/queues.conf`. В самом конце добавьте:
+Создайте файл `/etc/asterisk/queues.conf` (если его нет) и добавьте:
 ```ini
 #include "/etc/asterisk/queues_miac.conf"
 ```
+Также создайте пустой файл правил: `touch /etc/asterisk/queuerules.conf`
 
 ### 3. Настройка Dialplan (Маршрутизация)
-Отредактируйте `/etc/asterisk/extensions.conf`. В самом конце файла добавьте:
+Отредактируйте `/etc/asterisk/extensions.conf`. В самом начале файла добавьте:
 ```ini
 #include "/etc/asterisk/extensions_miac_dialplan.conf"
 ```

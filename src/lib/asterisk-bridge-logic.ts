@@ -24,10 +24,9 @@ export function rebuildAsteriskConfig() {
   const queues = readJSON('queues.json');
   const routes = readJSON('routes.json');
 
-  // Генерируем диалплан БЕЗ секции [general], так как она в основном extensions.conf
   let dialplanConfig = '; Генерируемый диалплан МИАЦ.СВЯЗЬ (v1.0)\n\n';
 
-  // 1. IVR Contexts - Генерируем ПЕРВЫМИ, чтобы ссылки на них работали
+  // 1. IVR Contexts
   ivrs.forEach((ivr: any) => {
     dialplanConfig += `[miac-ivr-${ivr.id}]\n`;
     dialplanConfig += `exten => s,1,Answer()\n`;
@@ -58,7 +57,7 @@ export function rebuildAsteriskConfig() {
 
   // 2. Internal Context
   dialplanConfig += `[miac-internal]\n`;
-  dialplanConfig += `exten => _X.,1,NoOp(MIAC CALL: \${EXTEN})\n`;
+  dialplanConfig += `exten => _X.,1,NoOp(INTERNAL CALL: \${EXTEN})\n`;
   dialplanConfig += `exten => _X.,2,Set(D_STATE=\${DEVICE_STATE(PJSIP/\${EXTEN})})\n`;
   dialplanConfig += `exten => _X.,3,GotoIf($["\${D_STATE}" = "INVALID"]?dial-q:dial-ext)\n`;
   dialplanConfig += `exten => _X.,4(dial-ext),Dial(PJSIP/\${EXTEN},30)\n`;
@@ -67,13 +66,14 @@ export function rebuildAsteriskConfig() {
   dialplanConfig += `exten => _X.,7,Queue(\${EXTEN},,,,30)\n`;
   dialplanConfig += `exten => _X.,8,Hangup()\n\n`;
 
-  // 3. Inbound Context
+  // 3. Inbound Context (from provider)
   dialplanConfig += `[from-trunk]\n`;
   const inboundRoutes = routes.filter((r: any) => r.type === 'inbound');
   
   if (inboundRoutes.length === 0) {
-    dialplanConfig += `exten => s,1,NoOp(No Inbound Routes)\n`;
+    dialplanConfig += `exten => s,1,NoOp(No Inbound Routes Configured)\n`;
     dialplanConfig += `exten => s,2,Hangup()\n`;
+    dialplanConfig += `exten => _X.,1,Goto(s,1)\n`;
   } else {
     inboundRoutes.forEach((route: any) => {
       const pattern = route.pattern === '*' ? 's' : route.pattern;
@@ -81,7 +81,6 @@ export function rebuildAsteriskConfig() {
       let type = destParts[0];
       let id = destParts[1];
 
-      // Важно: ID должен совпадать с miac-ivr-{id}
       let astTarget = (type === 'IVR') ? `miac-ivr-${id},s,1` : `miac-internal,${id},1`;
 
       dialplanConfig += `exten => ${pattern},1,Answer()\n`;
@@ -129,6 +128,7 @@ export function rebuildAsteriskConfig() {
       exec('asterisk -rx "pjsip reload"');
       exec('asterisk -rx "dialplan reload"');
       exec('asterisk -rx "queue reload all"');
+      console.log('[BRIDGE] Configs synced and Asterisk reloaded.');
     }
   } catch (e) {
     console.error('[BRIDGE] Sync Error:', e);
