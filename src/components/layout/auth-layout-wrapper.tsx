@@ -2,7 +2,7 @@
 "use client"
 
 import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Button } from "@/components/ui/button";
@@ -15,44 +15,61 @@ export function AuthLayoutWrapper({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function check() {
+  const checkAuth = useCallback(async () => {
+    try {
       const current = await getLocalSession();
       setSession(current);
       
       const isLoginPage = pathname === '/login';
       
-      if (!current && !isLoginPage) {
-        router.replace('/login');
-      } else if (current && isLoginPage) {
-        router.replace('/');
+      if (!current) {
+        if (!isLoginPage) {
+          router.replace('/login');
+        }
+      } else {
+        if (isLoginPage) {
+          router.replace('/');
+        }
       }
+    } catch (error) {
+      console.error("Auth check failed:", error);
+    } finally {
       setLoading(false);
     }
-    check();
   }, [pathname, router]);
+
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
 
   const handleLogout = async () => {
     await logoutLocal();
-    window.location.replace('/login');
+    // Полная перезагрузка для очистки всех состояний
+    window.location.href = '/login';
   };
 
-  if (loading) {
+  // Показываем лоадер только при начальной проверке, если мы не на странице логина
+  if (loading && pathname !== '/login') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-primary opacity-20" />
+          <span className="text-xs text-muted-foreground animate-pulse">Проверка доступа...</span>
+        </div>
       </div>
     );
   }
 
+  // Если мы на странице логина, просто рендерим контент
   if (pathname === '/login') {
     return <>{children}</>;
   }
 
+  // Если сессии нет, не рендерим ничего (useEffect сделает редирект)
   if (!session) return null;
 
   return (
-    <SidebarProvider>
+    <SidebarProvider defaultOpen={true}>
       <AppSidebar />
       <SidebarInset>
         <header className="flex h-16 items-center justify-between border-b px-8 sticky top-0 z-30 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm">

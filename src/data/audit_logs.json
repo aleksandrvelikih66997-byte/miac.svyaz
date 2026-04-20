@@ -1,5 +1,47 @@
 [
   {
+    "timestamp": "2026-04-20T15:12:39.912Z",
+    "user": "velikih@miackuban.ru",
+    "action": "LOGIN",
+    "details": "Вход в систему: velikih@miackuban.ru"
+  },
+  {
+    "timestamp": "2026-04-20T15:12:32.512Z",
+    "user": "velikih@miackuban.ru",
+    "action": "LOGIN",
+    "details": "Вход в систему: velikih@miackuban.ru"
+  },
+  {
+    "timestamp": "2026-04-20T15:08:38.888Z",
+    "user": "admin@miac.ru",
+    "action": "LOGIN",
+    "details": "Вход в систему: admin@miac.ru"
+  },
+  {
+    "timestamp": "2026-04-20T15:08:25.877Z",
+    "user": "velikih@miackuban.ru",
+    "action": "LOGIN",
+    "details": "Вход в систему: velikih@miackuban.ru"
+  },
+  {
+    "timestamp": "2026-04-20T15:07:02.615Z",
+    "user": "admin@miac.ru",
+    "action": "LOGIN",
+    "details": "Вход в систему: admin@miac.ru"
+  },
+  {
+    "timestamp": "2026-04-20T15:06:42.273Z",
+    "user": "velikih@miackuban.ru",
+    "action": "LOGIN",
+    "details": "Вход в систему: velikih@miackuban.ru"
+  },
+  {
+    "timestamp": "2026-04-20T15:06:26.442Z",
+    "user": "velikih@miackuban.ru",
+    "action": "LOGIN",
+    "details": "Вход в систему: velikih@miackuban.ru"
+  },
+  {
     "timestamp": "2026-04-20T15:04:30.823Z",
     "user": "velikih@miackuban.ru",
     "action": "LOGIN",

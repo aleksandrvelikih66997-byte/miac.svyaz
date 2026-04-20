@@ -11,13 +11,11 @@ const DATA_DIR = path.join(process.cwd(), 'src', 'data');
 const ADMINS_FILE = path.join(DATA_DIR, 'admins.json');
 
 function hashPassword(password: string) {
-  // Принудительно очищаем пароль от пробелов перед хешированием
   return crypto.createHash('sha256').update(password.trim()).digest('hex');
 }
 
 export async function loginLocal(email: string, password: string) {
   try {
-    // Гарантируем наличие директории и файла при первом запуске
     if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
     
     if (!fs.existsSync(ADMINS_FILE)) {
@@ -31,18 +29,20 @@ export async function loginLocal(email: string, password: string) {
     }
 
     const content = fs.readFileSync(ADMINS_FILE, 'utf8');
-    if (!content) throw new Error('Файл администраторов пуст');
-    
-    const admins = JSON.parse(content);
+    let admins = [];
+    try {
+      admins = JSON.parse(content);
+    } catch (e) {
+      return { success: false, error: 'Ошибка базы данных пользователей.' };
+    }
+
     const cleanEmail = email.trim().toLowerCase();
-    
     const admin = admins.find((a: any) => a.email.toLowerCase() === cleanEmail);
 
     if (!admin) {
       return { success: false, error: 'Пользователь не найден.' };
     }
 
-    // Проверяем хеш (hashPassword внутри делает trim)
     const inputHash = hashPassword(password);
     if (admin.passwordHash !== inputHash) {
       return { success: false, error: 'Неверный пароль.' };
@@ -50,9 +50,14 @@ export async function loginLocal(email: string, password: string) {
 
     const cookieStore = await cookies();
     
-    cookieStore.set('miac_session', JSON.stringify({ email: admin.email, role: admin.role }), {
+    // Устанавливаем куку сессии
+    cookieStore.set('miac_session', JSON.stringify({ 
+      email: admin.email, 
+      role: admin.role,
+      loginTime: Date.now() 
+    }), {
       httpOnly: true,
-      secure: false, // Отключено для работы по локальной сети HTTP
+      secure: false, // Оставляем false для локальных сетей без HTTPS
       maxAge: 60 * 60 * 8, // 8 часов
       path: '/',
       sameSite: 'lax'
@@ -72,14 +77,14 @@ export async function logoutLocal() {
     await logAuditAction('LOGOUT', `Выход из системы: ${session.email}`);
   }
   const cookieStore = await cookies();
-  cookieStore.delete('miac_session');
+  cookieStore.set('miac_session', '', { maxAge: 0, path: '/' });
 }
 
 export async function getLocalSession() {
   try {
     const cookieStore = await cookies();
     const session = cookieStore.get('miac_session');
-    if (!session) return null;
+    if (!session || !session.value) return null;
     return JSON.parse(session.value);
   } catch {
     return null;
@@ -91,11 +96,12 @@ export async function getAdmins() {
     if (!fs.existsSync(ADMINS_FILE)) return [];
     const content = fs.readFileSync(ADMINS_FILE, 'utf8');
     if (!content) return [];
-    return JSON.parse(content).map((a: any) => ({
+    const admins = JSON.parse(content);
+    return Array.isArray(admins) ? admins.map((a: any) => ({
       email: a.email,
       role: a.role,
       createdAt: a.createdAt
-    }));
+    })) : [];
   } catch {
     return [];
   }
@@ -108,7 +114,11 @@ export async function createAdmin(email: string, password: string) {
     let admins = [];
     if (fs.existsSync(ADMINS_FILE)) {
       const content = fs.readFileSync(ADMINS_FILE, 'utf8');
-      admins = content ? JSON.parse(content) : [];
+      try {
+        admins = content ? JSON.parse(content) : [];
+      } catch (e) {
+        admins = [];
+      }
     }
 
     const cleanEmail = email.trim().toLowerCase();
