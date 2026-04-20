@@ -19,11 +19,9 @@ export function AuthLayoutWrapper({ children, initialSession }: AuthLayoutWrappe
   const isLoginPage = pathname === '/login';
 
   useEffect(() => {
-    // Если сессия есть, а мы на странице логина — уходим в корень
     if (initialSession && isLoginPage) {
       window.location.assign('/');
     }
-    // Если сессии нет, а мы НЕ на странице логина — уходим на логин
     if (!initialSession && !isLoginPage) {
       window.location.assign('/login');
     }
@@ -34,12 +32,10 @@ export function AuthLayoutWrapper({ children, initialSession }: AuthLayoutWrappe
     window.location.assign('/login');
   };
 
-  // 1. Показываем страницу логина без сайдбара
   if (isLoginPage) {
     return <>{children}</>;
   }
 
-  // 2. Пока идет проверка сессии (если её нет в initialSession), ничего не рендерим во избежание мерцания
   if (!initialSession) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -51,7 +47,6 @@ export function AuthLayoutWrapper({ children, initialSession }: AuthLayoutWrappe
     );
   }
 
-  // 3. Рендерим основное приложение
   return (
     <SidebarProvider defaultOpen={true}>
       <AppSidebar />
@@ -64,7 +59,7 @@ export function AuthLayoutWrapper({ children, initialSession }: AuthLayoutWrappe
           <div className="flex items-center gap-6">
              <div className="flex flex-col items-end">
                <span className="text-xs font-bold text-slate-700">{initialSession.email}</span>
-               <span className="text-[10px] text-muted-foreground uppercase tracking-tighter">Администратор системы</span>
+               <span className="text-[10px] text-muted-foreground uppercase tracking-tighter font-bold">Администратор системы</span>
              </div>
              <div className="h-8 w-px bg-border mx-2" />
              <Button variant="ghost" size="sm" onClick={handleLogout} className="text-destructive hover:bg-destructive/5 gap-2 font-bold h-9">
@@ -72,7 +67,7 @@ export function AuthLayoutWrapper({ children, initialSession }: AuthLayoutWrappe
              </Button>
           </div>
         </header>
-        <main className="p-8 max-w-[1600px] mx-auto w-full">
+        <main className="p-8 max-w-[1600px] mx-auto w-full min-h-[calc(100vh-64px)]">
           {children}
         </main>
       </SidebarInset>
