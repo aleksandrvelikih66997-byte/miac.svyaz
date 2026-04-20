@@ -31,11 +31,10 @@ function readJSON(file: string) {
 
 function writeJSON(file: string, data: any) {
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
-  // Мгновенная синхронизация с Asterisk при каждом изменении
   try {
     rebuildAsteriskConfig();
   } catch (e) {
-    console.error('Telephony sync error:', e);
+    console.error('Telephony Sync Error:', e);
   }
 }
 
