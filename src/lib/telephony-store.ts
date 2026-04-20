@@ -32,6 +32,7 @@ function readJSON(file: string) {
 function writeJSON(file: string, data: any) {
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
   try {
+    // Автоматическая синхронизация при любом сохранении
     rebuildAsteriskConfig();
   } catch (e) {
     console.error('[STORE] Sync Error:', e);

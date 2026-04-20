@@ -42,13 +42,9 @@ export function rebuildAsteriskConfig() {
   let trunksConfig = '; Генерируемые транки МИАЦ\n\n';
   trunks.forEach((trunk: any) => {
     trunksConfig += `[trunk-${trunk.id}]\ntype=endpoint\ncontext=from-trunk\ndisallow=all\nallow=ulaw,alaw\noutbound_auth=auth-${trunk.id}\naors=aor-${trunk.id}\n\n`;
-    
     trunksConfig += `[auth-${trunk.id}]\ntype=auth\nauth_type=userpass\nusername=${trunk.user}\npassword=${trunk.password}\n\n`;
-    
     trunksConfig += `[aor-${trunk.id}]\ntype=aor\ncontact=sip:${trunk.host}:${trunk.port}\n\n`;
-    
     trunksConfig += `[reg-${trunk.id}]\ntype=registration\noutbound_auth=auth-${trunk.id}\nserver_uri=sip:${trunk.host}:${trunk.port}\nclient_uri=sip:${trunk.user}@${trunk.host}:${trunk.port}\nretry_interval=60\nexpiration=120\n\n`;
-    
     trunksConfig += `[identify-${trunk.id}]\ntype=identify\nendpoint=trunk-${trunk.id}\nmatch=${trunk.host}\n\n`;
   });
 
@@ -82,9 +78,7 @@ export function rebuildAsteriskConfig() {
       
       if (target) {
         dialplanConfig += `exten => ${pattern},1,Goto(${target})\n`;
-        if (pattern === 's') {
-          dialplanConfig += `exten => _.,1,Goto(${target})\n`;
-        }
+        if (pattern === 's') dialplanConfig += `exten => _.,1,Goto(${target})\n`;
       }
     });
   } else if (ivrs.length > 0) {
@@ -134,9 +128,12 @@ export function rebuildAsteriskConfig() {
       fs.writeFileSync(path.join(AST_DIR, 'queues_miac.conf'), queuesConfig);
       fs.writeFileSync(path.join(AST_DIR, 'extensions_miac_dialplan.conf'), dialplanConfig);
       exec('asterisk -rx "core reload"');
+      console.log('[BRIDGE] Files updated and Asterisk reloaded.');
+    } else {
+      console.log('[BRIDGE] /etc/asterisk not found. Generation skipped.');
     }
   } catch (e) {
-    console.error('[BRIDGE] Ошибка записи файлов:', e);
+    console.error('[BRIDGE] Write Error:', e);
   }
 
   try {

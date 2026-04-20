@@ -17,6 +17,7 @@ export async function loginLocal(email: string, password: string) {
   try {
     if (!fs.existsSync(ADMINS_FILE)) {
       if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+      // Пароль по умолчанию: As134679
       const defaultAdmin = [{
         email: "velikih@miackuban.ru",
         passwordHash: hashPassword("As134679"),
@@ -33,26 +34,29 @@ export async function loginLocal(email: string, password: string) {
     const admin = admins.find((a: any) => a.email.toLowerCase() === cleanEmail);
 
     if (!admin) {
+      console.log(`[AUTH] User not found: ${cleanEmail}`);
       return { success: false, error: 'Пользователь не найден.' };
     }
 
     const inputHash = hashPassword(cleanPassword);
     
     if (admin.passwordHash !== inputHash) {
+      console.log(`[AUTH] Invalid password for: ${cleanEmail}`);
       return { success: false, error: 'Неверный пароль.' };
     }
 
     const cookieStore = await cookies();
     
-    // Настройки для Cloud Workstations (HTTPS/Proxy/iFrame)
+    // Настройки для локального HTTP и облачного HTTPS
     cookieStore.set('miac_session', JSON.stringify({ email: admin.email, role: admin.role }), {
       httpOnly: true,
-      secure: true, 
+      secure: false, // Разрешаем HTTP для 10.0.2.82
       maxAge: 60 * 60 * 24, 
       path: '/',
-      sameSite: 'none' 
+      sameSite: 'lax' // Совместимо с HTTP
     });
 
+    console.log(`[AUTH] Success login: ${cleanEmail}`);
     return { success: true };
   } catch (error: any) {
     console.error('[AUTH] Login Error:', error);
