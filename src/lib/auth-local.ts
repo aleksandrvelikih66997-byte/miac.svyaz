@@ -15,7 +15,7 @@ function hashPassword(password: string) {
 export async function loginLocal(email: string, password: string) {
   try {
     if (!fs.existsSync(ADMINS_FILE)) {
-      return { success: false, error: 'Файл администраторов не найден.' };
+      return { success: false, error: 'Системная ошибка: база администраторов не найдена.' };
     }
 
     const admins = JSON.parse(fs.readFileSync(ADMINS_FILE, 'utf8'));
@@ -30,14 +30,13 @@ export async function loginLocal(email: string, password: string) {
 
     const inputHash = hashPassword(cleanPassword);
     
-    // Сравнение хешей
     if (admin.passwordHash !== inputHash) {
       return { success: false, error: 'Неверный пароль.' };
     }
 
     const cookieStore = await cookies();
     
-    // Настройки для Cloud Workstations (HTTPS/Iframe)
+    // Настройки для Cloud Workstations (HTTPS/SameSite=None)
     cookieStore.set('miac_session', JSON.stringify({ email: admin.email, role: admin.role }), {
       httpOnly: true,
       secure: true, 

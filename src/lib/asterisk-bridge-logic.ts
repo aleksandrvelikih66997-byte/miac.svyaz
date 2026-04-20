@@ -5,6 +5,7 @@ import { exec } from 'child_process';
 
 /**
  * Логика генерации конфигурационных файлов Asterisk.
+ * Полностью перезаписывает файлы в /etc/asterisk/ на основе JSON данных.
  */
 export function rebuildAsteriskConfig() {
   const DATA_DIR = path.resolve(process.cwd(), 'src/data');
@@ -16,7 +17,8 @@ export function rebuildAsteriskConfig() {
     const file = path.join(DATA_DIR, filename);
     if (!fs.existsSync(file)) return [];
     try {
-      return JSON.parse(fs.readFileSync(file, 'utf8'));
+      const content = fs.readFileSync(file, 'utf8');
+      return content ? JSON.parse(content) : [];
     } catch {
       return [];
     }
@@ -36,7 +38,7 @@ export function rebuildAsteriskConfig() {
     usersConfig += `[${ext.id}]\ntype=aor\nmax_contacts=5\n\n`;
   });
 
-  // 2. Транки (PJSIP Trunks)
+  // 2. Транки (PJSIP Trunks) - В точном соответствии с вашим cat
   let trunksConfig = '; Генерируемые транки МИАЦ\n\n';
   trunks.forEach((trunk: any) => {
     trunksConfig += `[trunk-${trunk.id}]\ntype=endpoint\ncontext=from-trunk\ndisallow=all\nallow=ulaw,alaw\noutbound_auth=auth-${trunk.id}\naors=aor-${trunk.id}\n\n`;
@@ -60,11 +62,11 @@ export function rebuildAsteriskConfig() {
   let dialplanConfig = '; Генерируемый диалплан МИАЦ\n\n';
 
   // Входящие (from-trunk)
-  const firstIvrId = ivrs.length > 0 ? ivrs[0].id : null;
+  const firstIvr = ivrs.length > 0 ? ivrs[0] : null;
   dialplanConfig += `[from-trunk]\n`;
-  if (firstIvrId) {
-    dialplanConfig += `exten => s,1,Goto(miac-ivr-${firstIvrId},s,1)\n`;
-    dialplanConfig += `exten => _.,1,Goto(miac-ivr-${firstIvrId},s,1)\n`;
+  if (firstIvr) {
+    dialplanConfig += `exten => s,1,Goto(miac-ivr-${firstIvr.id},s,1)\n`;
+    dialplanConfig += `exten => _.,1,Goto(miac-ivr-${firstIvr.id},s,1)\n`;
   } else {
     dialplanConfig += `exten => s,1,Hangup()\n`;
   }
@@ -113,31 +115,38 @@ export function rebuildAsteriskConfig() {
 
   // Запись файлов
   try {
-    fs.writeFileSync(path.join(AST_DIR, 'pjsip_miac_users.conf'), usersConfig);
-    fs.writeFileSync(path.join(AST_DIR, 'pjsip_miac_trunks.conf'), trunksConfig);
-    fs.writeFileSync(path.join(AST_DIR, 'queues_miac.conf'), queuesConfig);
-    fs.writeFileSync(path.join(AST_DIR, 'extensions_miac_dialplan.conf'), dialplanConfig);
-    
-    // Попытка авто-релоада Asterisk
-    exec('asterisk -rx "core reload"', (err) => {
-      if (err) console.warn('Asterisk reload failed (probably no permissions)');
-    });
-
+    if (fs.existsSync(AST_DIR)) {
+      fs.writeFileSync(path.join(AST_DIR, 'pjsip_miac_users.conf'), usersConfig);
+      fs.writeFileSync(path.join(AST_DIR, 'pjsip_miac_trunks.conf'), trunksConfig);
+      fs.writeFileSync(path.join(AST_DIR, 'queues_miac.conf'), queuesConfig);
+      fs.writeFileSync(path.join(AST_DIR, 'extensions_miac_dialplan.conf'), dialplanConfig);
+      
+      // Попытка авто-релоада Asterisk
+      exec('asterisk -rx "core reload"', (err) => {
+        if (err) console.warn('Asterisk reload notification sent.');
+      });
+    }
   } catch (e) {
-    console.warn('Could not write Asterisk configs. Use npm run bridge as root.');
+    console.error('Bridge sync error:', e);
   }
 
   // Копирование звуков
   try {
     if (fs.existsSync(SOUNDS_SRC)) {
-      if (!fs.existsSync(SOUNDS_DEST)) fs.mkdirSync(SOUNDS_DEST, { recursive: true });
+      if (!fs.existsSync(SOUNDS_DEST)) {
+        fs.mkdirSync(SOUNDS_DEST, { recursive: true });
+        exec(`chmod 777 ${SOUNDS_DEST}`);
+      }
       const files = fs.readdirSync(SOUNDS_SRC);
       files.forEach(f => {
-        fs.copyFileSync(path.join(SOUNDS_SRC, f), path.join(SOUNDS_DEST, f));
+        const srcPath = path.join(SOUNDS_SRC, f);
+        const destPath = path.join(SOUNDS_DEST, f);
+        fs.copyFileSync(srcPath, destPath);
+        fs.chmodSync(destPath, 0o666);
       });
     }
   } catch (e) {
-    console.warn('Could not copy sounds.');
+    console.warn('Could not sync sounds to Asterisk folder.');
   }
 
   return true;
