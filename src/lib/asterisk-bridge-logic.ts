@@ -68,13 +68,9 @@ export function rebuildAsteriskConfig() {
   dialplanConfig += `same => n,Wait(1)\n`;
   dialplanConfig += `same => n,Hangup()\n\n`;
 
-  // Обработка статусов дозвона
-  dialplanConfig += `exten => s-BUSY,1,NoOp(Status Busy)\n`;
-  dialplanConfig += `same => n,Hangup()\n`;
-  dialplanConfig += `exten => s-NOANSWER,1,NoOp(No Answer)\n`;
-  dialplanConfig += `same => n,Hangup()\n`;
-  dialplanConfig += `exten => s-CHANUNAVAIL,1,NoOp(Channel Unavailable)\n`;
-  dialplanConfig += `same => n,Hangup()\n\n`;
+  dialplanConfig += `exten => s-BUSY,1,Hangup()\n`;
+  dialplanConfig += `exten => s-NOANSWER,1,Hangup()\n`;
+  dialplanConfig += `exten => s-CHANUNAVAIL,1,Hangup()\n\n`;
 
   // Входящие из транков
   dialplanConfig += `[from-trunk]\n`;
@@ -112,11 +108,10 @@ export function rebuildAsteriskConfig() {
   ivrs.forEach((ivr: any) => {
     dialplanConfig += `\n[miac-ivr-${ivr.id}]\n`;
     dialplanConfig += `exten => s,1,Answer()\n`;
-    dialplanConfig += `same => n,Set(LANGUAGE()=ru)\n`;
     dialplanConfig += `same => n,Background(/var/lib/asterisk/sounds/miac/${ivr.announcementFile})\n`;
     dialplanConfig += `same => n,WaitExten(10)\n\n`;
 
-    // Донабор номера (3 или более знаков)
+    // Донабор номера (3 знака)
     dialplanConfig += `exten => _XXX,1,NoOp(IVR Dialing \${EXTEN})\n`;
     dialplanConfig += `same => n,Set(D_STATE=\${DEVICE_STATE(PJSIP/\${EXTEN})})\n`;
     dialplanConfig += `same => n,GotoIf($["\${D_STATE}" = "INVALID"]?dial-err:dial-ok)\n`;
@@ -127,7 +122,7 @@ export function rebuildAsteriskConfig() {
     }
     dialplanConfig += `same => n,Goto(s,1)\n\n`;
 
-    // Назначения кнопок (1 знак)
+    // Назначения кнопок
     (ivr.digitMappings || []).forEach((mapping: string) => {
       const parts = mapping.split(':');
       if (parts.length < 3) return;
