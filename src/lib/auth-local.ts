@@ -50,14 +50,16 @@ export async function loginLocal(email: string, password: string) {
 
     const cookieStore = await cookies();
     
-    // Устанавливаем куку сессии
-    cookieStore.set('miac_session', JSON.stringify({ 
+    // Устанавливаем куку сессии. Кодируем в Base64 для надежности.
+    const sessionData = JSON.stringify({ 
       email: admin.email, 
       role: admin.role,
       loginTime: Date.now() 
-    }), {
+    });
+    
+    cookieStore.set('miac_session', Buffer.from(sessionData).toString('base64'), {
       httpOnly: true,
-      secure: false, 
+      secure: process.env.NODE_ENV === 'production',
       maxAge: 60 * 60 * 8, // 8 часов
       path: '/',
       sameSite: 'lax'
@@ -77,15 +79,17 @@ export async function logoutLocal() {
     await logAuditAction('LOGOUT', `Выход из системы: ${session.email}`);
   }
   const cookieStore = await cookies();
-  cookieStore.set('miac_session', '', { maxAge: 0, path: '/' });
+  cookieStore.delete('miac_session');
 }
 
 export async function getLocalSession() {
   try {
     const cookieStore = await cookies();
-    const session = cookieStore.get('miac_session');
-    if (!session || !session.value) return null;
-    return JSON.parse(session.value);
+    const sessionCookie = cookieStore.get('miac_session');
+    if (!sessionCookie || !sessionCookie.value) return null;
+    
+    const decoded = Buffer.from(sessionCookie.value, 'base64').toString('utf8');
+    return JSON.parse(decoded);
   } catch {
     return null;
   }
@@ -109,39 +113,32 @@ export async function getAdmins() {
 
 export async function createAdmin(email: string, password: string) {
   try {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+    
     if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
     
     let admins = [];
     if (fs.existsSync(ADMINS_FILE)) {
       const content = fs.readFileSync(ADMINS_FILE, 'utf8');
-      try {
-        admins = content ? JSON.parse(content) : [];
-      } catch (e) {
-        admins = [];
-      }
+      admins = content ? JSON.parse(content) : [];
     }
 
-    const cleanEmail = email.trim().toLowerCase();
-    const cleanPassword = password.trim();
-    
     if (admins.some((a: any) => a.email.toLowerCase() === cleanEmail)) {
       return { success: false, error: 'Пользователь уже существует' };
     }
 
-    const newAdmin = {
+    admins.push({
       email: cleanEmail,
       passwordHash: hashPassword(cleanPassword),
       role: "Admin",
       createdAt: new Date().toISOString()
-    };
+    });
 
-    admins.push(newAdmin);
     fs.writeFileSync(ADMINS_FILE, JSON.stringify(admins, null, 2));
-    
     await logAuditAction('CREATE_ADMIN', `Создан администратор: ${cleanEmail}`);
     return { success: true };
   } catch (error: any) {
-    console.error('[AUTH] Create error:', error);
     return { success: false, error: error.message };
   }
 }
@@ -149,22 +146,15 @@ export async function createAdmin(email: string, password: string) {
 export async function deleteAdmin(email: string) {
   try {
     if (!fs.existsSync(ADMINS_FILE)) return { success: false, error: 'Файл не найден' };
-    
     const content = fs.readFileSync(ADMINS_FILE, 'utf8');
     const admins = content ? JSON.parse(content) : [];
+    if (admins.length <= 1) return { success: false, error: 'Нельзя удалить последнего администратора' };
 
-    if (admins.length <= 1) {
-      return { success: false, error: 'Нельзя удалить последнего администратора' };
-    }
-
-    const currentSession = await getLocalSession();
-    if (currentSession?.email.toLowerCase() === email.toLowerCase()) {
-      return { success: false, error: 'Нельзя удалить самого себя' };
-    }
+    const session = await getLocalSession();
+    if (session?.email.toLowerCase() === email.toLowerCase()) return { success: false, error: 'Нельзя удалить самого себя' };
 
     const filtered = admins.filter((a: any) => a.email.toLowerCase() !== email.toLowerCase());
     fs.writeFileSync(ADMINS_FILE, JSON.stringify(filtered, null, 2));
-    
     await logAuditAction('DELETE_ADMIN', `Удален администратор: ${email}`);
     return { success: true };
   } catch (error: any) {

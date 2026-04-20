@@ -1,8 +1,7 @@
 
-"use client"
+'use client';
 
-import { usePathname, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Button } from "@/components/ui/button";
@@ -16,41 +15,27 @@ interface AuthLayoutWrapperProps {
 
 export function AuthLayoutWrapper({ children, initialSession }: AuthLayoutWrapperProps) {
   const pathname = usePathname();
-  const router = useRouter();
-  const [session, setSession] = useState<any>(initialSession);
-
   const isLoginPage = pathname === '/login';
-
-  // Синхронизируем сессию, если она изменилась на сервере
-  useEffect(() => {
-    setSession(initialSession);
-  }, [initialSession]);
-
-  // Управляем редиректами только если состояние сессии не соответствует пути
-  useEffect(() => {
-    if (!session && !isLoginPage) {
-      router.replace('/login');
-    } else if (session && isLoginPage) {
-      router.replace('/');
-    }
-  }, [session, isLoginPage, router]);
 
   const handleLogout = async () => {
     await logoutLocal();
-    // Полная перезагрузка для очистки всех состояний
     window.location.assign('/login');
   };
 
-  // Если мы на странице логина, просто рендерим контент
+  // 1. Если это страница логина, просто показываем её без обертки
   if (isLoginPage) {
     return <>{children}</>;
   }
 
-  // Если сессии нет и мы не на логине, ждем редиректа (или показываем пустой экран)
-  if (!session) {
+  // 2. Если сессии нет и мы НЕ на странице логина — делаем жесткий редирект
+  if (!initialSession) {
+    if (typeof window !== 'undefined') {
+      window.location.assign('/login');
+    }
     return null;
   }
 
+  // 3. Состояние авторизации подтверждено сервером
   return (
     <SidebarProvider defaultOpen={true}>
       <AppSidebar />
@@ -62,7 +47,7 @@ export function AuthLayoutWrapper({ children, initialSession }: AuthLayoutWrappe
           </div>
           <div className="flex items-center gap-6">
              <div className="flex flex-col items-end">
-               <span className="text-xs font-bold text-slate-700">{session.email}</span>
+               <span className="text-xs font-bold text-slate-700">{initialSession.email}</span>
                <span className="text-[10px] text-muted-foreground uppercase tracking-tighter">Администратор системы</span>
              </div>
              <div className="h-8 w-px bg-border mx-2" />
