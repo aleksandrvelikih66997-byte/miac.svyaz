@@ -59,7 +59,6 @@ export function rebuildAsteriskConfig() {
   
   dialplanConfig += `[miac-internal]\n`;
   dialplanConfig += `exten => _XXX,1,NoOp(Calling Extension \${EXTEN})\n`;
-  // Используем PJSIP_ENDPOINT без свойства, что вернет имя если эндпоинт есть
   dialplanConfig += `same => n,Set(E_EXISTS=\${PJSIP_ENDPOINT(\${EXTEN})})\n`;
   dialplanConfig += `same => n,GotoIf($["\${E_EXISTS}" != ""]?dial:fail)\n`;
   dialplanConfig += `same => n(dial),Dial(PJSIP/\${EXTEN},30)\n`;
@@ -112,7 +111,6 @@ export function rebuildAsteriskConfig() {
   ivrs.forEach((ivr: any) => {
     dialplanConfig += `\n[miac-ivr-${ivr.id}]\n`;
     dialplanConfig += `exten => s,1,Answer()\n`;
-    // Используем LANGUAGE() вместо CHANNEL(language) для совместимости
     dialplanConfig += `same => n,Set(LANGUAGE()=ru)\n`;
     dialplanConfig += `same => n,Background(/var/lib/asterisk/sounds/miac/${ivr.announcementFile})\n`;
     dialplanConfig += `same => n,WaitExten(10)\n\n`;

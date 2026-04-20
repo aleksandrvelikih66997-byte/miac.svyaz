@@ -16,14 +16,15 @@ import {
   Database,
   Zap,
   Play,
-  UserPlus
+  UserPlus,
+  Volume2,
+  Copy
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase"
-import { collection, query } from "firebase/firestore"
+import { useFirestore } from "@/firebase"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
@@ -33,8 +34,12 @@ export default function ServicesPage() {
     "[SYSTEM] Служба Asterisk.service активна.",
     "[SECURITY] Режим ФСТЭК: Включен.",
   ])
-  const db = useFirestore()
   const { toast } = useToast()
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
+    toast({ title: "Скопировано в буфер" })
+  }
 
   return (
     <div className="space-y-6">
@@ -52,18 +57,36 @@ export default function ServicesPage() {
 
       <div className="grid gap-6 md:grid-cols-3">
         <div className="md:col-span-2 space-y-6">
+          <Alert className="bg-amber-50 border-amber-200">
+            <Volume2 className="h-5 w-5 text-amber-600" />
+            <AlertTitle className="font-bold text-amber-900">Установка русской озвучки</AlertTitle>
+            <AlertDescription className="text-[11px] mt-2 space-y-3 text-amber-800">
+              <p>Если Asterisk жалуется на отсутствие файлов (например, <i>invalid</i>), установите официальный пакет русской озвучки:</p>
+              <div className="bg-slate-900 text-slate-100 p-3 rounded flex items-center justify-between font-mono">
+                <span>sudo apt-get install asterisk-sounds-ru</span>
+                <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400" onClick={() => copyToClipboard('sudo apt-get install asterisk-sounds-ru')}>
+                  <Copy className="h-3 w-3" />
+                </Button>
+              </div>
+              <p>После установки выполните команду в консоли Asterisk: <code className="bg-amber-100 px-1 rounded">core reload</code></p>
+            </AlertDescription>
+          </Alert>
+
           <Alert className="bg-primary/5 border-primary/20">
             <UserPlus className="h-5 w-5 text-primary" />
             <AlertTitle className="font-bold">Создание администратора</AlertTitle>
             <AlertDescription className="text-xs mt-2 space-y-2">
               <p>Для создания нового пользователя панели управления выполните команду на сервере:</p>
-              <div className="bg-slate-900 text-slate-100 p-4 rounded-lg font-mono text-[11px] mt-2 border shadow-inner">
-                <p className="text-emerald-400">node src/scripts/setup-admin.mjs user@miac.ru myPassword123</p>
+              <div className="bg-slate-900 text-slate-100 p-4 rounded-lg font-mono text-[11px] mt-2 border shadow-inner flex items-center justify-between">
+                <p className="text-emerald-400">npm run setup-admin user@miac.ru password</p>
+                <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400" onClick={() => copyToClipboard('npm run setup-admin user@miac.ru password')}>
+                  <Copy className="h-3 w-3" />
+                </Button>
               </div>
             </AlertDescription>
           </Alert>
 
-          <Card className="border-none shadow-xl flex flex-col h-[400px] overflow-hidden">
+          <Card className="border-none shadow-xl flex flex-col h-[300px] overflow-hidden">
             <CardHeader className="flex flex-row items-center justify-between shrink-0 bg-slate-900 text-white py-3">
               <div className="flex items-center gap-3">
                 <Terminal className="h-4 w-4 text-emerald-400" />
@@ -104,7 +127,7 @@ export default function ServicesPage() {
               </div>
               <div className="space-y-1">
                 <p className="text-[10px] font-bold text-muted-foreground uppercase">Контроль доступа</p>
-                <p className="text-xs">Используйте <code>setup-admin.mjs</code> для управления администраторами только через физический доступ к серверу.</p>
+                <p className="text-xs">Используйте <code>setup-admin</code> для управления администраторами только через физический доступ к серверу.</p>
               </div>
             </CardContent>
           </Card>
