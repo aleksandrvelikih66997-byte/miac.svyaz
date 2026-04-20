@@ -62,7 +62,7 @@ export function rebuildAsteriskConfig() {
   
   inboundRoutes.forEach((route: any) => {
     const pattern = route.pattern === '*' ? 's' : route.pattern;
-    let destParts = route.destination.split(':');
+    let destParts = (route.destination || "").split(':');
     let type = destParts[0];
     let id = destParts[1];
 
@@ -73,11 +73,10 @@ export function rebuildAsteriskConfig() {
     else if (type === 'Extension') targetExists = extensions.some((e: any) => e.id === id);
 
     if (!targetExists) {
-      // Если IVR из маршрута удален, но в системе есть другие IVR - берем первый попавшийся
+      // Авто-коррекция: Если IVR из маршрута удален, но в системе есть другие IVR - берем первый попавшийся
       if (type === 'IVR' && ivrs.length > 0) {
         id = ivrs[0].id;
       } else {
-        // Если вообще нет целей, вешаем трубку
         dialplanConfig += `exten => ${pattern},1,Hangup()\n`;
         return;
       }
@@ -103,6 +102,7 @@ export function rebuildAsteriskConfig() {
   }
   dialplanConfig += `exten => s,n,Hangup()\n\n`;
 
+  // Генерация контекстов IVR
   ivrs.forEach((ivr: any) => {
     dialplanConfig += `[miac-ivr-${ivr.id}]\n`;
     dialplanConfig += `exten => s,1,Answer()\n`;
@@ -137,16 +137,19 @@ export function rebuildAsteriskConfig() {
   dialplanConfig += `exten => _XXX,1,Dial(PJSIP/\${EXTEN},30)\n`;
   dialplanConfig += `exten => _XXX,n,Hangup()\n\n`;
 
-  // Запись файлов
+  // Запись файлов в /etc/asterisk
   try {
     if (fs.existsSync(AST_DIR)) {
       fs.writeFileSync(path.join(AST_DIR, 'pjsip_miac_users.conf'), usersConfig);
       fs.writeFileSync(path.join(AST_DIR, 'pjsip_miac_trunks.conf'), trunksConfig);
       fs.writeFileSync(path.join(AST_DIR, 'queues_miac.conf'), queuesConfig);
       fs.writeFileSync(path.join(AST_DIR, 'extensions_miac_dialplan.conf'), dialplanConfig);
+      // Попытка релоада Asterisk
       exec('asterisk -rx "core reload"');
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error('[BRIDGE] Error writing to /etc/asterisk:', e);
+  }
 
   // Синхронизация звуков
   try {
@@ -159,7 +162,9 @@ export function rebuildAsteriskConfig() {
         try { fs.chmodSync(dest, 0o666); } catch(e) {}
       });
     }
-  } catch (e) {}
+  } catch (e) {
+    console.error('[BRIDGE] Error syncing sounds:', e);
+  }
 
   return true;
 }
