@@ -32,11 +32,27 @@ function readJSON(file: string) {
 function writeJSON(file: string, data: any) {
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
   try {
-    // Автоматическая синхронизация при любом сохранении
     rebuildAsteriskConfig();
   } catch (e) {
     console.error('[STORE] Sync Error:', e);
   }
+}
+
+// Вспомогательная функция для обновления статусов (вызывается Мостом)
+export async function updateExtensionStatuses(statuses: Record<string, 'online' | 'offline'>) {
+  const data = readJSON(FILES.extensions);
+  let changed = false;
+  data.forEach((ext: any) => {
+    const newStatus = statuses[ext.id] || 'offline';
+    if (ext.status !== newStatus) {
+      ext.status = newStatus;
+      changed = true;
+    }
+  });
+  if (changed) {
+    fs.writeFileSync(FILES.extensions, JSON.stringify(data, null, 2));
+  }
+  return { success: true };
 }
 
 // Extensions
@@ -48,7 +64,7 @@ export async function saveExtension(ext: any) {
   if (index > -1) { 
     data[index] = { ...data[index], ...ext, lastUpdateDate: now }; 
   } else { 
-    data.push({ ...ext, creationDate: now, lastUpdateDate: now }); 
+    data.push({ ...ext, status: 'offline', creationDate: now, lastUpdateDate: now }); 
   }
   writeJSON(FILES.extensions, data);
   return { success: true };

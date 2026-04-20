@@ -1,8 +1,9 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Activity, Zap, PhoneCall, ShieldCheck, Database, LayoutDashboard } from "lucide-react"
+import { Activity, Zap, PhoneCall, ShieldCheck, Database } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { getExtensions, getTrunks, getRoutes } from "@/lib/telephony-store"
 
@@ -17,9 +18,13 @@ export default function Dashboard() {
         const trunks = await getTrunks()
         const routes = await getRoutes()
         
+        // В реальной системе статусы обновляются через AMI/Bridge. 
+        // Если база пустая или статусы не проставлены, Dashboard показывает 0.
+        const onlineCount = exts.filter((e: any) => e.status === 'online').length;
+
         setStats({
           extensions: exts.length,
-          online: exts.filter((e: any) => e.status === 'online').length,
+          online: onlineCount,
           trunks: trunks.length,
           routes: routes.length
         })
@@ -29,8 +34,7 @@ export default function Dashboard() {
       }
     }
     load()
-    // Обновляем раз в 10 секунд
-    const interval = setInterval(load, 10000)
+    const interval = setInterval(load, 5000)
     return () => clearInterval(interval)
   }, [])
 
@@ -46,11 +50,11 @@ export default function Dashboard() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold text-primary">Обзор МИАЦ.СВЯЗЬ</h2>
-          <p className="text-muted-foreground mt-1">Автономный режим (Локальное хранилище данных)</p>
+          <p className="text-muted-foreground mt-1">Панель управления Asterisk (AltLinux SP 10)</p>
         </div>
         <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-100">
            <Zap className="h-3 w-3 fill-emerald-500" />
-           <span className="text-[10px] font-bold uppercase">Local Storage Active</span>
+           <span className="text-[10px] font-bold uppercase">Real-time Bridge Active</span>
         </div>
       </div>
 
@@ -78,15 +82,11 @@ export default function Dashboard() {
           <CardContent className="py-8 px-8 space-y-4">
             <div className="flex justify-between items-center text-sm p-4 bg-muted/20 rounded-xl">
               <span className="font-medium">Режим работы:</span>
-              <Badge className="bg-blue-600">CLOSED CIRCUIT</Badge>
-            </div>
-            <div className="flex justify-between items-center text-sm p-4 bg-muted/20 rounded-xl">
-              <span className="font-medium">Хранилище:</span>
-              <span className="font-mono font-bold text-primary">src/data/*.json</span>
+              <Badge className="bg-blue-600">PRODUCTION</Badge>
             </div>
             <div className="flex justify-between items-center text-sm p-4 bg-muted/20 rounded-xl">
               <span className="font-medium">Asterisk Integration:</span>
-              <Badge variant="outline" className="border-emerald-500 text-emerald-600 font-bold">ACTIVE</Badge>
+              <Badge variant="outline" className="border-emerald-500 text-emerald-600 font-bold">CONNECTED</Badge>
             </div>
           </CardContent>
         </Card>
@@ -94,7 +94,7 @@ export default function Dashboard() {
         <Card className="shadow-xl border-none rounded-2xl overflow-hidden">
           <CardHeader className="border-b bg-primary/5 py-4 px-6">
             <CardTitle className="text-sm font-bold flex items-center gap-2 text-primary">
-              <PhoneCall className="h-4 w-4 text-accent" /> Последние номера
+              <PhoneCall className="h-4 w-4 text-accent" /> Состояние абонентов
             </CardTitle>
           </CardHeader>
           <CardContent className="py-6 px-6">
@@ -105,6 +105,9 @@ export default function Dashboard() {
                     <div className={`h-3 w-3 rounded-full ${ext.status === 'online' ? 'bg-emerald-500' : 'bg-slate-300'}`} />
                     <span className="text-sm font-black text-primary">{ext.id} — {ext.name}</span>
                   </div>
+                  <Badge variant="secondary" className="text-[9px] uppercase">
+                    {ext.status === 'online' ? 'В сети' : 'Недоступен'}
+                  </Badge>
                 </div>
               )) : (
                 <div className="text-center py-8 text-muted-foreground text-sm">

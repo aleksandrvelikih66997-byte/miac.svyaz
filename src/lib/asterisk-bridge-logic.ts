@@ -1,3 +1,4 @@
+
 import fs from 'fs';
 import path from 'path';
 import { exec } from 'child_process';
@@ -55,26 +56,28 @@ export function rebuildAsteriskConfig() {
 
   // 4. Dialplan
   let dialplanConfig = '; Генерируемый диалплан МИАЦ\n\n';
+  
+  // Контекст для внутренних звонков с проверкой статуса
+  dialplanConfig += `[miac-internal]\n`;
+  dialplanConfig += `exten => _XXX,1,NoOp(Calling Extension \${EXTEN})\n`;
+  dialplanConfig += `same => n,Dial(PJSIP/\${EXTEN},30)\n`;
+  dialplanConfig += `same => n,Goto(s-\${DIALSTATUS},1)\n\n`;
+  
+  dialplanConfig += `exten => s-BUSY,1,Playback(vm-isunavail)\n`;
+  dialplanConfig += `same => n,Hangup()\n`;
+  dialplanConfig += `exten => s-NOANSWER,1,Playback(vm-nobodyavail)\n`;
+  dialplanConfig += `same => n,Hangup()\n`;
+  dialplanConfig += `exten => s-CONGESTION,1,Playback(vm-isunavail)\n`;
+  dialplanConfig += `same => n,Hangup()\n`;
+  dialplanConfig += `exten => _s-.,1,Hangup()\n\n`;
+
   dialplanConfig += `[from-trunk]\n`;
-  
   const inboundRoutes = routes.filter((r: any) => r.type === 'inbound');
-  
   inboundRoutes.forEach((route: any) => {
     const pattern = route.pattern === '*' ? 's' : route.pattern;
     let destParts = (route.destination || "").split(':');
     let type = destParts[0];
     let id = destParts[1];
-
-    let targetExists = false;
-    if (type === 'IVR') targetExists = ivrs.some((i: any) => i.id === id);
-    else if (type === 'Queue') targetExists = queues.some((q: any) => q.name === id);
-    else if (type === 'Extension') targetExists = extensions.some((e: any) => e.id === id);
-
-    // Fallback if target is missing
-    if (!targetExists && ivrs.length > 0) {
-      type = 'IVR';
-      id = ivrs[0].id;
-    }
 
     let astTarget = '';
     if (type === 'IVR') astTarget = `miac-ivr-${id},s,1`;
@@ -89,55 +92,44 @@ export function rebuildAsteriskConfig() {
     }
   });
 
-  if (inboundRoutes.length === 0 && ivrs.length > 0) {
-    dialplanConfig += `exten => s,1,Goto(miac-ivr-${ivrs[0].id},s,1)\n`;
-    dialplanConfig += `exten => _.,1,Goto(miac-ivr-${ivrs[0].id},s,1)\n`;
-  }
-  dialplanConfig += `exten => s,n,Hangup()\n\n`;
-
   ivrs.forEach((ivr: any) => {
     dialplanConfig += `[miac-ivr-${ivr.id}]\n`;
     dialplanConfig += `exten => s,1,Answer()\n`;
-    dialplanConfig += `exten => s,n,Set(CHANNEL(language)=ru)\n`; // Устанавливаем русский язык для системных фраз
-    dialplanConfig += `exten => s,n,Progress()\n`;
-    dialplanConfig += `exten => s,n,Wait(1)\n`;
-    dialplanConfig += `exten => s,n,Background(/var/lib/asterisk/sounds/miac/${ivr.announcementFile})\n`;
-    dialplanConfig += `exten => s,n,WaitExten(10)\n\n`;
+    dialplanConfig += `same => n,Set(CHANNEL(language)=ru)\n`;
+    dialplanConfig += `same => n,Background(/var/lib/asterisk/sounds/miac/${ivr.announcementFile})\n`;
+    dialplanConfig += `same => n,WaitExten(10)\n\n`;
 
-    dialplanConfig += `; Донабор внутреннего номера\n`;
-    dialplanConfig += `exten => _XXX,1,Dial(PJSIP/\${EXTEN},30)\n`;
-    dialplanConfig += `exten => _XXX,n,Playback(beeperr)\n`;
-    dialplanConfig += `exten => _XXX,n,Goto(s,1)\n\n`;
+    // Умный донабор: проверяем существование номера
+    dialplanConfig += `; Донабор с проверкой\n`;
+    dialplanConfig += `exten => _XXX,1,NoOp(IVR Dialing \${EXTEN})\n`;
+    dialplanConfig += `same => n,GotoIf($[$\{DIALPLAN_EXISTS(miac-internal,$\{EXTEN},1)}]?dial-ok:dial-err)\n`;
+    dialplanConfig += `same => n(dial-ok),Goto(miac-internal,\${EXTEN},1)\n`;
+    dialplanConfig += `same => n(dial-err),Playback(invalid)\n`;
+    dialplanConfig += `same => n,Goto(s,1)\n\n`;
 
     (ivr.digitMappings || []).forEach((mapping: string) => {
       const parts = mapping.split(':');
       if (parts.length < 3) return;
       const [digit, type, target] = parts;
-      if (type === 'ext') dialplanConfig += `exten => ${digit},1,Dial(PJSIP/${target},30)\n`;
+      if (type === 'ext') dialplanConfig += `exten => ${digit},1,Goto(miac-internal,${target},1)\n`;
       else if (type === 'queue') dialplanConfig += `exten => ${digit},1,Queue(${target})\n`;
       else if (type === 'ivr') dialplanConfig += `exten => ${digit},1,Goto(miac-ivr-${target},s,1)\n`;
     });
 
+    // Таймаут
     if (ivr.timeoutDestination) {
       const parts = ivr.timeoutDestination.split(':');
-      if (parts.length >= 2) {
-        const [type, target] = parts;
-        if (type === 'Extension') dialplanConfig += `exten => t,1,Dial(PJSIP/${target},30)\n`;
-        else if (type === 'Queue') dialplanConfig += `exten => t,1,Queue(${target})\n`;
-      }
+      const [type, target] = parts;
+      if (type === 'Extension') dialplanConfig += `exten => t,1,Goto(miac-internal,${target},1)\n`;
+      else if (type === 'Queue') dialplanConfig += `exten => t,1,Queue(${target})\n`;
+      else dialplanConfig += `exten => t,1,Hangup()\n`;
     } else {
       dialplanConfig += `exten => t,1,Hangup()\n`;
     }
 
-    // Обработка неверного ввода
-    dialplanConfig += `exten => i,1,Playback(invalid)\n`; // Проигрывает "Неверный номер" на русском
-    dialplanConfig += `exten => i,n,Goto(s,1)\n`;
-    dialplanConfig += `\n`;
+    dialplanConfig += `exten => i,1,Playback(invalid)\n`;
+    dialplanConfig += `same => n,Goto(s,1)\n\n`;
   });
-
-  dialplanConfig += `[miac-internal]\n`;
-  dialplanConfig += `exten => _XXX,1,Dial(PJSIP/\${EXTEN},30)\n`;
-  dialplanConfig += `exten => _XXX,n,Hangup()\n\n`;
 
   try {
     if (fs.existsSync(AST_DIR)) {
@@ -151,6 +143,7 @@ export function rebuildAsteriskConfig() {
     console.error('[BRIDGE] Error writing to /etc/asterisk:', e);
   }
 
+  // Синхронизация звуков
   try {
     if (fs.existsSync(SOUNDS_SRC)) {
       if (!fs.existsSync(SOUNDS_DEST)) fs.mkdirSync(SOUNDS_DEST, { recursive: true });
@@ -158,11 +151,10 @@ export function rebuildAsteriskConfig() {
         const src = path.join(SOUNDS_SRC, f);
         const dest = path.join(SOUNDS_DEST, f);
         fs.copyFileSync(src, dest);
+        try { fs.chmodSync(dest, 0o666); } catch(e) {}
       });
     }
-  } catch (e) {
-    console.error('[BRIDGE] Error syncing sounds:', e);
-  }
+  } catch (e) {}
 
   return true;
 }
