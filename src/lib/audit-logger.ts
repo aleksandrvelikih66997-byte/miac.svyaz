@@ -36,7 +36,8 @@ export async function logAuditAction(action: AuditAction, details: string) {
 
     let logs = [];
     if (fs.existsSync(LOGS_FILE)) {
-      logs = JSON.parse(fs.readFileSync(LOGS_FILE, 'utf8'));
+      const content = fs.readFileSync(LOGS_FILE, 'utf8');
+      logs = content ? JSON.parse(content) : [];
     }
 
     const newLog = {
@@ -61,7 +62,8 @@ export async function logAuditAction(action: AuditAction, details: string) {
 export async function getAuditLogs() {
   try {
     if (!fs.existsSync(LOGS_FILE)) return [];
-    return JSON.parse(fs.readFileSync(LOGS_FILE, 'utf8'));
+    const content = fs.readFileSync(LOGS_FILE, 'utf8');
+    return content ? JSON.parse(content) : [];
   } catch {
     return [];
   }

@@ -11,13 +11,16 @@ const DATA_DIR = path.join(process.cwd(), 'src', 'data');
 const ADMINS_FILE = path.join(DATA_DIR, 'admins.json');
 
 function hashPassword(password: string) {
-  return crypto.createHash('sha256').update(password).digest('hex');
+  // Принудительно очищаем пароль от пробелов перед хешированием
+  return crypto.createHash('sha256').update(password.trim()).digest('hex');
 }
 
 export async function loginLocal(email: string, password: string) {
   try {
+    // Гарантируем наличие директории и файла при первом запуске
+    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+    
     if (!fs.existsSync(ADMINS_FILE)) {
-      if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
       const defaultAdmin = [{
         email: "velikih@miackuban.ru",
         passwordHash: hashPassword("As134679"),
@@ -27,9 +30,11 @@ export async function loginLocal(email: string, password: string) {
       fs.writeFileSync(ADMINS_FILE, JSON.stringify(defaultAdmin, null, 2));
     }
 
-    const admins = JSON.parse(fs.readFileSync(ADMINS_FILE, 'utf8'));
+    const content = fs.readFileSync(ADMINS_FILE, 'utf8');
+    if (!content) throw new Error('Файл администраторов пуст');
+    
+    const admins = JSON.parse(content);
     const cleanEmail = email.trim().toLowerCase();
-    const cleanPassword = password.trim();
     
     const admin = admins.find((a: any) => a.email.toLowerCase() === cleanEmail);
 
@@ -37,7 +42,8 @@ export async function loginLocal(email: string, password: string) {
       return { success: false, error: 'Пользователь не найден.' };
     }
 
-    const inputHash = hashPassword(cleanPassword);
+    // Проверяем хеш (hashPassword внутри делает trim)
+    const inputHash = hashPassword(password);
     if (admin.passwordHash !== inputHash) {
       return { success: false, error: 'Неверный пароль.' };
     }
@@ -46,7 +52,7 @@ export async function loginLocal(email: string, password: string) {
     
     cookieStore.set('miac_session', JSON.stringify({ email: admin.email, role: admin.role }), {
       httpOnly: true,
-      secure: false, // Отключено для работы по HTTP (AltLinux Local)
+      secure: false, // Отключено для работы по локальной сети HTTP
       maxAge: 60 * 60 * 8, // 8 часов
       path: '/',
       sameSite: 'lax'
@@ -83,7 +89,9 @@ export async function getLocalSession() {
 export async function getAdmins() {
   try {
     if (!fs.existsSync(ADMINS_FILE)) return [];
-    return JSON.parse(fs.readFileSync(ADMINS_FILE, 'utf8')).map((a: any) => ({
+    const content = fs.readFileSync(ADMINS_FILE, 'utf8');
+    if (!content) return [];
+    return JSON.parse(content).map((a: any) => ({
       email: a.email,
       role: a.role,
       createdAt: a.createdAt
@@ -95,16 +103,24 @@ export async function getAdmins() {
 
 export async function createAdmin(email: string, password: string) {
   try {
-    const admins = JSON.parse(fs.readFileSync(ADMINS_FILE, 'utf8'));
-    const cleanEmail = email.trim().toLowerCase();
+    if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
     
-    if (admins.some((a: any) => a.email === cleanEmail)) {
+    let admins = [];
+    if (fs.existsSync(ADMINS_FILE)) {
+      const content = fs.readFileSync(ADMINS_FILE, 'utf8');
+      admins = content ? JSON.parse(content) : [];
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+    
+    if (admins.some((a: any) => a.email.toLowerCase() === cleanEmail)) {
       return { success: false, error: 'Пользователь уже существует' };
     }
 
     const newAdmin = {
       email: cleanEmail,
-      passwordHash: hashPassword(password),
+      passwordHash: hashPassword(cleanPassword),
       role: "Admin",
       createdAt: new Date().toISOString()
     };
@@ -115,23 +131,26 @@ export async function createAdmin(email: string, password: string) {
     await logAuditAction('CREATE_ADMIN', `Создан администратор: ${cleanEmail}`);
     return { success: true };
   } catch (error: any) {
+    console.error('[AUTH] Create error:', error);
     return { success: false, error: error.message };
   }
 }
 
 export async function deleteAdmin(email: string) {
   try {
+    if (!fs.existsSync(ADMINS_FILE)) return { success: false, error: 'Файл не найден' };
+    
     const admins = JSON.parse(fs.readFileSync(ADMINS_FILE, 'utf8'));
     if (admins.length <= 1) {
       return { success: false, error: 'Нельзя удалить последнего администратора' };
     }
 
     const currentSession = await getLocalSession();
-    if (currentSession?.email === email) {
+    if (currentSession?.email.toLowerCase() === email.toLowerCase()) {
       return { success: false, error: 'Нельзя удалить самого себя' };
     }
 
-    const filtered = admins.filter((a: any) => a.email !== email);
+    const filtered = admins.filter((a: any) => a.email.toLowerCase() !== email.toLowerCase());
     fs.writeFileSync(ADMINS_FILE, JSON.stringify(filtered, null, 2));
     
     await logAuditAction('DELETE_ADMIN', `Удален администратор: ${email}`);

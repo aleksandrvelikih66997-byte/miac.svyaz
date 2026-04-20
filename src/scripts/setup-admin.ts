@@ -20,7 +20,7 @@ const DATA_DIR = path.join(process.cwd(), 'src', 'data');
 const ADMINS_FILE = path.join(DATA_DIR, 'admins.json');
 
 function hashPassword(p: string) {
-  return crypto.createHash('sha256').update(p).digest('hex');
+  return crypto.createHash('sha256').update(p.trim()).digest('hex');
 }
 
 if (!fs.existsSync(DATA_DIR)) {
@@ -29,17 +29,19 @@ if (!fs.existsSync(DATA_DIR)) {
 
 let admins = [];
 if (fs.existsSync(ADMINS_FILE)) {
-  admins = JSON.parse(fs.readFileSync(ADMINS_FILE, 'utf8'));
+  const content = fs.readFileSync(ADMINS_FILE, 'utf8');
+  admins = content ? JSON.parse(content) : [];
 }
 
+const cleanEmail = email.trim().toLowerCase();
 const newAdmin = {
-  email: email.toLowerCase(),
+  email: cleanEmail,
   passwordHash: hashPassword(password),
   role: "Admin",
   createdAt: new Date().toISOString()
 };
 
-const existingIndex = admins.findIndex((a: any) => a.email === newAdmin.email);
+const existingIndex = admins.findIndex((a: any) => a.email.toLowerCase() === cleanEmail);
 if (existingIndex > -1) {
   admins[existingIndex] = newAdmin;
 } else {
@@ -47,4 +49,4 @@ if (existingIndex > -1) {
 }
 
 fs.writeFileSync(ADMINS_FILE, JSON.stringify(admins, null, 2));
-console.log(`[AUTH] Администратор ${email} успешно создан/обновлен.`);
+console.log(`[AUTH] Администратор ${cleanEmail} успешно создан/обновлен.`);

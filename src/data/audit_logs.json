@@ -1,0 +1,32 @@
+[
+  {
+    "timestamp": "2026-04-20T15:04:30.823Z",
+    "user": "velikih@miackuban.ru",
+    "action": "LOGIN",
+    "details": "Вход в систему: velikih@miackuban.ru"
+  },
+  {
+    "timestamp": "2026-04-20T15:04:17.999Z",
+    "user": "admin@miac.ru",
+    "action": "LOGIN",
+    "details": "Вход в систему: admin@miac.ru"
+  },
+  {
+    "timestamp": "2026-04-20T15:04:09.147Z",
+    "user": "velikih@miackuban.ru",
+    "action": "LOGOUT",
+    "details": "Выход из системы: velikih@miackuban.ru"
+  },
+  {
+    "timestamp": "2026-04-20T15:04:00.422Z",
+    "user": "velikih@miackuban.ru",
+    "action": "CREATE_ADMIN",
+    "details": "Создан администратор: admin@miac.ru"
+  },
+  {
+    "timestamp": "2026-04-20T15:03:33.477Z",
+    "user": "velikih@miackuban.ru",
+    "action": "SAVE_EXTENSION",
+    "details": "Номер: 123, Имя: 123"
+  }
+]
