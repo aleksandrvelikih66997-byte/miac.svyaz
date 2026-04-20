@@ -1,4 +1,3 @@
-
 'use server';
 
 import fs from 'fs';
@@ -17,7 +16,6 @@ export async function loginLocal(email: string, password: string) {
   try {
     if (!fs.existsSync(ADMINS_FILE)) {
       if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-      // Дефолтный пароль As134679 если файла нет
       const defaultAdmin = [{
         email: "velikih@miackuban.ru",
         passwordHash: hashPassword("As134679"),
@@ -47,7 +45,7 @@ export async function loginLocal(email: string, password: string) {
     // ВАЖНО: для работы по HTTP (10.0.2.82) secure должно быть false
     cookieStore.set('miac_session', JSON.stringify({ email: admin.email, role: admin.role }), {
       httpOnly: true,
-      secure: false, // Отключаем secure для HTTP-доступа
+      secure: false, // Отключаем secure для HTTP-доступа в локальной сети
       maxAge: 60 * 60 * 24, 
       path: '/',
       sameSite: 'lax'

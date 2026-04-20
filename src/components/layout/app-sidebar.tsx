@@ -1,4 +1,3 @@
-
 "use client"
 
 import * as React from "react"
@@ -11,7 +10,8 @@ import {
   ShieldCheck,
   Phone,
   Mic2,
-  ListOrdered
+  ListOrdered,
+  UserPlus
 } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -36,6 +36,7 @@ const groups = [
     items: [
       { name: "Дашборд", href: "/", icon: LayoutDashboard },
       { name: "Абоненты", href: "/extensions", icon: Users },
+      { name: "Импорт", href: "/extensions/import", icon: UserPlus },
       { name: "Транки", href: "/trunks", icon: Database },
     ]
   },
@@ -68,7 +69,7 @@ export function AppSidebar() {
           </div>
           <div className="flex flex-col">
             <span className="font-bold text-lg text-sidebar-foreground">МИАЦ.СВЯЗЬ</span>
-            <span className="text-[10px] text-sidebar-foreground/50">v2.1 • Asterisk 17</span>
+            <span className="text-[10px] text-sidebar-foreground/50">v2.2 • Asterisk 17</span>
           </div>
         </div>
       </SidebarHeader>

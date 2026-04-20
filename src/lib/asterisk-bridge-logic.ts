@@ -1,4 +1,3 @@
-
 import fs from 'fs';
 import path from 'path';
 import { exec } from 'child_process';
@@ -29,7 +28,7 @@ export function rebuildAsteriskConfig() {
   // 1. PJSIP Users
   let usersConfig = '; Генерируемые абоненты МИАЦ\n\n';
   extensions.forEach((ext: any) => {
-    usersConfig += `[${ext.id}]\ntype=endpoint\ncontext=miac-internal\ndisallow=all\nallow=ulaw,alaw\nauth=auth-${ext.id}\naors=${ext.id}\n\n`;
+    usersConfig += `[${ext.id}]\ntype=endpoint\ncontext=miac-internal\ndisallow=all\nallow=ulaw,alaw\nauth=auth-${ext.id}\naors=${ext.id}\nsubscribe_context = \n\n`;
     usersConfig += `[auth-${ext.id}]\ntype=auth\nauth_type=userpass\nusername=${ext.id}\npassword=${ext.secret}\n\n`;
     usersConfig += `[${ext.id}]\ntype=aor\nmax_contacts=5\n\n`;
   });
@@ -66,14 +65,12 @@ export function rebuildAsteriskConfig() {
     let type = destParts[0];
     let id = destParts[1];
 
-    // УМНАЯ ПРОВЕРКА: Если цель (IVR) не существует, ищем замену
     let targetExists = false;
     if (type === 'IVR') targetExists = ivrs.some((i: any) => i.id === id);
     else if (type === 'Queue') targetExists = queues.some((q: any) => q.name === id);
     else if (type === 'Extension') targetExists = extensions.some((e: any) => e.id === id);
 
     if (!targetExists) {
-      // Авто-коррекция: Если IVR из маршрута удален, но в системе есть другие IVR - берем первый попавшийся
       if (type === 'IVR' && ivrs.length > 0) {
         id = ivrs[0].id;
       } else {
@@ -95,14 +92,12 @@ export function rebuildAsteriskConfig() {
     }
   });
 
-  // Если маршрутов нет вообще, но есть IVR - направляем всё туда
   if (inboundRoutes.length === 0 && ivrs.length > 0) {
     dialplanConfig += `exten => s,1,Goto(miac-ivr-${ivrs[0].id},s,1)\n`;
     dialplanConfig += `exten => _.,1,Goto(miac-ivr-${ivrs[0].id},s,1)\n`;
   }
   dialplanConfig += `exten => s,n,Hangup()\n\n`;
 
-  // Генерация контекстов IVR
   ivrs.forEach((ivr: any) => {
     dialplanConfig += `[miac-ivr-${ivr.id}]\n`;
     dialplanConfig += `exten => s,1,Answer()\n`;
@@ -137,21 +132,18 @@ export function rebuildAsteriskConfig() {
   dialplanConfig += `exten => _XXX,1,Dial(PJSIP/\${EXTEN},30)\n`;
   dialplanConfig += `exten => _XXX,n,Hangup()\n\n`;
 
-  // Запись файлов в /etc/asterisk
   try {
     if (fs.existsSync(AST_DIR)) {
       fs.writeFileSync(path.join(AST_DIR, 'pjsip_miac_users.conf'), usersConfig);
       fs.writeFileSync(path.join(AST_DIR, 'pjsip_miac_trunks.conf'), trunksConfig);
       fs.writeFileSync(path.join(AST_DIR, 'queues_miac.conf'), queuesConfig);
       fs.writeFileSync(path.join(AST_DIR, 'extensions_miac_dialplan.conf'), dialplanConfig);
-      // Попытка релоада Asterisk
       exec('asterisk -rx "core reload"');
     }
   } catch (e) {
     console.error('[BRIDGE] Error writing to /etc/asterisk:', e);
   }
 
-  // Синхронизация звуков
   try {
     if (fs.existsSync(SOUNDS_SRC)) {
       if (!fs.existsSync(SOUNDS_DEST)) fs.mkdirSync(SOUNDS_DEST, { recursive: true });
@@ -159,7 +151,6 @@ export function rebuildAsteriskConfig() {
         const src = path.join(SOUNDS_SRC, f);
         const dest = path.join(SOUNDS_DEST, f);
         fs.copyFileSync(src, dest);
-        try { fs.chmodSync(dest, 0o666); } catch(e) {}
       });
     }
   } catch (e) {
