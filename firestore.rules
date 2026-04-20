@@ -1,9 +1,10 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * ALPHATERNATIV PBX SECURITY RULES
+     * MIAC.SVYAZ PBX SECURITY RULES
      * 
      * CORE PHILOSOPHY:
      * This ruleset implements a strict Role-Based Access Control (RBAC) model combined with 
