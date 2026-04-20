@@ -32,16 +32,24 @@ function readJSON(file: string) {
 function writeJSON(file: string, data: any) {
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
   try {
+    // Вызываем пересборку конфигов Asterisk
     rebuildAsteriskConfig();
   } catch (e) {
     console.error('[STORE] Sync Error:', e);
   }
 }
 
-// Вспомогательная функция для обновления статусов (вызывается Мостом)
+/**
+ * Обновляет статусы абонентов в базе без перезагрузки конфигов Asterisk.
+ * Вызывается скриптом Моста (AMI).
+ */
 export async function updateExtensionStatuses(statuses: Record<string, 'online' | 'offline'>) {
-  const data = readJSON(FILES.extensions);
+  const file = FILES.extensions;
+  if (!fs.existsSync(file)) return { success: false };
+  
+  const data = JSON.parse(fs.readFileSync(file, 'utf8'));
   let changed = false;
+
   data.forEach((ext: any) => {
     const newStatus = statuses[ext.id] || 'offline';
     if (ext.status !== newStatus) {
@@ -49,9 +57,11 @@ export async function updateExtensionStatuses(statuses: Record<string, 'online' 
       changed = true;
     }
   });
+
   if (changed) {
-    fs.writeFileSync(FILES.extensions, JSON.stringify(data, null, 2));
+    fs.writeFileSync(file, JSON.stringify(data, null, 2));
   }
+  
   return { success: true };
 }
 
@@ -135,7 +145,6 @@ export async function deleteQueue(id: string) {
 export async function getIvrs() { return readJSON(FILES.ivrs); }
 export async function saveIvr(ivr: any) {
   const data = readJSON(FILES.ivrs);
-  // ВАЖНО: Если ID уже есть, используем его, чтобы не плодить UUID при редактировании
   const id = ivr.id || Math.random().toString(36).substr(2, 9);
   const now = new Date().toISOString();
   const item = { ...ivr, id, lastUpdateDate: now };
