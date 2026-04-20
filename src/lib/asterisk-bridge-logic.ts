@@ -60,38 +60,44 @@ export function rebuildAsteriskConfig() {
   
   const inboundRoutes = routes.filter((r: any) => r.type === 'inbound');
   
-  if (inboundRoutes.length > 0) {
-    inboundRoutes.forEach((route: any) => {
-      const pattern = route.pattern === '*' ? 's' : route.pattern;
-      let destParts = route.destination.split(':');
-      let type = destParts[0];
-      let id = destParts[1];
+  inboundRoutes.forEach((route: any) => {
+    const pattern = route.pattern === '*' ? 's' : route.pattern;
+    let destParts = route.destination.split(':');
+    let type = destParts[0];
+    let id = destParts[1];
 
-      // Проверка на существование цели (защита от инвалидных переходов)
-      let targetExists = false;
-      if (type === 'IVR') targetExists = ivrs.some((i: any) => i.id === id);
-      else if (type === 'Queue') targetExists = queues.some((q: any) => q.name === id);
-      else if (type === 'Extension') targetExists = extensions.some((e: any) => e.id === id);
+    // УМНАЯ ПРОВЕРКА: Если цель (IVR) не существует, ищем замену
+    let targetExists = false;
+    if (type === 'IVR') targetExists = ivrs.some((i: any) => i.id === id);
+    else if (type === 'Queue') targetExists = queues.some((q: any) => q.name === id);
+    else if (type === 'Extension') targetExists = extensions.some((e: any) => e.id === id);
 
-      // Если цель не найдена, но есть IVR, перенаправляем на первый попавшийся
-      if (!targetExists && ivrs.length > 0) {
+    if (!targetExists) {
+      // Если IVR из маршрута удален, но в системе есть другие IVR - берем первый попавшийся
+      if (type === 'IVR' && ivrs.length > 0) {
         id = ivrs[0].id;
-        type = 'IVR';
+      } else {
+        // Если вообще нет целей, вешаем трубку
+        dialplanConfig += `exten => ${pattern},1,Hangup()\n`;
+        return;
       }
+    }
 
-      let astTarget = '';
-      if (type === 'IVR') astTarget = `miac-ivr-${id},s,1`;
-      else if (type === 'Queue') astTarget = `miac-queues,${id},1`;
-      else if (type === 'Extension') astTarget = `miac-internal,${id},1`;
+    let astTarget = '';
+    if (type === 'IVR') astTarget = `miac-ivr-${id},s,1`;
+    else if (type === 'Queue') astTarget = `miac-queues,${id},1`;
+    else if (type === 'Extension') astTarget = `miac-internal,${id},1`;
 
-      if (astTarget) {
-        dialplanConfig += `exten => ${pattern},1,Goto(${astTarget})\n`;
-        if (pattern === 's' || pattern === '*') {
-          dialplanConfig += `exten => _.,1,Goto(${astTarget})\n`;
-        }
+    if (astTarget) {
+      dialplanConfig += `exten => ${pattern},1,Goto(${astTarget})\n`;
+      if (pattern === 's' || pattern === '*') {
+        dialplanConfig += `exten => _.,1,Goto(${astTarget})\n`;
       }
-    });
-  } else if (ivrs.length > 0) {
+    }
+  });
+
+  // Если маршрутов нет вообще, но есть IVR - направляем всё туда
+  if (inboundRoutes.length === 0 && ivrs.length > 0) {
     dialplanConfig += `exten => s,1,Goto(miac-ivr-${ivrs[0].id},s,1)\n`;
     dialplanConfig += `exten => _.,1,Goto(miac-ivr-${ivrs[0].id},s,1)\n`;
   }
