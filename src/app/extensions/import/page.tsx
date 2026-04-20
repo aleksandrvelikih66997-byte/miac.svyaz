@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Upload, FileCode, CheckCircle2, AlertTriangle, Users, Save, Loader2 } from "lucide-react"
+import { Upload, FileCode, CheckCircle2, AlertTriangle, Users, Save, Loader2, ShieldAlert } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -20,7 +20,6 @@ export default function ImportExtensionsPage() {
     if (!rawConfig.trim()) return
 
     try {
-      // Разбиваем по блокам начинающимся с [
       const blocks = rawConfig.split(/(?=\[)/g)
       const results: any[] = []
 
@@ -28,13 +27,12 @@ export default function ImportExtensionsPage() {
         const lines = block.split('\n').map(l => l.trim()).filter(l => l)
         if (lines.length === 0) return
 
-        // Извлекаем номер из заголовка [123]
         const headerMatch = lines[0].match(/\[(\d+)\]/)
         if (!headerMatch) return
 
         const id = headerMatch[1]
         let secret = ""
-        let name = id // По умолчанию имя равно номеру
+        let name = id 
 
         lines.forEach(line => {
           if (line.toLowerCase().startsWith('secret=')) {
@@ -42,7 +40,6 @@ export default function ImportExtensionsPage() {
           }
           if (line.toLowerCase().startsWith('callerid=')) {
             const cidValue = line.split('=')[1]
-            // Извлекаем имя из формата "Name <number>"
             const nameMatch = cidValue.match(/^([^<]+)/)
             if (nameMatch) {
               name = nameMatch[1].trim().replace(/"/g, '')
@@ -75,12 +72,27 @@ export default function ImportExtensionsPage() {
   const handleImport = async () => {
     setIsProcessing(true)
     let count = 0
+    let skipped = 0
     try {
       for (const ext of parsedData) {
-        await saveExtension(ext)
-        count++
+        if (ext.secret.length >= 8) {
+          await saveExtension(ext)
+          count++
+        } else {
+          skipped++
+        }
       }
-      toast({ title: "Импорт завершен", description: `Добавлено абонентов: ${count}` })
+      
+      if (skipped > 0) {
+        toast({ 
+          title: "Импорт завершен", 
+          description: `Добавлено: ${count}. Пропущено (слабый пароль): ${skipped}`,
+          variant: skipped > 0 ? "destructive" : "default"
+        })
+      } else {
+        toast({ title: "Импорт завершен", description: `Добавлено абонентов: ${count}` })
+      }
+      
       setParsedData([])
       setRawConfig("")
     } catch (e) {
@@ -106,7 +118,7 @@ export default function ImportExtensionsPage() {
               <FileCode className="h-4 w-4 text-primary" /> Исходный конфиг
             </CardTitle>
             <CardDescription className="text-xs">
-              Вставьте содержимое .conf файла (блоки [number] с полями secret и callerid)
+              Вставьте содержимое .conf файла
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-4 space-y-4">
@@ -132,7 +144,7 @@ export default function ImportExtensionsPage() {
                   </CardTitle>
                   <Button size="sm" onClick={handleImport} disabled={isProcessing} className="bg-emerald-600 hover:bg-emerald-700">
                     {isProcessing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Save className="h-3 w-3 mr-2" />}
-                    Сохранить всё
+                    Импортировать
                   </Button>
                 </div>
               </CardHeader>
@@ -141,16 +153,22 @@ export default function ImportExtensionsPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="text-xs">Номер</TableHead>
-                      <TableHead className="text-xs">ФИО</TableHead>
                       <TableHead className="text-xs">Пароль</TableHead>
+                      <TableHead className="text-xs">Статус</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {parsedData.map((ext, i) => (
                       <TableRow key={i}>
                         <TableCell className="font-mono text-xs font-bold text-primary">{ext.id}</TableCell>
-                        <TableCell className="text-xs">{ext.name}</TableCell>
                         <TableCell className="font-mono text-[10px] text-muted-foreground">{ext.secret}</TableCell>
+                        <TableCell>
+                          {ext.secret.length < 8 ? (
+                            <Badge variant="destructive" className="text-[8px] uppercase">Слишком короткий</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-[8px] uppercase bg-emerald-100 text-emerald-700">OK</Badge>
+                          )}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -161,8 +179,8 @@ export default function ImportExtensionsPage() {
             <div className="h-full flex flex-col items-center justify-center p-12 text-center bg-muted/20 rounded-xl border-2 border-dashed">
               <Users className="h-12 w-12 text-muted-foreground/30 mb-4" />
               <h3 className="text-sm font-bold text-muted-foreground">Ожидание данных</h3>
-              <p className="text-xs text-muted-foreground max-w-[200px] mt-2">
-                Вставьте текст конфигурации слева и нажмите кнопку распознавания
+              <p className="text-xs text-muted-foreground mt-2">
+                Для импорта пароли должны быть не менее 8 знаков
               </p>
             </div>
           )}
@@ -170,17 +188,15 @@ export default function ImportExtensionsPage() {
           <Card className="bg-amber-50 border-amber-100">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-bold flex items-center gap-2 text-amber-700">
-                <AlertTriangle className="h-4 w-4" /> Важно
+                <ShieldAlert className="h-4 w-4" /> Политика безопасности
               </CardTitle>
             </CardHeader>
-            <CardContent className="text-xs text-amber-900 space-y-2">
-              <p>Парсер ищет поля:</p>
+            <CardContent className="text-[11px] text-amber-900 space-y-2 leading-relaxed">
+              <p>В соответствии с требованиями ФСТЭК:</p>
               <ul className="list-disc pl-4 space-y-1">
-                <li><code>[номер]</code> — заголовок блока</li>
-                <li><code>secret=ваш_пароль</code></li>
-                <li><code>callerid=Имя &lt;номер&gt;</code> — для ФИО</li>
+                <li className="font-bold">Абоненты с паролями менее 8 символов будут пропущены при импорте.</li>
+                <li>Рекомендуется изменить слабые пароли в исходном конфиге перед загрузкой.</li>
               </ul>
-              <p className="pt-2 font-bold">Все импортированные записи будут сохранены в формате PJSIP.</p>
             </CardContent>
           </Card>
         </div>

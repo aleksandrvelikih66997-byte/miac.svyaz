@@ -1,8 +1,7 @@
-
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Search, User, Trash2, Edit2, Loader2, Lock, Info, CheckCircle2 } from "lucide-react"
+import { Plus, Search, User, Trash2, Edit2, Loader2, Lock, Info, CheckCircle2, ShieldAlert } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -58,6 +57,16 @@ export default function ExtensionsPage() {
       toast({ title: "Ошибка", description: "Заполните все обязательные поля", variant: "destructive" })
       return
     }
+
+    if (currentExt.secret.length < 8) {
+      toast({ 
+        title: "Слабый пароль", 
+        description: "Для соответствия нормам безопасности пароль должен быть не менее 8 символов", 
+        variant: "destructive" 
+      })
+      return
+    }
+
     await saveExtension(currentExt)
     setIsDialogOpen(false)
     toast({ title: "Успешно", description: isEditing ? "Данные обновлены" : "Абонент создан" })
@@ -106,6 +115,7 @@ export default function ExtensionsPage() {
                       <TableHead className="w-[100px] font-bold">Номер</TableHead>
                       <TableHead className="font-bold">Имя / Отдел</TableHead>
                       <TableHead className="font-bold">Технология</TableHead>
+                      <TableHead className="font-bold text-center">Безопасность</TableHead>
                       <TableHead className="text-right font-bold">Действия</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -122,6 +132,13 @@ export default function ExtensionsPage() {
                           </div>
                         </TableCell>
                         <TableCell><Badge variant="outline">{ext.tech}</Badge></TableCell>
+                        <TableCell className="text-center">
+                          {ext.secret && ext.secret.length < 8 ? (
+                            <Badge variant="destructive" className="text-[9px] uppercase">Слабый пароль</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-[9px] uppercase bg-emerald-100 text-emerald-700">Надежный</Badge>
+                          )}
+                        </TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-primary" onClick={() => handleOpenEdit(ext)}>
@@ -142,19 +159,33 @@ export default function ExtensionsPage() {
         </div>
 
         <div className="space-y-6">
-          <Card className="bg-amber-50 border-amber-100">
+          <Card className="bg-amber-50 border-amber-100 shadow-sm">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-bold flex items-center gap-2 text-amber-700">
+                <ShieldAlert className="h-4 w-4" /> Требования безопасности
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="text-[11px] space-y-3 text-amber-900 leading-relaxed">
+              <p className="font-bold">Пароли абонентов (Secret):</p>
+              <ul className="list-disc pl-4 space-y-1.5">
+                <li>Длина не менее 8 символов.</li>
+                <li>Рекомендуется смесь букв и цифр.</li>
+                <li>Не используйте номер телефона в качестве пароля.</li>
+              </ul>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-blue-50 border-blue-100 shadow-sm">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-bold flex items-center gap-2 text-blue-700">
                 <Info className="h-4 w-4" /> Настройка телефона
               </CardTitle>
             </CardHeader>
-            <CardContent className="text-xs space-y-3 text-amber-900">
-              <p>Для корректной работы Yealink или MicroSIP:</p>
+            <CardContent className="text-[11px] space-y-3 text-blue-900 leading-relaxed">
               <ul className="list-disc pl-4 space-y-2">
-                <li><strong>User ID:</strong> Номер (например, 123)</li>
-                <li><strong>Auth ID (Login):</strong> Обязательно номер!</li>
-                <li><strong>Password:</strong> Секрет из настроек</li>
-                <li><strong>SIP Server:</strong> IP вашего сервера</li>
+                <li><strong>User ID:</strong> Номер</li>
+                <li><strong>Auth ID:</strong> Номер</li>
+                <li><strong>Password:</strong> Ваш Secret</li>
               </ul>
             </CardContent>
           </Card>
@@ -193,15 +224,22 @@ export default function ExtensionsPage() {
               <Input value={currentExt.name} onChange={(e) => setCurrentExt({...currentExt, name: e.target.value})} />
             </div>
             <div className="grid gap-2">
-              <Label>Пароль (Secret) *</Label>
+              <Label className="flex justify-between">
+                <span>Пароль (Secret) *</span>
+                <span className={`text-[10px] ${currentExt.secret.length < 8 ? 'text-destructive font-bold' : 'text-emerald-600'}`}>
+                  {currentExt.secret.length < 8 ? `Слабый (${currentExt.secret.length})` : 'Надежный'}
+                </span>
+              </Label>
               <div className="relative">
                 <Input 
                   type="password"
                   value={currentExt.secret} 
                   onChange={(e) => setCurrentExt({...currentExt, secret: e.target.value})} 
+                  className={currentExt.secret && currentExt.secret.length < 8 ? 'border-destructive' : ''}
                 />
                 <Lock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               </div>
+              <p className="text-[10px] text-muted-foreground">Минимум 8 символов для безопасности</p>
             </div>
           </div>
           <DialogFooter>
