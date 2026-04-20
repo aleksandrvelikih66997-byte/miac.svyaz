@@ -1,5 +1,5 @@
 
-'use client';
+"use client"
 
 import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
@@ -51,7 +51,7 @@ export function AuthLayoutWrapper({ children, initialSession }: AuthLayoutWrappe
     <SidebarProvider defaultOpen={true} className="h-screen overflow-hidden">
       <div className="flex h-screen w-full overflow-hidden">
         <AppSidebar />
-        <SidebarInset className="flex-1 flex flex-col h-screen overflow-hidden">
+        <SidebarInset className="flex-1 flex flex-col h-screen overflow-hidden bg-slate-50">
           <header className="flex h-16 items-center justify-between border-b px-8 shrink-0 bg-background shadow-sm z-10">
             <div className="flex items-center gap-3">
               <Shield className="h-5 w-5 text-primary" />
@@ -68,8 +68,8 @@ export function AuthLayoutWrapper({ children, initialSession }: AuthLayoutWrappe
                </Button>
             </div>
           </header>
-          <main className="flex-1 p-8 overflow-y-auto w-full bg-slate-50/50">
-            <div className="max-w-[1400px] mx-auto">
+          <main className="flex-1 p-8 overflow-y-auto w-full scrollbar-none">
+            <div className="max-w-[1400px] mx-auto pb-12">
               {children}
             </div>
           </main>

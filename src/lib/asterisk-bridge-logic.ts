@@ -26,13 +26,13 @@ export function rebuildAsteriskConfig() {
 
   let dialplanConfig = '; Генерируемый диалплан МИАЦ.СВЯЗЬ (v1.0)\n\n';
 
-  // 1. IVR Contexts (Должны быть вверху для корректной регистрации)
+  // 1. IVR Contexts (Должны быть объявлены ДО использования в маршрутах)
   ivrs.forEach((ivr: any) => {
     dialplanConfig += `[miac-ivr-${ivr.id}]\n`;
-    dialplanConfig += `exten => s,1,Answer()\n`;
-    dialplanConfig += `exten => s,2,NoOp(IVR Menu: ${ivr.name})\n`;
+    dialplanConfig += `exten => s,1,NoOp(IVR START: ${ivr.name})\n`;
+    dialplanConfig += `exten => s,2,Answer()\n`;
     dialplanConfig += `exten => s,3,Background(/var/lib/asterisk/sounds/miac/${ivr.announcementFile})\n`;
-    dialplanConfig += `exten => s,4,WaitExten(10)\n\n`;
+    dialplanConfig += `exten => s,4,WaitExten(10)\n`;
 
     // Донабор (Кнопки)
     (ivr.digitMappings || []).forEach((mapping: string) => {
@@ -44,11 +44,10 @@ export function rebuildAsteriskConfig() {
       else if (type === 'ivr') dialplanConfig += `exten => ${digit},1,Goto(miac-ivr-${target},s,1)\n`;
     });
 
-    // Прямой донабор внутреннего номера
-    dialplanConfig += `exten => _X.,1,NoOp(IVR Direct Dialing: \${EXTEN})\n`;
-    dialplanConfig += `exten => _X.,2,Goto(miac-internal,\${EXTEN},1)\n\n`;
+    // Прямой донабор внутреннего номера или очереди
+    dialplanConfig += `exten => _X.,1,Goto(miac-internal,\${EXTEN},1)\n`;
 
-    // Таймаут и ошибки
+    // Таймаут
     dialplanConfig += `exten => t,1,NoOp(IVR Timeout)\n`;
     if (ivr.timeoutDestination) {
       const parts = ivr.timeoutDestination.split(':');
@@ -58,19 +57,25 @@ export function rebuildAsteriskConfig() {
       dialplanConfig += `exten => t,2,Hangup()\n`;
     }
 
+    // Ошибка набора
     dialplanConfig += `exten => i,1,NoOp(IVR Invalid Input)\n`;
     dialplanConfig += `exten => i,2,Goto(s,1)\n\n`;
   });
 
-  // 2. Internal Context
+  // 2. Internal Context (Универсальный: Абоненты + Группы)
   dialplanConfig += `[miac-internal]\n`;
-  dialplanConfig += `exten => _X.,1,NoOp(Dialing: \${EXTEN})\n`;
+  dialplanConfig += `exten => _X.,1,NoOp(MIAC CALL: \${EXTEN})\n`;
   dialplanConfig += `exten => _X.,2,Set(D_STATE=\${DEVICE_STATE(PJSIP/\${EXTEN})})\n`;
-  dialplanConfig += `exten => _X.,3,GotoIf($["\${D_STATE}" = "INVALID"]?check-q:dial-ext)\n`;
+  // Если PJSIP эндпоинт не существует (INVALID), пробуем вызвать как очередь
+  dialplanConfig += `exten => _X.,3,GotoIf($["\${D_STATE}" = "INVALID"]?dial-q:dial-ext)\n`;
+  
+  // Вызов абонента
   dialplanConfig += `exten => _X.,4(dial-ext),Dial(PJSIP/\${EXTEN},30)\n`;
   dialplanConfig += `exten => _X.,5,Hangup()\n`;
-  dialplanConfig += `exten => _X.,6(check-q),NoOp(Checking Queue: \${EXTEN})\n`;
-  dialplanConfig += `exten => _X.,7,Queue(\${EXTEN})\n`;
+  
+  // Вызов очереди
+  dialplanConfig += `exten => _X.,6(dial-q),NoOp(Dialing Queue: \${EXTEN})\n`;
+  dialplanConfig += `exten => _X.,7,Queue(\${EXTEN},,,,30)\n`;
   dialplanConfig += `exten => _X.,8,Hangup()\n\n`;
 
   // 3. Trunk Context (Входящие)
