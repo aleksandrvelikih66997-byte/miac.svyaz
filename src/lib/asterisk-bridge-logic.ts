@@ -57,21 +57,18 @@ export function rebuildAsteriskConfig() {
   // 4. Dialplan
   let dialplanConfig = '; Генерируемый диалплан МИАЦ\n\n';
   
+  // Внутренний контекст с проверкой существования через DEVICE_STATE
   dialplanConfig += `[miac-internal]\n`;
-  dialplanConfig += `exten => _X.,1,NoOp(Calling Extension \${EXTEN})\n`;
-  dialplanConfig += `same => n,Set(E_EXISTS=\${PJSIP_ENDPOINT(\${EXTEN})})\n`;
-  dialplanConfig += `same => n,GotoIf($["\${E_EXISTS}" != ""]?dial:fail)\n`;
+  dialplanConfig += `exten => _X.,1,NoOp(Internal Call to \${EXTEN})\n`;
+  dialplanConfig += `same => n,Set(D_STATE=\${DEVICE_STATE(PJSIP/\${EXTEN})})\n`;
+  dialplanConfig += `same => n,GotoIf($["\${D_STATE}" = "INVALID"]?fail:dial)\n`;
   dialplanConfig += `same => n(dial),Dial(PJSIP/\${EXTEN},30)\n`;
-  dialplanConfig += `same => n,Goto(s-\${DIALSTATUS},1)\n`;
+  dialplanConfig += `same => n,Hangup()\n`;
   dialplanConfig += `same => n(fail),Answer()\n`;
   dialplanConfig += `same => n,Wait(1)\n`;
   dialplanConfig += `same => n,Hangup()\n\n`;
-  
-  dialplanConfig += `exten => s-BUSY,1,Hangup()\n`;
-  dialplanConfig += `exten => s-NOANSWER,1,Hangup()\n`;
-  dialplanConfig += `exten => s-CHANUNAVAIL,1,Hangup()\n`;
-  dialplanConfig += `exten => _s-.,1,Hangup()\n\n`;
 
+  // Входящие из транков
   dialplanConfig += `[from-trunk]\n`;
   const inboundRoutes = routes.filter((r: any) => r.type === 'inbound');
   
@@ -108,14 +105,14 @@ export function rebuildAsteriskConfig() {
   ivrs.forEach((ivr: any) => {
     dialplanConfig += `\n[miac-ivr-${ivr.id}]\n`;
     dialplanConfig += `exten => s,1,Answer()\n`;
-    dialplanConfig += `same => n,Set(LANGUAGE()=ru)\n`;
+    dialplanConfig += `same => n,Set(CHANNEL(language)=ru)\n`;
     dialplanConfig += `same => n,Background(/var/lib/asterisk/sounds/miac/${ivr.announcementFile})\n`;
     dialplanConfig += `same => n,WaitExten(10)\n\n`;
 
-    // Direct dialing
-    dialplanConfig += `exten => _XXX,1,NoOp(IVR Dialing \${EXTEN})\n`;
-    dialplanConfig += `same => n,Set(E_EXISTS=\${PJSIP_ENDPOINT(\${EXTEN})})\n`;
-    dialplanConfig += `same => n,GotoIf($["\${E_EXISTS}" != ""]?dial-ok:dial-err)\n`;
+    // Донабор номера (3 или более знаков)
+    dialplanConfig += `exten => _X.,1,NoOp(IVR Extension Dialing \${EXTEN})\n`;
+    dialplanConfig += `same => n,Set(D_STATE=\${DEVICE_STATE(PJSIP/\${EXTEN})})\n`;
+    dialplanConfig += `same => n,GotoIf($["\${D_STATE}" = "INVALID"]?dial-err:dial-ok)\n`;
     dialplanConfig += `same => n(dial-ok),Goto(miac-internal,\${EXTEN},1)\n`;
     dialplanConfig += `same => n(dial-err),NoOp(Invalid Extension \${EXTEN} from IVR)\n`;
     if (ivr.invalidAnnouncementFile) {
@@ -123,7 +120,7 @@ export function rebuildAsteriskConfig() {
     }
     dialplanConfig += `same => n,Goto(s,1)\n\n`;
 
-    // Digit Mappings
+    // Назначения кнопок (1 знак)
     (ivr.digitMappings || []).forEach((mapping: string) => {
       const parts = mapping.split(':');
       if (parts.length < 3) return;
@@ -133,7 +130,7 @@ export function rebuildAsteriskConfig() {
       else if (type === 'ivr') dialplanConfig += `exten => ${digit},1,Goto(miac-ivr-${target},s,1)\n`;
     });
 
-    // Timeout
+    // Таймаут
     if (ivr.timeoutDestination) {
       const parts = ivr.timeoutDestination.split(':');
       const [type, target] = parts;
@@ -166,8 +163,10 @@ export function rebuildAsteriskConfig() {
       fs.readdirSync(SOUNDS_SRC).forEach(f => {
         const src = path.join(SOUNDS_SRC, f);
         const dest = path.join(SOUNDS_DEST, f);
-        fs.copyFileSync(src, dest);
-        try { fs.chmodSync(dest, 0o666); } catch(e) {}
+        if (fs.statSync(src).isFile()) {
+          fs.copyFileSync(src, dest);
+          try { fs.chmodSync(dest, 0o666); } catch(e) {}
+        }
       });
     }
   } catch (e) {}
