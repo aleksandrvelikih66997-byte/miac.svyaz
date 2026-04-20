@@ -1,7 +1,8 @@
+
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Mic2, Plus, Trash2, Upload, Loader2, CheckCircle2, Music, Clock, Settings2, AlertCircle } from "lucide-react"
+import { Mic2, Plus, Trash2, Upload, Loader2, CheckCircle2, Music, Clock, Settings2, AlertCircle, AlertTriangle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
@@ -26,11 +27,13 @@ export default function IvrPage() {
   const [queues, setQueues] = useState<any[]>([])
   const [isAddOpen, setIsAddOpen] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+  const [uploadType, setUploadType] = useState<'announcement' | 'invalid'>('announcement')
   
   const [newIvr, setNewIvr] = useState({ 
     id: "",
     name: "", 
     announcementFile: "", 
+    invalidAnnouncementFile: "",
     digitMappings: [] as string[],
     timeoutDestination: "" 
   })
@@ -66,9 +69,12 @@ export default function IvrPage() {
     try {
       const result = await uploadAudioAction(formData)
       if (result.success) {
-        // Убираем расширение для Asterisk, он сам найдет нужный формат
         const nameWithoutExt = result.fileName!.replace(/\.[^/.]+$/, "")
-        setNewIvr(prev => ({ ...prev, announcementFile: nameWithoutExt }))
+        if (uploadType === 'announcement') {
+          setNewIvr(prev => ({ ...prev, announcementFile: nameWithoutExt }))
+        } else {
+          setNewIvr(prev => ({ ...prev, invalidAnnouncementFile: nameWithoutExt }))
+        }
         toast({ title: "Файл загружен", description: `Имя в системе: ${nameWithoutExt}` })
       } else {
         throw new Error(result.error)
@@ -88,7 +94,7 @@ export default function IvrPage() {
     }
     await saveIvr(newIvr)
     setIsAddOpen(false)
-    setNewIvr({ id: "", name: "", announcementFile: "", digitMappings: [], timeoutDestination: "" })
+    setNewIvr({ id: "", name: "", announcementFile: "", invalidAnnouncementFile: "", digitMappings: [], timeoutDestination: "" })
     load()
     toast({ title: "Голосовое меню сохранено" })
   }
@@ -114,6 +120,11 @@ export default function IvrPage() {
     }))
   }
 
+  const triggerUpload = (type: 'announcement' | 'invalid') => {
+    setUploadType(type)
+    fileInputRef.current?.click()
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -122,7 +133,7 @@ export default function IvrPage() {
           <p className="text-sm text-muted-foreground">Настройка приветствий и интерактивных переходов</p>
         </div>
         <Button onClick={() => {
-          setNewIvr({ id: "", name: "", announcementFile: "", digitMappings: [], timeoutDestination: "" })
+          setNewIvr({ id: "", name: "", announcementFile: "", invalidAnnouncementFile: "", digitMappings: [], timeoutDestination: "" })
           setIsAddOpen(true)
         }} className="gap-2 shadow-lg">
           <Plus className="h-4 w-4" /> Создать IVR
@@ -134,7 +145,7 @@ export default function IvrPage() {
         <AlertTitle className="font-bold">Совет по аудио</AlertTitle>
         <AlertDescription className="text-xs">
           Для лучшей совместимости используйте <b>.wav</b> (Mono, 8000Hz). 
-          Если вы используете .mp3, убедитесь, что в Asterisk установлен модуль <i>format_mp3</i>.
+          Если вы загрузите файл для "Ошибки набора", звонящие услышат его вместо тишины при неверном донаборе.
         </AlertDescription>
       </Alert>
 
@@ -160,12 +171,22 @@ export default function IvrPage() {
             <CardContent className="pt-4 grid md:grid-cols-2 gap-8">
               <div className="space-y-4">
                 <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Аудио-файл приветствия:</p>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Приветствие:</p>
                   <div className="flex items-center gap-2 bg-primary/5 p-3 rounded-lg border border-primary/10">
                     <Music className="h-4 w-4 text-primary" />
                     <span className="text-xs font-mono font-bold">{ivr.announcementFile}</span>
                   </div>
                 </div>
+
+                {ivr.invalidAnnouncementFile && (
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest text-destructive">Файл ошибки (Invalid):</p>
+                    <div className="flex items-center gap-2 bg-destructive/5 p-3 rounded-lg border border-destructive/10">
+                      <AlertTriangle className="h-4 w-4 text-destructive" />
+                      <span className="text-xs font-mono font-bold text-destructive">{ivr.invalidAnnouncementFile}</span>
+                    </div>
+                  </div>
+                )}
                 
                 <div className="space-y-1">
                   <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Действие по таймауту:</p>
@@ -197,9 +218,6 @@ export default function IvrPage() {
                       </div>
                     )
                   })}
-                  {(!ivr.digitMappings || ivr.digitMappings.length === 0) && (
-                    <p className="text-xs text-muted-foreground italic text-center py-4 bg-muted/20 rounded">Кнопки не настроены</p>
-                  )}
                 </div>
               </div>
             </CardContent>
@@ -217,61 +235,42 @@ export default function IvrPage() {
                 <Input value={newIvr.name} onChange={e => setNewIvr({...newIvr, name: e.target.value})} placeholder="Например: Секретарь" />
               </div>
               <div className="grid gap-2">
-                <Label>Файл приветствия</Label>
+                <Label>Файл приветствия *</Label>
                 <div className="flex gap-2">
-                  <Input 
-                    value={newIvr.announcementFile} 
-                    readOnly
-                    placeholder="WAV или MP3"
-                    className="flex-1 font-mono text-xs bg-muted/30"
-                  />
+                  <Input value={newIvr.announcementFile} readOnly placeholder="WAV или MP3" className="flex-1 font-mono text-xs bg-muted/30" />
                   <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" accept=".wav,.mp3" />
-                  <Button variant="outline" size="icon" onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
-                    {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                  <Button variant="outline" size="icon" onClick={() => triggerUpload('announcement')} disabled={isUploading}>
+                    {isUploading && uploadType === 'announcement' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                   </Button>
                 </div>
               </div>
             </div>
 
-            <div className="grid gap-2">
-              <Label className="flex items-center gap-2"><Clock className="h-3 w-3" /> Если звонящий ничего не нажал (Timeout)</Label>
-              <Select value={newIvr.timeoutDestination} onValueChange={v => setNewIvr({...newIvr, timeoutDestination: v})}>
-                <SelectTrigger><SelectValue placeholder="Куда перевести звонок?" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="hangup">Повесить трубку</SelectItem>
-                  <SelectItem value="hdr-ext" disabled className="font-bold text-primary mt-2">Абоненты</SelectItem>
-                  {extensions.map(e => <SelectItem key={e.id} value={`Extension:${e.id}`}>{e.id} - {e.name}</SelectItem>)}
-                  <SelectItem value="hdr-q" disabled className="font-bold text-primary mt-2">Очереди</SelectItem>
-                  {queues.map(q => <SelectItem key={q.id} value={`Queue:${q.name}`}>{q.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label className="text-destructive">Сообщение об ошибке набора (опц.)</Label>
+                <div className="flex gap-2">
+                  <Input value={newIvr.invalidAnnouncementFile} readOnly placeholder="«Неверный номер...»" className="flex-1 font-mono text-xs bg-muted/30" />
+                  <Button variant="outline" size="icon" onClick={() => triggerUpload('invalid')} disabled={isUploading}>
+                    {isUploading && uploadType === 'invalid' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label>Действие по таймауту</Label>
+                <Select value={newIvr.timeoutDestination} onValueChange={v => setNewIvr({...newIvr, timeoutDestination: v})}>
+                  <SelectTrigger><SelectValue placeholder="Цель..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="hangup">Повесить трубку</SelectItem>
+                    {extensions.map(e => <SelectItem key={e.id} value={`Extension:${e.id}`}>{e.id} - {e.name}</SelectItem>)}
+                    {queues.map(q => <SelectItem key={q.id} value={`Queue:${q.name}`}>{q.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             
             <div className="space-y-4 border rounded-xl p-4 bg-muted/20">
-              <Label className="text-[10px] font-bold uppercase text-primary flex items-center gap-2">
-                <Settings2 className="h-3 w-3" /> Переходы по кнопкам
-              </Label>
-              
-              <div className="grid gap-2 max-h-[150px] overflow-y-auto mb-4 scrollbar-none">
-                {(newIvr.digitMappings || []).map((m, idx) => {
-                  const parts = m.split(':');
-                  if (parts.length < 3) return null;
-                  const [d, t, target] = parts;
-                  return (
-                    <div key={idx} className="flex items-center justify-between bg-white p-2 rounded border text-xs shadow-sm">
-                      <div className="flex items-center gap-2">
-                        <Badge className="w-6 h-6 flex items-center justify-center p-0">{d}</Badge>
-                        <span className="font-bold text-muted-foreground">{t === 'ext' ? 'Абонент' : t === 'queue' ? 'Группа' : 'IVR'}</span>
-                        <span className="font-mono font-black">{target}</span>
-                      </div>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive" onClick={() => removeMapping(idx)}>
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  )
-                })}
-              </div>
-
+              <Label className="text-[10px] font-bold uppercase text-primary">Переходы по кнопкам</Label>
               <div className="flex gap-2">
                 <Input placeholder="Кн." className="w-16" value={tempDigit} onChange={e => setTempDigit(e.target.value)} />
                 <Select value={tempType} onValueChange={setTempType}>

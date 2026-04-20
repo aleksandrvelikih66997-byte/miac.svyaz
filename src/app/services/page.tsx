@@ -18,7 +18,8 @@ import {
   Play,
   UserPlus,
   Volume2,
-  Copy
+  Copy,
+  Search
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -59,16 +60,22 @@ export default function ServicesPage() {
         <div className="md:col-span-2 space-y-6">
           <Alert className="bg-amber-50 border-amber-200">
             <Volume2 className="h-5 w-5 text-amber-600" />
-            <AlertTitle className="font-bold text-amber-900">Установка русской озвучки</AlertTitle>
+            <AlertTitle className="font-bold text-amber-900">Установка русской озвучки в AltLinux</AlertTitle>
             <AlertDescription className="text-[11px] mt-2 space-y-3 text-amber-800">
-              <p>Если Asterisk жалуется на отсутствие файлов (например, <i>invalid</i>), установите официальный пакет русской озвучки:</p>
+              <p>Если пакет <i>asterisk-sounds-ru</i> не найден, попробуйте найти правильное название в вашем репозитории:</p>
               <div className="bg-slate-900 text-slate-100 p-3 rounded flex items-center justify-between font-mono">
-                <span>sudo apt-get install asterisk-sounds-ru</span>
-                <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400" onClick={() => copyToClipboard('sudo apt-get install asterisk-sounds-ru')}>
-                  <Copy className="h-3 w-3" />
+                <span>apt-cache search asterisk-sounds</span>
+                <Button variant="ghost" size="icon" className="h-6 w-6 text-slate-400" onClick={() => copyToClipboard('apt-cache search asterisk-sounds')}>
+                  <Search className="h-3 w-3" />
                 </Button>
               </div>
-              <p>После установки выполните команду в консоли Asterisk: <code className="bg-amber-100 px-1 rounded">core reload</code></p>
+              <p className="font-bold">Ручная установка (рекомендуется):</p>
+              <p>Вы можете загрузить озвучку напрямую в папку системы:</p>
+              <div className="bg-slate-900 text-slate-100 p-3 rounded text-[10px] font-mono whitespace-pre overflow-x-auto">
+                cd /var/lib/asterisk/sounds/ru && \<br/>
+                wget http://asterisk.ru/files/sounds-ru.tar.gz && \<br/>
+                tar xvf sounds-ru.tar.gz
+              </div>
             </AlertDescription>
           </Alert>
 
@@ -92,9 +99,6 @@ export default function ServicesPage() {
                 <Terminal className="h-4 w-4 text-emerald-400" />
                 <span className="font-mono text-xs uppercase tracking-widest font-bold">Системный лог Моста</span>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => setLogs([])} className="h-8 w-8 hover:bg-slate-800 text-slate-400">
-                <Trash2 className="h-4 w-4" />
-              </Button>
             </CardHeader>
             <CardContent className="flex-1 p-0 overflow-hidden">
               <ScrollArea className="h-full bg-slate-950 p-6">
@@ -124,10 +128,6 @@ export default function ServicesPage() {
               <div className="space-y-1">
                 <p className="text-[10px] font-bold text-muted-foreground uppercase">Локальный контур</p>
                 <p className="text-xs">Все секреты SIP сохраняются в локальном файле <code>pjsip_miac_users.conf</code>.</p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[10px] font-bold text-muted-foreground uppercase">Контроль доступа</p>
-                <p className="text-xs">Используйте <code>setup-admin</code> для управления администраторами только через физический доступ к серверу.</p>
               </div>
             </CardContent>
           </Card>
