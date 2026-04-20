@@ -24,10 +24,10 @@ export function rebuildAsteriskConfig() {
   const queues = readJSON('queues.json');
   const routes = readJSON('routes.json');
 
-  let dialplanConfig = '; Генерируемый диалплан МИАЦ.СВЯЗЬ (v1.0)\n';
-  dialplanConfig += '[general]\nstatic=yes\nwriteprotect=yes\nclearglobalvars=no\n\n';
+  // Генерируем диалплан БЕЗ секции [general], так как она в основном extensions.conf
+  let dialplanConfig = '; Генерируемый диалплан МИАЦ.СВЯЗЬ (v1.0)\n\n';
 
-  // 1. IVR Contexts
+  // 1. IVR Contexts - Генерируем ПЕРВЫМИ, чтобы ссылки на них работали
   ivrs.forEach((ivr: any) => {
     dialplanConfig += `[miac-ivr-${ivr.id}]\n`;
     dialplanConfig += `exten => s,1,Answer()\n`;
@@ -35,7 +35,6 @@ export function rebuildAsteriskConfig() {
     dialplanConfig += `exten => s,3,Background(/var/lib/asterisk/sounds/miac/${ivr.announcementFile})\n`;
     dialplanConfig += `exten => s,4,WaitExten(10)\n`;
 
-    // Донабор (Кнопки)
     (ivr.digitMappings || []).forEach((mapping: string) => {
       const parts = mapping.split(':');
       if (parts.length < 3) return;
@@ -45,31 +44,25 @@ export function rebuildAsteriskConfig() {
       else if (type === 'ivr') dialplanConfig += `exten => ${digit},1,Goto(miac-ivr-${target},s,1)\n`;
     });
 
-    // Обработка таймаута
     dialplanConfig += `exten => t,1,NoOp(IVR Timeout)\n`;
     if (ivr.timeoutDestination) {
-      const parts = ivr.timeoutDestination.split(':');
-      dialplanConfig += `exten => t,2,Goto(miac-internal,${parts[1]},1)\n`;
+      const destParts = ivr.timeoutDestination.split(':');
+      dialplanConfig += `exten => t,2,Goto(miac-internal,${destParts[1]},1)\n`;
     } else {
       dialplanConfig += `exten => t,2,Hangup()\n`;
     }
 
-    // Обработка неверного ввода
     dialplanConfig += `exten => i,1,NoOp(IVR Invalid)\n`;
     dialplanConfig += `exten => i,2,Goto(s,1)\n\n`;
   });
 
   // 2. Internal Context
   dialplanConfig += `[miac-internal]\n`;
-  dialplanConfig += `exten => _X.,1,NoOp(INTERNAL CALL: \${EXTEN})\n`;
+  dialplanConfig += `exten => _X.,1,NoOp(MIAC CALL: \${EXTEN})\n`;
   dialplanConfig += `exten => _X.,2,Set(D_STATE=\${DEVICE_STATE(PJSIP/\${EXTEN})})\n`;
   dialplanConfig += `exten => _X.,3,GotoIf($["\${D_STATE}" = "INVALID"]?dial-q:dial-ext)\n`;
-  
-  // Вызов абонента
   dialplanConfig += `exten => _X.,4(dial-ext),Dial(PJSIP/\${EXTEN},30)\n`;
   dialplanConfig += `exten => _X.,5,Hangup()\n`;
-  
-  // Вызов очереди (с проверкой на наличие приложения Queue)
   dialplanConfig += `exten => _X.,6(dial-q),NoOp(Dialing Queue: \${EXTEN})\n`;
   dialplanConfig += `exten => _X.,7,Queue(\${EXTEN},,,,30)\n`;
   dialplanConfig += `exten => _X.,8,Hangup()\n\n`;
@@ -79,8 +72,8 @@ export function rebuildAsteriskConfig() {
   const inboundRoutes = routes.filter((r: any) => r.type === 'inbound');
   
   if (inboundRoutes.length === 0) {
-    dialplanConfig += `exten => s,1,Hangup()\n`;
-    dialplanConfig += `exten => _X.,1,Hangup()\n`;
+    dialplanConfig += `exten => s,1,NoOp(No Inbound Routes)\n`;
+    dialplanConfig += `exten => s,2,Hangup()\n`;
   } else {
     inboundRoutes.forEach((route: any) => {
       const pattern = route.pattern === '*' ? 's' : route.pattern;
@@ -88,17 +81,19 @@ export function rebuildAsteriskConfig() {
       let type = destParts[0];
       let id = destParts[1];
 
+      // Важно: ID должен совпадать с miac-ivr-{id}
       let astTarget = (type === 'IVR') ? `miac-ivr-${id},s,1` : `miac-internal,${id},1`;
 
-      dialplanConfig += `exten => ${pattern},1,NoOp(Incoming to ${pattern})\n`;
-      dialplanConfig += `exten => ${pattern},2,Goto(${astTarget})\n`;
+      dialplanConfig += `exten => ${pattern},1,Answer()\n`;
+      dialplanConfig += `exten => ${pattern},2,NoOp(Incoming to ${pattern})\n`;
+      dialplanConfig += `exten => ${pattern},3,Goto(${astTarget})\n`;
       if (pattern === 's') {
         dialplanConfig += `exten => _X.,1,Goto(s,1)\n`;
       }
     });
   }
 
-  // 4. PJSIP Configs
+  // PJSIP Configs
   let usersConfig = '; Генерируемые абоненты МИАЦ.СВЯЗЬ\n\n';
   extensions.forEach((ext: any) => {
     usersConfig += `[${ext.id}]\ntype=endpoint\ncontext=miac-internal\ndisallow=all\nallow=ulaw,alaw\nauth=auth-${ext.id}\naors=${ext.id}\n\n`;
