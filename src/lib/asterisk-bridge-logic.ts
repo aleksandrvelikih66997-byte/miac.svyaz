@@ -136,7 +136,7 @@ export function rebuildAsteriskConfig() {
       exec('asterisk -rx "core reload"');
     }
   } catch (e) {
-    console.error('[BRIDGE] Write error:', e);
+    console.error('[BRIDGE] Ошибка записи файлов:', e);
   }
 
   try {

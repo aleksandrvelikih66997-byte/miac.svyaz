@@ -11,8 +11,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "bridge": "node src/scripts/asterisk-bridge.mjs",
-    "setup-admin": "node src/scripts/setup-admin.mjs"
+    "bridge": "tsx src/scripts/asterisk-bridge.ts",
+    "setup-admin": "tsx src/scripts/setup-admin.ts"
   },
   "dependencies": {
     "@genkit-ai/google-genai": "^1.28.0",
@@ -56,6 +56,7 @@
     "recharts": "^2.15.1",
     "tailwind-merge": "^3.0.1",
     "tailwindcss-animate": "^1.0.7",
+    "tsx": "^4.7.1",
     "zod": "^3.24.2"
   },
   "devDependencies": {
