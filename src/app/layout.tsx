@@ -6,6 +6,9 @@ import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { AuthLayoutWrapper } from '@/components/layout/auth-layout-wrapper';
 import { getLocalSession } from '@/lib/auth-local';
 
+// Принудительно отключаем кэширование для корректной проверки сессий
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'МИАЦ.СВЯЗЬ | Панель управления Asterisk',
   description: 'Локальная панель управления телефонией для AltLinux SP 10 (ФСТЭК Ready)',
@@ -16,7 +19,8 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Получаем сессию на стороне сервера для предотвращения "мерцания" и петель редиректа
+  // Получаем сессию на стороне сервера. 
+  // Благодаря force-dynamic это будет выполняться при каждом запросе.
   const session = await getLocalSession();
 
   return (

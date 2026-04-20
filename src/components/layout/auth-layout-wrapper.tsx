@@ -1,6 +1,7 @@
 
 'use client';
 
+import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
@@ -17,25 +18,40 @@ export function AuthLayoutWrapper({ children, initialSession }: AuthLayoutWrappe
   const pathname = usePathname();
   const isLoginPage = pathname === '/login';
 
+  useEffect(() => {
+    // Если сессия есть, а мы на странице логина — уходим в корень
+    if (initialSession && isLoginPage) {
+      window.location.assign('/');
+    }
+    // Если сессии нет, а мы НЕ на странице логина — уходим на логин
+    if (!initialSession && !isLoginPage) {
+      window.location.assign('/login');
+    }
+  }, [initialSession, isLoginPage]);
+
   const handleLogout = async () => {
     await logoutLocal();
     window.location.assign('/login');
   };
 
-  // 1. Если это страница логина, просто показываем её без обертки
+  // 1. Показываем страницу логина без сайдбара
   if (isLoginPage) {
     return <>{children}</>;
   }
 
-  // 2. Если сессии нет и мы НЕ на странице логина — делаем жесткий редирект
+  // 2. Пока идет проверка сессии (если её нет в initialSession), ничего не рендерим во избежание мерцания
   if (!initialSession) {
-    if (typeof window !== 'undefined') {
-      window.location.assign('/login');
-    }
-    return null;
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-4">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Проверка доступа...</p>
+        </div>
+      </div>
+    );
   }
 
-  // 3. Состояние авторизации подтверждено сервером
+  // 3. Рендерим основное приложение
   return (
     <SidebarProvider defaultOpen={true}>
       <AppSidebar />

@@ -50,16 +50,16 @@ export async function loginLocal(email: string, password: string) {
 
     const cookieStore = await cookies();
     
-    // Устанавливаем куку сессии. Кодируем в Base64 для надежности.
     const sessionData = JSON.stringify({ 
       email: admin.email, 
       role: admin.role,
       loginTime: Date.now() 
     });
     
+    // Устанавливаем куку
     cookieStore.set('miac_session', Buffer.from(sessionData).toString('base64'), {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: false, // Для работы в локальных сетях без HTTPS
       maxAge: 60 * 60 * 8, // 8 часов
       path: '/',
       sameSite: 'lax'

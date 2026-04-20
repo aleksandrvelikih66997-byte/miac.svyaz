@@ -1,5 +1,23 @@
 [
   {
+    "timestamp": "2026-04-20T15:22:15.058Z",
+    "user": "velikih@miackuban.ru",
+    "action": "LOGIN",
+    "details": "Вход в систему: velikih@miackuban.ru"
+  },
+  {
+    "timestamp": "2026-04-20T15:21:39.822Z",
+    "user": "velikih@miackuban.ru",
+    "action": "LOGIN",
+    "details": "Вход в систему: velikih@miackuban.ru"
+  },
+  {
+    "timestamp": "2026-04-20T15:19:44.329Z",
+    "user": "velikih@miackuban.ru",
+    "action": "LOGIN",
+    "details": "Вход в систему: velikih@miackuban.ru"
+  },
+  {
     "timestamp": "2026-04-20T15:16:53.820Z",
     "user": "velikih@miackuban.ru",
     "action": "LOGIN",
