@@ -31,11 +31,11 @@ function readJSON(file: string) {
 
 function writeJSON(file: string, data: any) {
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
-  // Автоматическая пересборка конфигов при сохранении данных
+  // Автоматическая синхронизация с Asterisk при каждом изменении
   try {
     rebuildAsteriskConfig();
   } catch (e) {
-    console.error('Bridge auto-rebuild failed:', e);
+    console.error('Telephony sync failed:', e);
   }
 }
 
@@ -45,8 +45,11 @@ export async function saveExtension(ext: any) {
   const data = readJSON(FILES.extensions);
   const index = data.findIndex((e: any) => e.id === ext.id);
   const now = new Date().toISOString();
-  if (index > -1) { data[index] = { ...data[index], ...ext, lastUpdateDate: now }; }
-  else { data.push({ ...ext, creationDate: now, lastUpdateDate: now }); }
+  if (index > -1) { 
+    data[index] = { ...data[index], ...ext, lastUpdateDate: now }; 
+  } else { 
+    data.push({ ...ext, creationDate: now, lastUpdateDate: now }); 
+  }
   writeJSON(FILES.extensions, data);
   return { success: true };
 }
