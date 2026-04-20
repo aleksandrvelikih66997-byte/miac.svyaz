@@ -56,8 +56,6 @@ export function rebuildAsteriskConfig() {
 
   // 4. Dialplan
   let dialplanConfig = '; Генерируемый диалплан МИАЦ.СВЯЗЬ\n\n';
-  
-  // Добавляем пустой контекст для подавления WARNING если его нет в основной системе
   dialplanConfig += `[from-internal-custom]\n\n`;
 
   dialplanConfig += `[miac-internal]\n`;
@@ -108,11 +106,12 @@ export function rebuildAsteriskConfig() {
 
   ivrs.forEach((ivr: any) => {
     dialplanConfig += `\n[miac-ivr-${ivr.id}]\n`;
-    // Важно: расширение 's' должно иметь приоритет 1 для корректного запуска
-    dialplanConfig += `exten => s,1,Answer()\n`;
-    dialplanConfig += `same => n,Set(CHANNEL(language)=ru)\n`;
-    dialplanConfig += `same => n,Background(/var/lib/asterisk/sounds/miac/${ivr.announcementFile})\n`;
-    dialplanConfig += `same => n,WaitExten(10)\n\n`;
+    // Используем жесткие приоритеты 1, 2, 3 для гарантированного старта в Asterisk 17
+    dialplanConfig += `exten => s,1,NoOp(Starting IVR: ${ivr.name})\n`;
+    dialplanConfig += `exten => s,2,Answer()\n`;
+    dialplanConfig += `exten => s,3,Set(CHANNEL(language)=ru)\n`;
+    dialplanConfig += `exten => s,4,Background(/var/lib/asterisk/sounds/miac/${ivr.announcementFile})\n`;
+    dialplanConfig += `exten => s,5,WaitExten(10)\n\n`;
 
     // Обработка донабора
     dialplanConfig += `exten => _X.,1,NoOp(IVR Dialing \${EXTEN})\n`;
@@ -120,7 +119,7 @@ export function rebuildAsteriskConfig() {
     dialplanConfig += `same => n,GotoIf($["\${D_STATE}" != "INVALID"]?dial-ok)\n`;
     dialplanConfig += `same => n,GotoIf($["\${QUEUE_EXISTS(\${EXTEN})}" = "1"]?dial-ok:dial-err)\n`;
     dialplanConfig += `same => n(dial-ok),Goto(miac-internal,\${EXTEN},1)\n`;
-    dialplanConfig += `same => n(dial-err),NoOp(Invalid Destination \${EXTEN})\n`;
+    dialplanConfig += `same => n(dial-err),NoOp(Invalid Extension \${EXTEN} from IVR)\n`;
     if (ivr.invalidAnnouncementFile) {
         dialplanConfig += `same => n,Playback(/var/lib/asterisk/sounds/miac/${ivr.invalidAnnouncementFile})\n`;
     }
