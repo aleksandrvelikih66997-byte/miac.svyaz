@@ -34,7 +34,7 @@ function writeJSON(file: string, data: any) {
   try {
     rebuildAsteriskConfig();
   } catch (e) {
-    console.error('Telephony Sync Error:', e);
+    console.error('[STORE] Sync Error:', e);
   }
 }
 

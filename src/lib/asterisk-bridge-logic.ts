@@ -5,7 +5,7 @@ import { exec } from 'child_process';
 
 /**
  * Логика генерации конфигурационных файлов Asterisk.
- * Полностью перезаписывает файлы в /etc/asterisk/ на основе JSON данных.
+ * Автоматически вызывается при сохранении данных в веб-интерфейсе.
  */
 export function rebuildAsteriskConfig() {
   const DATA_DIR = path.resolve(process.cwd(), 'src/data');
@@ -30,7 +30,7 @@ export function rebuildAsteriskConfig() {
   const queues = readJSON('queues.json');
   const routes = readJSON('routes.json');
 
-  // 1. Абоненты (PJSIP Users)
+  // 1. PJSIP Users
   let usersConfig = '; Генерируемые абоненты МИАЦ\n\n';
   extensions.forEach((ext: any) => {
     usersConfig += `[${ext.id}]\ntype=endpoint\ncontext=miac-internal\ndisallow=all\nallow=ulaw,alaw\nauth=auth-${ext.id}\naors=${ext.id}\n\n`;
@@ -38,7 +38,7 @@ export function rebuildAsteriskConfig() {
     usersConfig += `[${ext.id}]\ntype=aor\nmax_contacts=5\n\n`;
   });
 
-  // 2. Транки (PJSIP Trunks)
+  // 2. PJSIP Trunks
   let trunksConfig = '; Генерируемые транки МИАЦ\n\n';
   trunks.forEach((trunk: any) => {
     trunksConfig += `[trunk-${trunk.id}]\ntype=endpoint\ncontext=from-trunk\ndisallow=all\nallow=ulaw,alaw\noutbound_auth=auth-${trunk.id}\naors=aor-${trunk.id}\n\n`;
@@ -48,7 +48,7 @@ export function rebuildAsteriskConfig() {
     trunksConfig += `[identify-${trunk.id}]\ntype=identify\nendpoint=trunk-${trunk.id}\nmatch=${trunk.host}\n\n`;
   });
 
-  // 3. Очереди (Queues)
+  // 3. Queues
   let queuesConfig = '; Генерируемые очереди МИАЦ\n\n';
   queues.forEach((q: any) => {
     queuesConfig += `[${q.name}]\nstrategy=${q.strategy}\nmusicclass=${q.musicOnHoldClass || 'default'}\n`;
@@ -58,12 +58,11 @@ export function rebuildAsteriskConfig() {
     queuesConfig += `\n`;
   });
 
-  // 4. Диалплан (Extensions)
+  // 4. Extensions (Dialplan)
   let dialplanConfig = '; Генерируемый диалплан МИАЦ\n\n';
-
-  // Входящие (from-trunk)
-  const inboundRoutes = routes.filter((r: any) => r.type === 'inbound');
   dialplanConfig += `[from-trunk]\n`;
+  
+  const inboundRoutes = routes.filter((r: any) => r.type === 'inbound');
   if (inboundRoutes.length > 0) {
     inboundRoutes.forEach((route: any) => {
       const pattern = route.pattern === '*' ? '_.' : route.pattern;
@@ -71,15 +70,12 @@ export function rebuildAsteriskConfig() {
       if (route.destination.startsWith('IVR:')) target = `miac-ivr-${route.destination.split(':')[1]},s,1`;
       else if (route.destination.startsWith('Queue:')) target = `miac-queues,${route.destination.split(':')[1]},1`;
       else if (route.destination.startsWith('Extension:')) target = `miac-internal,${route.destination.split(':')[1]},1`;
-      
       if (target) dialplanConfig += `exten => ${pattern},1,Goto(${target})\n`;
     });
-    // По умолчанию на первый IVR если ничего не совпало
-    if (ivrs.length > 0) {
-      dialplanConfig += `exten => s,1,Goto(miac-ivr-${ivrs[0].id},s,1)\n`;
-      dialplanConfig += `exten => i,1,Goto(miac-ivr-${ivrs[0].id},s,1)\n`;
-    }
-  } else if (ivrs.length > 0) {
+  }
+
+  // Fallback to first IVR if exists
+  if (ivrs.length > 0) {
     dialplanConfig += `exten => s,1,Goto(miac-ivr-${ivrs[0].id},s,1)\n`;
     dialplanConfig += `exten => _.,1,Goto(miac-ivr-${ivrs[0].id},s,1)\n`;
   } else {
@@ -87,7 +83,7 @@ export function rebuildAsteriskConfig() {
   }
   dialplanConfig += `\n`;
 
-  // IVR меню
+  // IVR Contexts
   ivrs.forEach((ivr: any) => {
     dialplanConfig += `[miac-ivr-${ivr.id}]\n`;
     dialplanConfig += `exten => s,1,Answer()\n`;
@@ -111,18 +107,16 @@ export function rebuildAsteriskConfig() {
         const [type, target] = destParts;
         if (type === 'Extension') dialplanConfig += `exten => t,1,Dial(PJSIP/${target},30)\n`;
         else if (type === 'Queue') dialplanConfig += `exten => t,1,Queue(${target})\n`;
-        else dialplanConfig += `exten => t,1,Hangup()\n`;
-      } else dialplanConfig += `exten => t,1,Hangup()\n`;
-    } else dialplanConfig += `exten => t,1,Hangup()\n`;
+      }
+    }
     dialplanConfig += `\n`;
   });
 
-  // Внутренняя связь
   dialplanConfig += `[miac-internal]\n`;
   dialplanConfig += `exten => _XXX,1,Dial(PJSIP/\${EXTEN},30)\n`;
   dialplanConfig += `exten => _XXX,n,Hangup()\n`;
 
-  // Запись
+  // Write files to Asterisk
   try {
     if (fs.existsSync(AST_DIR)) {
       fs.writeFileSync(path.join(AST_DIR, 'pjsip_miac_users.conf'), usersConfig);
@@ -130,18 +124,18 @@ export function rebuildAsteriskConfig() {
       fs.writeFileSync(path.join(AST_DIR, 'queues_miac.conf'), queuesConfig);
       fs.writeFileSync(path.join(AST_DIR, 'extensions_miac_dialplan.conf'), dialplanConfig);
       
+      // Attempt core reload
       exec('asterisk -rx "core reload"');
     }
   } catch (e) {
-    console.error('Bridge Error:', e);
+    console.error('[BRIDGE] Write error:', e);
   }
 
-  // Звуки
+  // Sync sounds
   try {
     if (fs.existsSync(SOUNDS_SRC)) {
       if (!fs.existsSync(SOUNDS_DEST)) fs.mkdirSync(SOUNDS_DEST, { recursive: true });
-      const files = fs.readdirSync(SOUNDS_SRC);
-      files.forEach(f => {
+      fs.readdirSync(SOUNDS_SRC).forEach(f => {
         const src = path.join(SOUNDS_SRC, f);
         const dest = path.join(SOUNDS_DEST, f);
         fs.copyFileSync(src, dest);
