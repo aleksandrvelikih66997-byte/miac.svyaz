@@ -31,7 +31,7 @@ export async function loginLocal(email: string, password: string) {
     const content = fs.readFileSync(ADMINS_FILE, 'utf8');
     let admins = [];
     try {
-      admins = JSON.parse(content);
+      admins = content ? JSON.parse(content) : [];
     } catch (e) {
       return { success: false, error: 'Ошибка базы данных пользователей.' };
     }
@@ -57,7 +57,7 @@ export async function loginLocal(email: string, password: string) {
       loginTime: Date.now() 
     }), {
       httpOnly: true,
-      secure: false, // Оставляем false для локальных сетей без HTTPS
+      secure: false, 
       maxAge: 60 * 60 * 8, // 8 часов
       path: '/',
       sameSite: 'lax'
@@ -150,7 +150,9 @@ export async function deleteAdmin(email: string) {
   try {
     if (!fs.existsSync(ADMINS_FILE)) return { success: false, error: 'Файл не найден' };
     
-    const admins = JSON.parse(fs.readFileSync(ADMINS_FILE, 'utf8'));
+    const content = fs.readFileSync(ADMINS_FILE, 'utf8');
+    const admins = content ? JSON.parse(content) : [];
+
     if (admins.length <= 1) {
       return { success: false, error: 'Нельзя удалить последнего администратора' };
     }

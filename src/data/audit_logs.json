@@ -1,5 +1,35 @@
 [
   {
+    "timestamp": "2026-04-20T15:14:56.353Z",
+    "user": "velikih@miackuban.ru",
+    "action": "LOGIN",
+    "details": "Вход в систему: velikih@miackuban.ru"
+  },
+  {
+    "timestamp": "2026-04-20T15:14:36.457Z",
+    "user": "velikih@miackuban.ru",
+    "action": "LOGIN",
+    "details": "Вход в систему: velikih@miackuban.ru"
+  },
+  {
+    "timestamp": "2026-04-20T15:14:28.486Z",
+    "user": "velikih@miackuban.ru",
+    "action": "LOGIN",
+    "details": "Вход в систему: velikih@miackuban.ru"
+  },
+  {
+    "timestamp": "2026-04-20T15:14:13.920Z",
+    "user": "velikih@miackuban.ru",
+    "action": "LOGIN",
+    "details": "Вход в систему: velikih@miackuban.ru"
+  },
+  {
+    "timestamp": "2026-04-20T15:14:08.688Z",
+    "user": "velikih@miackuban.ru",
+    "action": "LOGIN",
+    "details": "Вход в систему: velikih@miackuban.ru"
+  },
+  {
     "timestamp": "2026-04-20T15:12:39.912Z",
     "user": "velikih@miackuban.ru",
     "action": "LOGIN",
