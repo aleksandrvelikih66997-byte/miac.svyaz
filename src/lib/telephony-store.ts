@@ -135,6 +135,7 @@ export async function deleteQueue(id: string) {
 export async function getIvrs() { return readJSON(FILES.ivrs); }
 export async function saveIvr(ivr: any) {
   const data = readJSON(FILES.ivrs);
+  // ВАЖНО: Если ID уже есть, используем его, чтобы не плодить UUID при редактировании
   const id = ivr.id || Math.random().toString(36).substr(2, 9);
   const now = new Date().toISOString();
   const item = { ...ivr, id, lastUpdateDate: now };
