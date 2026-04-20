@@ -6,8 +6,8 @@ import { FirebaseClientProvider } from '@/firebase/client-provider';
 import { AuthLayoutWrapper } from '@/components/layout/auth-layout-wrapper';
 
 export const metadata: Metadata = {
-  title: 'АльтернаТИВ АТС | Управление телефонией',
-  description: 'Профессиональный интерфейс управления Asterisk для AltLinux SP',
+  title: 'МИАЦ.СВЯЗЬ | Панель управления Asterisk',
+  description: 'Локальная панель управления телефонией для AltLinux SP 10 (ФСТЭК Ready)',
 };
 
 export default function RootLayout({
@@ -17,7 +17,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru">
-      <body className="antialiased bg-background text-foreground">
+      <body className="antialiased bg-background text-foreground font-sans">
         <FirebaseClientProvider>
           <AuthLayoutWrapper>
             {children}

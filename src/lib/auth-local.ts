@@ -1,9 +1,11 @@
+
 'use server';
 
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
 import { cookies } from 'next/headers';
+import { logAuditAction } from './audit-logger';
 
 const DATA_DIR = path.join(process.cwd(), 'src', 'data');
 const ADMINS_FILE = path.join(DATA_DIR, 'admins.json');
@@ -42,15 +44,15 @@ export async function loginLocal(email: string, password: string) {
 
     const cookieStore = await cookies();
     
-    // secure: false для работы по HTTP в локальной сети
     cookieStore.set('miac_session', JSON.stringify({ email: admin.email, role: admin.role }), {
       httpOnly: true,
       secure: false, 
-      maxAge: 60 * 60 * 24, 
+      maxAge: 60 * 60 * 8, // 8 часов
       path: '/',
       sameSite: 'lax'
     });
 
+    await logAuditAction('LOGIN', `Вход: ${admin.email}`);
     return { success: true };
   } catch (error: any) {
     console.error(`[AUTH] Server error:`, error);
@@ -59,6 +61,10 @@ export async function loginLocal(email: string, password: string) {
 }
 
 export async function logoutLocal() {
+  const session = await getLocalSession();
+  if (session) {
+    await logAuditAction('LOGOUT', `Выход: ${session.email}`);
+  }
   const cookieStore = await cookies();
   cookieStore.delete('miac_session');
 }

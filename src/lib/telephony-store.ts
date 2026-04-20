@@ -4,6 +4,7 @@
 import fs from 'fs';
 import path from 'path';
 import { rebuildAsteriskConfig } from './asterisk-bridge-logic';
+import { logAuditAction } from './audit-logger';
 
 const DATA_DIR = path.resolve(process.cwd(), 'src/data');
 
@@ -75,11 +76,13 @@ export async function saveExtension(ext: any) {
     data.push({ ...ext, status: 'offline', creationDate: now, lastUpdateDate: now }); 
   }
   writeJSON(FILES.extensions, data);
+  await logAuditAction('SAVE_EXTENSION', `Номер: ${ext.id}, Имя: ${ext.name}`);
   return { success: true };
 }
 export async function deleteExtension(id: string) {
   const data = readJSON(FILES.extensions).filter((e: any) => e.id !== id);
   writeJSON(FILES.extensions, data);
+  await logAuditAction('DELETE_EXTENSION', `Номер: ${id}`);
   return { success: true };
 }
 
@@ -94,11 +97,13 @@ export async function saveTrunk(trunk: any) {
   if (index > -1) { data[index] = trunkWithId; }
   else { trunkWithId.creationDate = now; data.push(trunkWithId); }
   writeJSON(FILES.trunks, data);
+  await logAuditAction('SAVE_TRUNK', `Имя: ${trunk.name}, Хост: ${trunk.host}`);
   return { success: true };
 }
 export async function deleteTrunk(id: string) {
   const data = readJSON(FILES.trunks).filter((t: any) => t.id !== id);
   writeJSON(FILES.trunks, data);
+  await logAuditAction('DELETE_TRUNK', `ID: ${id}`);
   return { success: true };
 }
 
@@ -113,11 +118,13 @@ export async function saveRoute(route: any) {
   if (index > -1) { data[index] = routeWithId; }
   else { routeWithId.creationDate = now; data.push(routeWithId); }
   writeJSON(FILES.routes, data);
+  await logAuditAction('SAVE_ROUTE', `Тип: ${route.type}, Шаблон: ${route.pattern}`);
   return { success: true };
 }
 export async function deleteRoute(id: string) {
   const data = readJSON(FILES.routes).filter((r: any) => r.id !== id);
   writeJSON(FILES.routes, data);
+  await logAuditAction('DELETE_ROUTE', `ID: ${id}`);
   return { success: true };
 }
 
@@ -131,11 +138,13 @@ export async function saveQueue(queue: any) {
   const index = data.findIndex((q: any) => q.id === id);
   if (index > -1) data[index] = item; else { item.creationDate = now; data.push(item); }
   writeJSON(FILES.queues, data);
+  await logAuditAction('SAVE_QUEUE', `Имя: ${queue.name}`);
   return { success: true };
 }
 export async function deleteQueue(id: string) {
   const data = readJSON(FILES.queues).filter((q: any) => q.id !== id);
   writeJSON(FILES.queues, data);
+  await logAuditAction('DELETE_QUEUE', `ID: ${id}`);
   return { success: true };
 }
 
@@ -149,10 +158,12 @@ export async function saveIvr(ivr: any) {
   const index = data.findIndex((i: any) => i.id === id);
   if (index > -1) data[index] = item; else { item.creationDate = now; data.push(item); }
   writeJSON(FILES.ivrs, data);
+  await logAuditAction('SAVE_IVR', `Имя: ${ivr.name}`);
   return { success: true };
 }
 export async function deleteIvr(id: string) {
   const data = readJSON(FILES.ivrs).filter((i: any) => i.id !== id);
   writeJSON(FILES.ivrs, data);
+  await logAuditAction('DELETE_IVR', `ID: ${id}`);
   return { success: true };
 }
