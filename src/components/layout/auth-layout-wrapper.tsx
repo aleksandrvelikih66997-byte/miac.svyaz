@@ -48,29 +48,31 @@ export function AuthLayoutWrapper({ children, initialSession }: AuthLayoutWrappe
   }
 
   return (
-    <SidebarProvider defaultOpen={true}>
-      <AppSidebar />
-      <SidebarInset>
-        <header className="flex h-16 items-center justify-between border-b px-8 sticky top-0 z-30 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm">
-          <div className="flex items-center gap-3">
-            <Shield className="h-5 w-5 text-primary" />
-            <span className="font-bold uppercase tracking-tight text-primary text-sm">Панель управления МИАЦ.СВЯЗЬ</span>
-          </div>
-          <div className="flex items-center gap-6">
-             <div className="flex flex-col items-end">
-               <span className="text-xs font-bold text-slate-700">{initialSession.email}</span>
-               <span className="text-[10px] text-muted-foreground uppercase tracking-tighter font-bold">Администратор системы</span>
-             </div>
-             <div className="h-8 w-px bg-border mx-2" />
-             <Button variant="ghost" size="sm" onClick={handleLogout} className="text-destructive hover:bg-destructive/5 gap-2 font-bold h-9">
-               <LogOut className="h-4 w-4" /> Выход
-             </Button>
-          </div>
-        </header>
-        <main className="p-8 max-w-[1600px] mx-auto w-full min-h-[calc(100vh-64px)]">
-          {children}
-        </main>
-      </SidebarInset>
+    <SidebarProvider defaultOpen={true} className="h-screen overflow-hidden">
+      <div className="flex h-screen w-full overflow-hidden">
+        <AppSidebar />
+        <SidebarInset className="flex-1 flex flex-col h-screen overflow-hidden">
+          <header className="flex h-16 items-center justify-between border-b px-8 shrink-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 shadow-sm">
+            <div className="flex items-center gap-3">
+              <Shield className="h-5 w-5 text-primary" />
+              <span className="font-bold uppercase tracking-tight text-primary text-sm">Панель управления МИАЦ.СВЯЗЬ</span>
+            </div>
+            <div className="flex items-center gap-6">
+               <div className="flex flex-col items-end">
+                 <span className="text-xs font-bold text-slate-700">{initialSession.email}</span>
+                 <span className="text-[10px] text-muted-foreground uppercase tracking-tighter font-bold">Администратор системы</span>
+               </div>
+               <div className="h-8 w-px bg-border mx-2" />
+               <Button variant="ghost" size="sm" onClick={handleLogout} className="text-destructive hover:bg-destructive/5 gap-2 font-bold h-9">
+                 <LogOut className="h-4 w-4" /> Выход
+               </Button>
+            </div>
+          </header>
+          <main className="flex-1 p-8 overflow-y-auto w-full max-w-[1600px] mx-auto">
+            {children}
+          </main>
+        </SidebarInset>
+      </div>
     </SidebarProvider>
   );
 }
