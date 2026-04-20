@@ -32,37 +32,35 @@ function readJSON(file: string) {
 function writeJSON(file: string, data: any) {
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
   try {
-    // Вызываем пересборку конфигов Asterisk
     rebuildAsteriskConfig();
   } catch (e) {
     console.error('[STORE] Sync Error:', e);
   }
 }
 
-/**
- * Обновляет статусы абонентов в базе без перезагрузки конфигов Asterisk.
- * Вызывается скриптом Моста (AMI).
- */
 export async function updateExtensionStatuses(statuses: Record<string, 'online' | 'offline'>) {
   const file = FILES.extensions;
   if (!fs.existsSync(file)) return { success: false };
   
-  const data = JSON.parse(fs.readFileSync(file, 'utf8'));
-  let changed = false;
+  try {
+    const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+    let changed = false;
 
-  data.forEach((ext: any) => {
-    const newStatus = statuses[ext.id] || 'offline';
-    if (ext.status !== newStatus) {
-      ext.status = newStatus;
-      changed = true;
+    data.forEach((ext: any) => {
+      const newStatus = statuses[ext.id] || 'offline';
+      if (ext.status !== newStatus) {
+        ext.status = newStatus;
+        changed = true;
+      }
+    });
+
+    if (changed) {
+      fs.writeFileSync(file, JSON.stringify(data, null, 2));
     }
-  });
-
-  if (changed) {
-    fs.writeFileSync(file, JSON.stringify(data, null, 2));
+    return { success: true };
+  } catch (e) {
+    return { success: false };
   }
-  
-  return { success: true };
 }
 
 // Extensions
