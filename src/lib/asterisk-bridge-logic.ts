@@ -28,7 +28,7 @@ export function rebuildAsteriskConfig() {
   // 1. PJSIP Users
   let usersConfig = '; Генерируемые абоненты МИАЦ\n\n';
   extensions.forEach((ext: any) => {
-    usersConfig += `[${ext.id}]\ntype=endpoint\ncontext=miac-internal\ndisallow=all\nallow=ulaw,alaw\nauth=auth-${ext.id}\naors=${ext.id}\nsubscribe_context = \n\n`;
+    usersConfig += `[${ext.id}]\ntype=endpoint\ncontext=miac-internal\ndisallow=all\nallow=ulaw,alaw\nauth=auth-${ext.id}\naors=${ext.id}\nsubscribe_context =\n\n`;
     usersConfig += `[auth-${ext.id}]\ntype=auth\nauth_type=userpass\nusername=${ext.id}\npassword=${ext.secret}\n\n`;
     usersConfig += `[${ext.id}]\ntype=aor\nmax_contacts=5\n\n`;
   });
@@ -70,15 +70,10 @@ export function rebuildAsteriskConfig() {
     else if (type === 'Queue') targetExists = queues.some((q: any) => q.name === id);
     else if (type === 'Extension') targetExists = extensions.some((e: any) => e.id === id);
 
-    // Fallback logic if target deleted
-    if (!targetExists) {
-      if (ivrs.length > 0) {
-        type = 'IVR';
-        id = ivrs[0].id;
-      } else {
-        dialplanConfig += `exten => ${pattern},1,Hangup()\n`;
-        return;
-      }
+    // Fallback if target is missing
+    if (!targetExists && ivrs.length > 0) {
+      type = 'IVR';
+      id = ivrs[0].id;
     }
 
     let astTarget = '';
@@ -103,14 +98,16 @@ export function rebuildAsteriskConfig() {
   ivrs.forEach((ivr: any) => {
     dialplanConfig += `[miac-ivr-${ivr.id}]\n`;
     dialplanConfig += `exten => s,1,Answer()\n`;
+    dialplanConfig += `exten => s,n,Set(CHANNEL(language)=ru)\n`; // Устанавливаем русский язык для системных фраз
     dialplanConfig += `exten => s,n,Progress()\n`;
     dialplanConfig += `exten => s,n,Wait(1)\n`;
     dialplanConfig += `exten => s,n,Background(/var/lib/asterisk/sounds/miac/${ivr.announcementFile})\n`;
     dialplanConfig += `exten => s,n,WaitExten(10)\n\n`;
 
-    dialplanConfig += `; Прямой донабор внутреннего номера во время приветствия\n`;
+    dialplanConfig += `; Донабор внутреннего номера\n`;
     dialplanConfig += `exten => _XXX,1,Dial(PJSIP/\${EXTEN},30)\n`;
-    dialplanConfig += `exten => _XXX,n,Hangup()\n\n`;
+    dialplanConfig += `exten => _XXX,n,Playback(beeperr)\n`;
+    dialplanConfig += `exten => _XXX,n,Goto(s,1)\n\n`;
 
     (ivr.digitMappings || []).forEach((mapping: string) => {
       const parts = mapping.split(':');
@@ -132,7 +129,8 @@ export function rebuildAsteriskConfig() {
       dialplanConfig += `exten => t,1,Hangup()\n`;
     }
 
-    dialplanConfig += `exten => i,1,Playback(invalid)\n`;
+    // Обработка неверного ввода
+    dialplanConfig += `exten => i,1,Playback(invalid)\n`; // Проигрывает "Неверный номер" на русском
     dialplanConfig += `exten => i,n,Goto(s,1)\n`;
     dialplanConfig += `\n`;
   });
