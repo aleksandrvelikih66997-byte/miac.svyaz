@@ -1,4 +1,3 @@
-
 "use client"
 
 import { usePathname, useRouter } from 'next/navigation';
@@ -23,10 +22,8 @@ export function AuthLayoutWrapper({ children }: { children: React.ReactNode }) {
       const isLoginPage = pathname === '/login';
       
       if (!current && !isLoginPage) {
-        // Если нет сессии и не на странице логина - на логин
         router.replace('/login');
       } else if (current && isLoginPage) {
-        // Если сессия есть и мы на логине - на главную
         router.replace('/');
       }
       setLoading(false);
@@ -47,12 +44,10 @@ export function AuthLayoutWrapper({ children }: { children: React.ReactNode }) {
     );
   }
 
-  // Если мы на логине, просто рендерим детей без сайдбара
   if (pathname === '/login') {
     return <>{children}</>;
   }
 
-  // Если сессии нет, не рендерим ничего (произойдет редирект в useEffect)
   if (!session) return null;
 
   return (
@@ -62,11 +57,11 @@ export function AuthLayoutWrapper({ children }: { children: React.ReactNode }) {
         <header className="flex h-16 items-center justify-between border-b px-6 sticky top-0 z-30 bg-background/80 backdrop-blur">
           <div className="flex items-center gap-4">
             <SidebarTrigger />
-            <span className="font-bold">Панель МИАЦ</span>
+            <span className="font-bold uppercase tracking-tight text-primary">Панель МИАЦ.СВЯЗЬ</span>
           </div>
           <div className="flex items-center gap-4">
              <span className="text-xs text-muted-foreground hidden md:inline">{session.email}</span>
-             <Button variant="ghost" size="sm" onClick={handleLogout} className="text-destructive gap-2">
+             <Button variant="ghost" size="sm" onClick={handleLogout} className="text-destructive gap-2 font-bold">
                <LogOut className="h-4 w-4" /> Выйти
              </Button>
           </div>

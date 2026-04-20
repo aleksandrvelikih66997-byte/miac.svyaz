@@ -1,25 +1,16 @@
-
 "use client"
 
 import { useState } from "react"
 import { 
   RotateCcw, 
-  Square, 
   Terminal, 
-  Trash2,
   RefreshCw,
-  FileCode,
-  ClipboardCheck,
-  ShieldAlert,
   Server,
-  AlertTriangle,
-  Database,
-  Zap,
+  ShieldAlert,
   Play,
   UserPlus,
   Volume2,
   Copy,
-  Search
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -29,10 +20,10 @@ import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 export default function ServicesPage() {
-  const [logs, setLogs] = useState([
-    "[BRIDGE] Ожидание запуска скрипта на сервере...",
-    "[SYSTEM] Служба Asterisk.service активна.",
-    "[SECURITY] Режим ФСТЭК: Включен.",
+  const [logs] = useState([
+    "[МОСТ] Ожидание запуска скрипта на сервере...",
+    "[СИСТЕМА] Служба Asterisk.service активна.",
+    "[БЕЗОПАСНОСТЬ] Режим ФСТЭК: Включен.",
   ])
   const { toast } = useToast()
 
@@ -50,7 +41,7 @@ export default function ServicesPage() {
         </div>
         <div className="flex items-center gap-3">
           <Badge className="bg-emerald-500 font-bold px-4 py-1">
-            BRIDGE: ONLINE
+            МОСТ: В СЕТИ
           </Badge>
         </div>
       </div>
@@ -104,7 +95,7 @@ export default function ServicesPage() {
                   {logs.map((log, i) => (
                     <div key={i} className="flex gap-3">
                       <span className="text-slate-600 shrink-0">[{new Date().toLocaleTimeString()}]</span>
-                      <span className={log.includes('ERROR') ? 'text-rose-400' : log.includes('BRIDGE') ? 'text-emerald-400' : 'text-slate-300'}>
+                      <span className={log.includes('ОШИБКА') ? 'text-rose-400' : log.includes('МОСТ') ? 'text-emerald-400' : 'text-slate-300'}>
                         {log}
                       </span>
                     </div>
@@ -140,7 +131,7 @@ export default function ServicesPage() {
               <Button className="w-full justify-start gap-3 bg-primary text-white" onClick={() => {
                 toast({ title: "Синхронизация", description: "Команда перезагрузки отправлена через Мост" });
               }}>
-                <RefreshCw className="h-4 w-4" /> Core Reload
+                <RefreshCw className="h-4 w-4" /> Перезагрузить Asterisk
               </Button>
             </CardContent>
           </Card>

@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState, useEffect } from "react"
@@ -18,8 +17,6 @@ export default function Dashboard() {
         const trunks = await getTrunks()
         const routes = await getRoutes()
         
-        // В реальной системе статусы обновляются через AMI/Bridge. 
-        // Если база пустая или статусы не проставлены, Dashboard показывает 0.
         const onlineCount = exts.filter((e: any) => e.status === 'online').length;
 
         setStats({
@@ -40,7 +37,7 @@ export default function Dashboard() {
 
   const statCards = [
     { title: "АБОНЕНТОВ", value: stats.extensions, color: "border-t-primary", icon: PhoneCall },
-    { title: "ОНЛАЙН", value: stats.online, color: "border-t-emerald-500", icon: Activity },
+    { title: "В СЕТИ", value: stats.online, color: "border-t-emerald-500", icon: Activity },
     { title: "ТРАНКОВ", value: stats.trunks, color: "border-t-amber-500", icon: Database },
     { title: "МАРШРУТОВ", value: stats.routes, color: "border-t-accent", icon: Zap },
   ]
@@ -54,7 +51,7 @@ export default function Dashboard() {
         </div>
         <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-100">
            <Zap className="h-3 w-3 fill-emerald-500" />
-           <span className="text-[10px] font-bold uppercase">Real-time Bridge Active</span>
+           <span className="text-[10px] font-bold uppercase">Мост активен (Real-time)</span>
         </div>
       </div>
 
@@ -82,11 +79,11 @@ export default function Dashboard() {
           <CardContent className="py-8 px-8 space-y-4">
             <div className="flex justify-between items-center text-sm p-4 bg-muted/20 rounded-xl">
               <span className="font-medium">Режим работы:</span>
-              <Badge className="bg-blue-600">PRODUCTION</Badge>
+              <Badge className="bg-blue-600">ПРОМЫШЛЕННЫЙ РЕЖИМ</Badge>
             </div>
             <div className="flex justify-between items-center text-sm p-4 bg-muted/20 rounded-xl">
-              <span className="font-medium">Asterisk Integration:</span>
-              <Badge variant="outline" className="border-emerald-500 text-emerald-600 font-bold">CONNECTED</Badge>
+              <span className="font-medium">Интеграция с Asterisk:</span>
+              <Badge variant="outline" className="border-emerald-500 text-emerald-600 font-bold">ПОДКЛЮЧЕНО</Badge>
             </div>
           </CardContent>
         </Card>
