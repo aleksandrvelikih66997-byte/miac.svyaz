@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
@@ -27,7 +28,7 @@ export default function Dashboard() {
         })
         setRecentExt(exts.slice(0, 5))
       } catch (err) {
-        console.error("Failed to load dashboard stats", err)
+        console.error("Не удалось загрузить статистику дашборда", err)
       }
     }
     load()
@@ -51,7 +52,7 @@ export default function Dashboard() {
         </div>
         <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full border border-emerald-100">
            <Zap className="h-3 w-3 fill-emerald-500" />
-           <span className="text-[10px] font-bold uppercase">Мост активен (Real-time)</span>
+           <span className="text-[10px] font-bold uppercase">Мост активен (В реальном времени)</span>
         </div>
       </div>
 
