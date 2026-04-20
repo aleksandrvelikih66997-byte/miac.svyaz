@@ -15,11 +15,9 @@ function hashPassword(password: string) {
 
 export async function loginLocal(email: string, password: string) {
   try {
-    console.log(`[AUTH] Login attempt for: ${email}`);
-    
     if (!fs.existsSync(ADMINS_FILE)) {
-      console.warn(`[AUTH] Admins file not found. Creating default.`);
       if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+      // Создаем дефолтного админа только если файла нет вовсе
       const defaultAdmin = [{
         email: "velikih@miackuban.ru",
         passwordHash: hashPassword("As134679"),
@@ -36,20 +34,18 @@ export async function loginLocal(email: string, password: string) {
     const admin = admins.find((a: any) => a.email.toLowerCase() === cleanEmail);
 
     if (!admin) {
-      console.warn(`[AUTH] User not found: ${cleanEmail}`);
       return { success: false, error: 'Пользователь не найден.' };
     }
 
     const inputHash = hashPassword(cleanPassword);
     
     if (admin.passwordHash !== inputHash) {
-      console.warn(`[AUTH] Password mismatch for: ${cleanEmail}`);
       return { success: false, error: 'Неверный пароль.' };
     }
 
     const cookieStore = await cookies();
     
-    // settings for Cloud Workstations (HTTPS/Proxy)
+    // Настройки для Cloud Workstations (HTTPS/Proxy/iFrame)
     cookieStore.set('miac_session', JSON.stringify({ email: admin.email, role: admin.role }), {
       httpOnly: true,
       secure: true, 
@@ -58,10 +54,9 @@ export async function loginLocal(email: string, password: string) {
       sameSite: 'none' 
     });
 
-    console.log(`[AUTH] Successful login: ${cleanEmail}`);
     return { success: true };
   } catch (error: any) {
-    console.error('[AUTH] Server Action Error:', error);
+    console.error('[AUTH] Login Error:', error);
     return { success: false, error: `Ошибка сервера: ${error.message}` };
   }
 }

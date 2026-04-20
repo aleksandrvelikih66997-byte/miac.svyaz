@@ -31,6 +31,7 @@ function readJSON(file: string) {
 
 function writeJSON(file: string, data: any) {
   fs.writeFileSync(file, JSON.stringify(data, null, 2));
+  // Мгновенно обновляем конфиги Asterisk при любом изменении
   try {
     rebuildAsteriskConfig();
   } catch (e) {
