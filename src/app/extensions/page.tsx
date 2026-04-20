@@ -1,7 +1,8 @@
+
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Search, User, Trash2, Edit2, Loader2, Lock, Info, CheckCircle2, ShieldAlert } from "lucide-react"
+import { Plus, Search, User, Trash2, Edit2, Loader2, Lock, Info, CheckCircle2, ShieldAlert, UserPlus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -12,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { getExtensions, saveExtension, deleteExtension } from "@/lib/telephony-store"
+import Link from "next/link"
 
 export default function ExtensionsPage() {
   const [searchTerm, setSearchTerm] = useState("")
@@ -85,6 +87,11 @@ export default function ExtensionsPage() {
           <p className="text-sm text-muted-foreground">Управление внутренними номерами системы</p>
         </div>
         <div className="flex items-center gap-3">
+          <Button variant="outline" className="gap-2 border-primary/20 hover:bg-primary/5" asChild>
+            <Link href="/extensions/import">
+              <UserPlus className="h-4 w-4" /> Импорт из конфига
+            </Link>
+          </Button>
           <Button className="gap-2 shadow-lg" onClick={handleOpenAdd}>
             <Plus className="h-4 w-4" /> Добавить номер
           </Button>
@@ -151,6 +158,13 @@ export default function ExtensionsPage() {
                         </TableCell>
                       </TableRow>
                     ))}
+                    {filtered.length === 0 && !loading && (
+                      <TableRow>
+                        <TableCell colSpan={5} className="h-32 text-center text-muted-foreground">
+                          Абоненты не найдены
+                        </TableCell>
+                      </TableRow>
+                    )}
                   </TableBody>
                 </Table>
               )}
