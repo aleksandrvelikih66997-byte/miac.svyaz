@@ -30,7 +30,6 @@ export async function uploadAudioAction(formData: FormData) {
     
     fs.writeFileSync(filePath, buffer);
     
-    // Устанавливаем права, чтобы Asterisk мог прочитать файл
     try {
       fs.chmodSync(filePath, 0o666);
     } catch (e) {}
