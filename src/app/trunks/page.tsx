@@ -5,7 +5,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Globe, ShieldCheck, Wifi, ExternalLink, Trash2, Loader2, Lock, Hash, Edit3 } from "lucide-react"
+import { Plus, Globe, ShieldCheck, Wifi, ExternalLink, Trash2, Loader2, Lock, Hash, Edit3, Settings2 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -25,6 +25,7 @@ export default function TrunksPage() {
     password: "", 
     protocol: "udp", 
     phone: "",
+    domain: "", // Новое поле для Realm/Domain
     status: "Offline"
   })
   const [trunks, setTrunks] = useState<any[]>([])
@@ -51,7 +52,7 @@ export default function TrunksPage() {
 
   const handleOpenAdd = () => {
     setIsEditing(false)
-    setNewTrunk({ id: "", name: "", host: "", port: "5060", user: "", password: "", protocol: "udp", phone: "", status: "Offline" })
+    setNewTrunk({ id: "", name: "", host: "", port: "5060", user: "", password: "", protocol: "udp", phone: "", domain: "", status: "Offline" })
     setIsAddOpen(true)
   }
 
@@ -118,16 +119,18 @@ export default function TrunksPage() {
                     <span className="text-muted-foreground flex items-center gap-2"><ShieldCheck className="h-4 w-4 text-primary" /> Логин:</span>
                     <span className="font-mono font-bold">{trunk.user}</span>
                   </div>
+                  {trunk.domain && (
+                    <div className="flex items-center justify-between text-sm p-2 rounded bg-muted/20">
+                      <span className="text-muted-foreground flex items-center gap-2"><Settings2 className="h-4 w-4 text-primary" /> Домен:</span>
+                      <span className="font-mono font-bold text-xs">{trunk.domain}</span>
+                    </div>
+                  )}
                   {trunk.phone && (
                     <div className="flex items-center justify-between text-sm p-2 rounded bg-muted/20">
                       <span className="text-muted-foreground flex items-center gap-2"><Hash className="h-4 w-4 text-primary" /> Номер DID:</span>
                       <span className="font-mono font-bold text-emerald-700">{trunk.phone}</span>
                     </div>
                   )}
-                  <div className="flex items-center justify-between text-sm p-2 rounded bg-muted/20">
-                    <span className="text-muted-foreground flex items-center gap-2"><Wifi className="h-4 w-4 text-primary" /> Протокол:</span>
-                    <span className="font-medium uppercase">{trunk.protocol}</span>
-                  </div>
                 </div>
                 
                 <div className="pt-4 border-t flex items-center justify-between">
@@ -180,7 +183,7 @@ export default function TrunksPage() {
             <div className="grid grid-cols-4 gap-4">
               <div className="col-span-3 grid gap-2">
                 <Label className="text-xs font-bold uppercase tracking-wider">Host / IP *</Label>
-                <Input value={newTrunk.host} onChange={e => setNewTrunk({...newTrunk, host: e.target.value})} placeholder="192.168.0.140" />
+                <Input value={newTrunk.host} onChange={e => setNewTrunk({...newTrunk, host: e.target.value})} placeholder="239641.18.rt.ru" />
               </div>
               <div className="grid gap-2">
                 <Label className="text-xs font-bold uppercase tracking-wider">Порт</Label>
@@ -188,10 +191,16 @@ export default function TrunksPage() {
               </div>
             </div>
 
+            <div className="grid gap-2">
+              <Label className="text-xs font-bold uppercase tracking-wider text-primary">Домен / Realm (Опционально)</Label>
+              <Input value={newTrunk.domain} onChange={e => setNewTrunk({...newTrunk, domain: e.target.value})} placeholder="239641.18.rt.ru" />
+              <p className="text-[9px] text-muted-foreground">Используется для Rostelecom и других провайдеров с Realm-авторизацией</p>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label className="text-xs font-bold uppercase tracking-wider">Логин / Username *</Label>
-                <Input value={newTrunk.user} onChange={e => setNewTrunk({...newTrunk, user: e.target.value})} placeholder="100" />
+                <Input value={newTrunk.user} onChange={e => setNewTrunk({...newTrunk, user: e.target.value})} placeholder="velikih" />
               </div>
               <div className="grid gap-2">
                 <Label className="text-xs font-bold uppercase tracking-wider">Пароль *</Label>

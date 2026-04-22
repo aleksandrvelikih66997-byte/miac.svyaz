@@ -58,8 +58,8 @@ export function AppSidebar() {
   const pathname = usePathname()
 
   return (
-    <Sidebar collapsible="none" className="bg-sidebar border-r h-screen sticky top-0 flex flex-col shrink-0 overflow-hidden z-20 w-64">
-      <SidebarHeader className="px-6 py-6 border-b border-sidebar-border/50 shrink-0">
+    <Sidebar collapsible="none" className="bg-sidebar border-r min-h-screen sticky top-0 flex flex-col shrink-0 overflow-hidden z-20 w-64 shadow-xl">
+      <SidebarHeader className="px-6 py-8 border-b border-sidebar-border/50 shrink-0">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-white shadow-lg">
             <Phone className="h-6 w-6" />
@@ -71,10 +71,10 @@ export function AppSidebar() {
         </div>
       </SidebarHeader>
       
-      <SidebarContent className="px-2 scrollbar-none flex-1 overflow-y-auto">
+      <SidebarContent className="px-2 scrollbar-none flex-1 overflow-y-auto pt-4">
         {groups.map((group) => (
           <SidebarGroup key={group.label} className="py-2">
-            <SidebarGroupLabel className="text-sidebar-foreground/30 font-bold uppercase text-[10px] tracking-widest">{group.label}</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-sidebar-foreground/30 font-bold uppercase text-[10px] tracking-widest px-4">{group.label}</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
                 {group.items.map((item) => (
@@ -82,11 +82,11 @@ export function AppSidebar() {
                     <SidebarMenuButton
                       asChild
                       isActive={pathname === item.href}
-                      className="px-4 py-6 data-[active=true]:bg-primary data-[active=true]:text-white transition-all duration-200"
+                      className="px-4 py-7 data-[active=true]:bg-primary data-[active=true]:text-white transition-all duration-200"
                     >
                       <Link href={item.href} className="flex items-center gap-3">
                         <item.icon className="h-5 w-5" />
-                        <span className="font-medium">{item.name}</span>
+                        <span className="font-medium text-sm">{item.name}</span>
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -96,7 +96,7 @@ export function AppSidebar() {
           </SidebarGroup>
         ))}
       </SidebarContent>
-      <SidebarFooter className="p-4 border-t border-sidebar-border bg-sidebar-accent/20 shrink-0">
+      <SidebarFooter className="p-6 border-t border-sidebar-border bg-sidebar-accent/20 shrink-0">
          <div className="flex flex-col gap-1">
            <span className="text-[10px] text-sidebar-foreground/40 font-bold uppercase tracking-widest">Платформа</span>
            <span className="text-[11px] text-sidebar-foreground/60 font-black uppercase">AltLinux SP 10 (ФСТЭК)</span>

@@ -5,7 +5,7 @@ import { exec } from 'child_process';
 
 /**
  * @fileOverview Генерация диалплана и конфигураций Asterisk.
- * Исправлено экранирование переменных для предотвращения ошибок синтаксиса JS.
+ * Добавлена поддержка расширенных параметров PJSIP для работы с провайдерами (NAT, Realm, FromUser).
  */
 export function rebuildAsteriskConfig() {
   const DATA_DIR = path.resolve(process.cwd(), 'src/data');
@@ -28,39 +28,39 @@ export function rebuildAsteriskConfig() {
   const queues = readJSON('queues.json');
   const routes = readJSON('routes.json');
 
-  let dialplanConfig = '; Генерируемый диалплан МИАЦ.СВЯЗЬ (v1.0)\n\n';
-
-  // 1. IVR Contexts (Генерируем первыми)
+  // 1. IVR Contexts
+  let ivrConfig = '';
   ivrs.forEach((ivr: any) => {
-    dialplanConfig += `[miac-ivr-${ivr.id}]\n`;
-    dialplanConfig += `exten => s,1,Answer()\n`;
-    dialplanConfig += `exten => s,2,NoOp(IVR START: ${ivr.name})\n`;
-    dialplanConfig += `exten => s,3,Background(/var/lib/asterisk/sounds/miac/${ivr.announcementFile})\n`;
-    dialplanConfig += `exten => s,4,WaitExten(10)\n`;
+    ivrConfig += `[miac-ivr-${ivr.id}]\n`;
+    ivrConfig += `exten => s,1,Answer()\n`;
+    ivrConfig += `exten => s,2,NoOp(IVR START: ${ivr.name})\n`;
+    ivrConfig += `exten => s,3,Background(/var/lib/asterisk/sounds/miac/${ivr.announcementFile})\n`;
+    ivrConfig += `exten => s,4,WaitExten(10)\n`;
 
     (ivr.digitMappings || []).forEach((mapping: string) => {
       const parts = mapping.split(':');
       if (parts.length < 3) return;
       const [digit, type, target] = parts;
-      // В IVR при донаборе переходим в основной контекст
-      dialplanConfig += `exten => ${digit},1,Goto(miac-internal,${target},1)\n`;
+      ivrConfig += `exten => ${digit},1,Goto(miac-internal,${target},1)\n`;
     });
 
-    dialplanConfig += `exten => t,1,NoOp(IVR Timeout)\n`;
+    ivrConfig += `exten => t,1,NoOp(IVR Timeout)\n`;
     if (ivr.timeoutDestination) {
       const destParts = ivr.timeoutDestination.split(':');
-      dialplanConfig += `exten => t,2,Goto(miac-internal,${destParts[1] || 's'},1)\n`;
+      ivrConfig += `exten => t,2,Goto(miac-internal,${destParts[1] || 's'},1)\n`;
     } else {
-      dialplanConfig += `exten => t,2,Hangup()\n`;
+      ivrConfig += `exten => t,2,Hangup()\n`;
     }
 
-    dialplanConfig += `exten => i,1,NoOp(IVR Invalid)\n`;
-    dialplanConfig += `exten => i,2,Goto(s,1)\n\n`;
+    ivrConfig += `exten => i,1,NoOp(IVR Invalid)\n`;
+    ivrConfig += `exten => i,2,Goto(s,1)\n\n`;
   });
+
+  let dialplanConfig = `; Генерируемый диалплан МИАЦ.СВЯЗЬ (v1.0)\n\n${ivrConfig}`;
 
   // 2. Internal Context
   dialplanConfig += `[miac-internal]\n`;
-  dialplanConfig += `exten => _X.,1,NoOp(INTERNAL CALL: \${EXTEN})\n`;
+  dialplanConfig += `exten => _X.,1,NoOp(MIAC CALL: \${EXTEN})\n`;
   dialplanConfig += `exten => _X.,2,Set(D_STATE=\${DEVICE_STATE(PJSIP/\${EXTEN})})\n`;
   dialplanConfig += `exten => _X.,3,GotoIf($["\${D_STATE}" = "INVALID"]?dial-q:dial-ext)\n`;
   dialplanConfig += `exten => _X.,4(dial-ext),Dial(PJSIP/\${EXTEN},30)\n`;
@@ -73,29 +73,29 @@ export function rebuildAsteriskConfig() {
   dialplanConfig += `[from-trunk]\n`;
   const inboundRoutes = routes.filter((r: any) => r.type === 'inbound');
   
+  dialplanConfig += `exten => s,1,Answer()\n`;
+  dialplanConfig += `exten => s,2,NoOp(Incoming call from trunk)\n`;
+  
   if (inboundRoutes.length === 0) {
-    dialplanConfig += `exten => s,1,NoOp(No Inbound Routes Configured)\n`;
-    dialplanConfig += `exten => s,2,Hangup()\n`;
-    dialplanConfig += `exten => _X.,1,Goto(s,1)\n`;
+    dialplanConfig += `exten => s,3,Hangup()\n`;
   } else {
     inboundRoutes.forEach((route: any) => {
       const pattern = route.pattern === '*' ? 's' : route.pattern;
       let destParts = (route.destination || "").split(':');
       let type = destParts[0];
       let id = destParts[1];
-
       let astTarget = (type === 'IVR') ? `miac-ivr-${id},s,1` : `miac-internal,${id},1`;
-
-      dialplanConfig += `exten => ${pattern},1,Answer()\n`;
-      dialplanConfig += `exten => ${pattern},2,NoOp(Incoming to ${pattern})\n`;
-      dialplanConfig += `exten => ${pattern},3,Goto(${astTarget})\n`;
+      
       if (pattern === 's') {
-        dialplanConfig += `exten => _X.,1,Goto(s,1)\n`;
+        dialplanConfig += `exten => s,3,Goto(${astTarget})\n`;
+      } else {
+        dialplanConfig += `exten => ${pattern},1,Goto(${astTarget})\n`;
       }
     });
+    dialplanConfig += `exten => _X.,1,Goto(s,1)\n`;
   }
 
-  // PJSIP Configs
+  // PJSIP Users
   let usersConfig = '; Генерируемые абоненты МИАЦ.СВЯЗЬ\n\n';
   extensions.forEach((ext: any) => {
     usersConfig += `[${ext.id}]\ntype=endpoint\ncontext=miac-internal\ndisallow=all\nallow=ulaw,alaw\nauth=auth-${ext.id}\naors=${ext.id}\n\n`;
@@ -103,13 +103,34 @@ export function rebuildAsteriskConfig() {
     usersConfig += `[${ext.id}]\ntype=aor\nmax_contacts=5\n\n`;
   });
 
-  let trunksConfig = '; Генерируемые транки МИАЦ.СВЯЗЬ\n\n';
+  // PJSIP Trunks (Advanced Version)
+  let trunksConfig = '; Генерируемые транки МИАЦ.СВЯЗЬ (v1.1)\n\n';
   trunks.forEach((trunk: any) => {
-    trunksConfig += `[trunk-${trunk.id}]\ntype=endpoint\ncontext=from-trunk\ndisallow=all\nallow=ulaw,alaw\noutbound_auth=auth-${trunk.id}\naors=aor-${trunk.id}\n\n`;
-    trunksConfig += `[auth-${trunk.id}]\ntype=auth\nauth_type=userpass\nusername=${trunk.user}\npassword=${trunk.password}\n\n`;
-    trunksConfig += `[aor-${trunk.id}]\ntype=aor\ncontact=sip:${trunk.host}:${trunk.port}\n\n`;
-    trunksConfig += `[reg-${trunk.id}]\ntype=registration\noutbound_auth=auth-${trunk.id}\nserver_uri=sip:${trunk.host}:${trunk.port}\nclient_uri=sip:${trunk.user}@${trunk.host}:${trunk.port}\nretry_interval=60\nexpiration=120\n\n`;
-    trunksConfig += `[identify-${trunk.id}]\ntype=identify\nendpoint=trunk-${trunk.id}\nmatch=${trunk.host}\n\n`;
+    // Endpoint
+    trunksConfig += `[trunk-${trunk.id}]\ntype=endpoint\ncontext=from-trunk\ndisallow=all\nallow=ulaw,alaw\n`;
+    trunksConfig += `outbound_auth=auth-${trunk.id}\naors=aor-${trunk.id}\n`;
+    trunksConfig += `transport=transport-udp-nat\n`;
+    if (trunk.domain) trunksConfig += `from_domain=${trunk.domain}\n`;
+    trunksConfig += `from_user=${trunk.user}\nsend_pai=yes\ntrust_id_outbound=yes\n\n`;
+
+    // Auth
+    trunksConfig += `[auth-${trunk.id}]\ntype=auth\nauth_type=userpass\nusername=${trunk.user}\npassword=${trunk.password}\n`;
+    if (trunk.domain) trunksConfig += `realm=${trunk.domain}\n`;
+    trunksConfig += `\n`;
+
+    // AOR
+    const contactUri = trunk.domain ? `sip:${trunk.user}@${trunk.domain}` : `sip:${trunk.host}:${trunk.port}`;
+    trunksConfig += `[aor-${trunk.id}]\ntype=aor\ncontact=${contactUri}\nqualify_frequency=60\nmax_contacts=1\n\n`;
+
+    // Registration
+    trunksConfig += `[reg-${trunk.id}]\ntype=registration\ntransport=transport-udp-nat\n`;
+    trunksConfig += `outbound_auth=auth-${trunk.id}\n`;
+    trunksConfig += `server_uri=sip:${trunk.host}:${trunk.port}\n`;
+    trunksConfig += `client_uri=sip:${trunk.user}@${trunk.domain || trunk.host}\n`;
+    trunksConfig += `contact_user=${trunk.user}\nretry_interval=60\nexpiration=3600\n\n`;
+
+    // Identify
+    trunksConfig += `[identify-${trunk.id}]\ntype=identify\nendpoint=trunk-${trunk.id}\nmatch=${trunk.domain || trunk.host}\n\n`;
   });
 
   let queuesConfig = '; Генерируемые очереди МИАЦ.СВЯЗЬ\n\n';
