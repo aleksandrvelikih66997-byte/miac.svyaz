@@ -27,7 +27,8 @@ chmod 666 /etc/asterisk/*.conf
 
 ## ⚙️ Автозапуск (Systemd)
 
-Для работы в фоновом режиме создайте два юнита в `/etc/systemd/system/`:
+Для работы в фоновом режиме создайте два юнита в `/etc/systemd/system/`. 
+**ВНИМАНИЕ:** Перед запуском сервисов остановите процессы, запущенные вручную (Ctrl+C), чтобы освободить порт 9002.
 
 ### 1. Веб-интерфейс (`miac-web.service`)
 ```ini
@@ -41,6 +42,9 @@ User=root
 WorkingDirectory=/etc/asterisk/miac.svyaz
 ExecStart=/usr/bin/npm run dev
 Restart=always
+RestartSec=10
+Environment=NODE_ENV=development
+Environment=PATH=/usr/bin:/usr/local/bin
 
 [Install]
 WantedBy=multi-user.target
@@ -58,21 +62,25 @@ User=root
 WorkingDirectory=/etc/asterisk/miac.svyaz
 ExecStart=/usr/bin/npm run bridge
 Restart=always
+RestartSec=5
+Environment=PATH=/usr/bin:/usr/local/bin
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-**Запуск:**
+**Команды запуска:**
 ```bash
 systemctl daemon-reload
-systemctl enable --now miac-web
-systemctl enable --now miac-bridge
+systemctl enable miac-web
+systemctl enable miac-bridge
+systemctl restart miac-web
+systemctl restart miac-bridge
 ```
 
 ## 🛠 Команды отладки
+- `systemctl status miac-web` — статус веб-панели.
 - `asterisk -rx "queue show"` — проверка работы групп.
-- `asterisk -rx "pjsip show endpoints"` — проверка регистрации телефонов.
 - `journalctl -u miac-bridge -f` — логи моста в реальном времени.
 
 ---

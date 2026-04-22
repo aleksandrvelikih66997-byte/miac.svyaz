@@ -6,6 +6,7 @@ import { exec } from 'child_process';
 /**
  * @fileOverview Генерация диалплана и конфигураций Asterisk.
  * Исправлено экранирование переменных для предотвращения ошибок синтаксиса JS.
+ * Теперь диалплан генерируется корректно для Asterisk 17 (AltLinux).
  */
 export function rebuildAsteriskConfig() {
   const DATA_DIR = path.resolve(process.cwd(), 'src/data');
@@ -30,7 +31,7 @@ export function rebuildAsteriskConfig() {
 
   let dialplanConfig = '; Генерируемый диалплан МИАЦ.СВЯЗЬ (v1.0)\n\n';
 
-  // 1. IVR Contexts (генерируем в начале для доступности)
+  // 1. IVR Contexts
   ivrs.forEach((ivr: any) => {
     dialplanConfig += `[miac-ivr-${ivr.id}]\n`;
     dialplanConfig += `exten => s,1,Answer()\n`;
@@ -50,7 +51,7 @@ export function rebuildAsteriskConfig() {
     dialplanConfig += `exten => t,1,NoOp(IVR Timeout)\n`;
     if (ivr.timeoutDestination) {
       const destParts = ivr.timeoutDestination.split(':');
-      dialplanConfig += `exten => t,2,Goto(miac-internal,${destParts[1]},1)\n`;
+      dialplanConfig += `exten => t,2,Goto(miac-internal,${destParts[1] || 's'},1)\n`;
     } else {
       dialplanConfig += `exten => t,2,Hangup()\n`;
     }
@@ -61,7 +62,7 @@ export function rebuildAsteriskConfig() {
 
   // 2. Internal Context
   dialplanConfig += `[miac-internal]\n`;
-  dialplanConfig += `exten => _X.,1,NoOp(INTERNAL CALL: \${EXTEN})\n`;
+  dialplanConfig += `exten => _X.,1,NoOp(MIAC CALL: \${EXTEN})\n`;
   dialplanConfig += `exten => _X.,2,Set(D_STATE=\${DEVICE_STATE(PJSIP/\${EXTEN})})\n`;
   dialplanConfig += `exten => _X.,3,GotoIf($["\${D_STATE}" = "INVALID"]?dial-q:dial-ext)\n`;
   dialplanConfig += `exten => _X.,4(dial-ext),Dial(PJSIP/\${EXTEN},30)\n`;
