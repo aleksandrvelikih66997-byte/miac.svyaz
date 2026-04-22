@@ -3,9 +3,6 @@
 
 Профессиональный веб-интерфейс управления IP-АТС Asterisk для **AltLinux SP 10** и **Asterisk 17/20**.
 
-## 🛡 Безопасность и ФСТЭК
-Система оптимизирована для работы в закрытых сетях. Подробности в [Документации по безопасности](docs/FSTEC_SECURITY_GUIDE.md).
-
 ## 🚀 Настройка Asterisk (ОБЯЗАТЕЛЬНО)
 
 ### 0. Установка необходимых модулей (AltLinux)
@@ -19,59 +16,64 @@ asterisk -rx "module load app_queue.so"
 asterisk -rx "module load res_pjsip.so"
 ```
 
-### 1. Настройка PJSIP (Абоненты и Транки)
-Отредактируйте `/etc/asterisk/pjsip.conf`. В самом конце файла добавьте строки:
-```ini
-#include "/etc/asterisk/pjsip_miac_users.conf"
-#include "/etc/asterisk/pjsip_miac_trunks.conf"
-```
-
-### 2. Настройка Очередей (Группы)
-Создайте файл `/etc/asterisk/queues.conf` (если его нет) и добавьте:
-```ini
-#include "/etc/asterisk/queues_miac.conf"
-```
-Также создайте пустой файл правил: `touch /etc/asterisk/queuerules.conf`
-
-### 3. Настройка Dialplan (Маршрутизация)
-Отредактируйте `/etc/asterisk/extensions.conf`. В самом начале файла добавьте:
-```ini
-#include "/etc/asterisk/extensions_miac_dialplan.conf"
-```
-
-### 4. Настройка AMI (Manager)
-Отредактируйте `/etc/asterisk/manager.conf`:
-```ini
-[general]
-enabled = yes
-port = 5038
-bindaddr = 127.0.0.1
-
-[miac]
-secret = MiacAMI2026
-read = all,system,command
-write = all,system,command
-```
-После сохранения: `asterisk -rx "manager reload"`
-
-### 5. Права доступа
-Сделайте файлы доступными для записи системой:
+### 1. Настройка AMI и Очередей
+Создайте файлы и установите права:
 ```bash
-touch /etc/asterisk/pjsip_miac_users.conf
-touch /etc/asterisk/pjsip_miac_trunks.conf
-touch /etc/asterisk/queues_miac.conf
-touch /etc/asterisk/extensions_miac_dialplan.conf
+touch /etc/asterisk/queues.conf
+echo '#include "queues_miac.conf"' > /etc/asterisk/queues.conf
+touch /etc/asterisk/queuerules.conf
 chmod 666 /etc/asterisk/*.conf
 ```
 
-### 6. Запуск системы
+## ⚙️ Автозапуск (Systemd)
+
+Для работы в фоновом режиме создайте два юнита в `/etc/systemd/system/`:
+
+### 1. Веб-интерфейс (`miac-web.service`)
+```ini
+[Unit]
+Description=MIAC Web Admin Panel
+After=network.target asterisk.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/etc/asterisk/miac.svyaz
+ExecStart=/usr/bin/npm run dev
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+### 2. Мост с Asterisk (`miac-bridge.service`)
+```ini
+[Unit]
+Description=MIAC Asterisk Bridge
+After=network.target asterisk.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/etc/asterisk/miac.svyaz
+ExecStart=/usr/bin/npm run bridge
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+**Запуск:**
 ```bash
-# В папке проекта
-npm run bridge
+systemctl daemon-reload
+systemctl enable --now miac-web
+systemctl enable --now miac-bridge
 ```
 
 ## 🛠 Команды отладки
-- `pjsip show endpoints` — список всех номеров и транков.
-- `queue show` — проверка статуса очередей (групп).
-- `dialplan show from-trunk` — проверка входящей маршрутизации.
-- `module show like queue` — проверка загрузки модуля очередей.
+- `asterisk -rx "queue show"` — проверка работы групп.
+- `asterisk -rx "pjsip show endpoints"` — проверка регистрации телефонов.
+- `journalctl -u miac-bridge -f` — логи моста в реальном времени.
+
+---
+*МИАЦ.СВЯЗЬ — Сделано для AltLinux SP 10*

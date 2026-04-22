@@ -3,6 +3,10 @@ import fs from 'fs';
 import path from 'path';
 import { exec } from 'child_process';
 
+/**
+ * @fileOverview Генерация диалплана и конфигураций Asterisk.
+ * Исправлено экранирование переменных для предотвращения ошибок синтаксиса JS.
+ */
 export function rebuildAsteriskConfig() {
   const DATA_DIR = path.resolve(process.cwd(), 'src/data');
   const AST_DIR = '/etc/asterisk';
@@ -26,7 +30,7 @@ export function rebuildAsteriskConfig() {
 
   let dialplanConfig = '; Генерируемый диалплан МИАЦ.СВЯЗЬ (v1.0)\n\n';
 
-  // 1. IVR Contexts
+  // 1. IVR Contexts (генерируем в начале для доступности)
   ivrs.forEach((ivr: any) => {
     dialplanConfig += `[miac-ivr-${ivr.id}]\n`;
     dialplanConfig += `exten => s,1,Answer()\n`;
@@ -38,7 +42,7 @@ export function rebuildAsteriskConfig() {
       const parts = mapping.split(':');
       if (parts.length < 3) return;
       const [digit, type, target] = parts;
-      if (type === 'ext') dialplanConfig += `exten => ${digit},1,Goto(miac-internal,${target},1)\n`;
+      if (type === 'ext') dialplanConfig += `exten => ${digit},1,Goto(miac-internal,\${EXTEN},1)\n`;
       else if (type === 'queue') dialplanConfig += `exten => ${digit},1,Goto(miac-internal,${target},1)\n`;
       else if (type === 'ivr') dialplanConfig += `exten => ${digit},1,Goto(miac-ivr-${target},s,1)\n`;
     });
