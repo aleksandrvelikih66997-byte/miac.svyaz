@@ -40,11 +40,15 @@ After=network.target asterisk.service
 Type=simple
 User=root
 WorkingDirectory=/etc/asterisk/miac.svyaz
-ExecStart=/usr/bin/npm run dev
+# Замените пути ниже на вывод команды 'which node' и 'which npm'
+Environment="PATH=/root/.nvm/versions/node/v20.20.2/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="NODE_ENV=development"
+Environment="PORT=9002"
+ExecStart=/root/.nvm/versions/node/v20.20.2/bin/node /root/.nvm/versions/node/v20.20.2/bin/npm run dev
 Restart=always
 RestartSec=10
-Environment=NODE_ENV=development
-Environment=PATH=/usr/bin:/usr/local/bin
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
@@ -60,10 +64,10 @@ After=network.target asterisk.service
 Type=simple
 User=root
 WorkingDirectory=/etc/asterisk/miac.svyaz
-ExecStart=/usr/bin/npm run bridge
+Environment="PATH=/root/.nvm/versions/node/v20.20.2/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/root/.nvm/versions/node/v20.20.2/bin/node /root/.nvm/versions/node/v20.20.2/bin/npm run bridge
 Restart=always
 RestartSec=5
-Environment=PATH=/usr/bin:/usr/local/bin
 
 [Install]
 WantedBy=multi-user.target

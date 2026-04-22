@@ -6,7 +6,6 @@ import { exec } from 'child_process';
 /**
  * @fileOverview Генерация диалплана и конфигураций Asterisk.
  * Исправлено экранирование переменных для предотвращения ошибок синтаксиса JS.
- * Теперь диалплан генерируется корректно для Asterisk 17 (AltLinux).
  */
 export function rebuildAsteriskConfig() {
   const DATA_DIR = path.resolve(process.cwd(), 'src/data');
@@ -31,7 +30,7 @@ export function rebuildAsteriskConfig() {
 
   let dialplanConfig = '; Генерируемый диалплан МИАЦ.СВЯЗЬ (v1.0)\n\n';
 
-  // 1. IVR Contexts
+  // 1. IVR Contexts (Генерируем первыми)
   ivrs.forEach((ivr: any) => {
     dialplanConfig += `[miac-ivr-${ivr.id}]\n`;
     dialplanConfig += `exten => s,1,Answer()\n`;
@@ -43,9 +42,8 @@ export function rebuildAsteriskConfig() {
       const parts = mapping.split(':');
       if (parts.length < 3) return;
       const [digit, type, target] = parts;
-      if (type === 'ext') dialplanConfig += `exten => ${digit},1,Goto(miac-internal,\${EXTEN},1)\n`;
-      else if (type === 'queue') dialplanConfig += `exten => ${digit},1,Goto(miac-internal,${target},1)\n`;
-      else if (type === 'ivr') dialplanConfig += `exten => ${digit},1,Goto(miac-ivr-${target},s,1)\n`;
+      // В IVR при донаборе переходим в основной контекст
+      dialplanConfig += `exten => ${digit},1,Goto(miac-internal,${target},1)\n`;
     });
 
     dialplanConfig += `exten => t,1,NoOp(IVR Timeout)\n`;
@@ -62,7 +60,7 @@ export function rebuildAsteriskConfig() {
 
   // 2. Internal Context
   dialplanConfig += `[miac-internal]\n`;
-  dialplanConfig += `exten => _X.,1,NoOp(MIAC CALL: \${EXTEN})\n`;
+  dialplanConfig += `exten => _X.,1,NoOp(INTERNAL CALL: \${EXTEN})\n`;
   dialplanConfig += `exten => _X.,2,Set(D_STATE=\${DEVICE_STATE(PJSIP/\${EXTEN})})\n`;
   dialplanConfig += `exten => _X.,3,GotoIf($["\${D_STATE}" = "INVALID"]?dial-q:dial-ext)\n`;
   dialplanConfig += `exten => _X.,4(dial-ext),Dial(PJSIP/\${EXTEN},30)\n`;
@@ -71,7 +69,7 @@ export function rebuildAsteriskConfig() {
   dialplanConfig += `exten => _X.,7,Queue(\${EXTEN},,,,30)\n`;
   dialplanConfig += `exten => _X.,8,Hangup()\n\n`;
 
-  // 3. Inbound Context (from provider)
+  // 3. Inbound Context (from trunk)
   dialplanConfig += `[from-trunk]\n`;
   const inboundRoutes = routes.filter((r: any) => r.type === 'inbound');
   
@@ -133,7 +131,6 @@ export function rebuildAsteriskConfig() {
       exec('asterisk -rx "pjsip reload"');
       exec('asterisk -rx "dialplan reload"');
       exec('asterisk -rx "queue reload all"');
-      console.log('[BRIDGE] Configs synced and Asterisk reloaded.');
     }
   } catch (e) {
     console.error('[BRIDGE] Sync Error:', e);
